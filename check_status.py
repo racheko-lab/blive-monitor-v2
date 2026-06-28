@@ -11,6 +11,7 @@ from datetime import datetime
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(REPO_DIR, "state.json")
 STATUS_FILE = os.path.join(REPO_DIR, "status.json")
+HISTORY_FILE = os.path.join(REPO_DIR, "history.json")
 ROOMS_FILE = os.path.join(REPO_DIR, "rooms.json")
 
 def load_config():
@@ -90,7 +91,9 @@ def main():
     
     new_state = {}
     status_list = []
+    log_entries = []
     now = datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     
     print(f"[{now:%H:%M:%S}] Checking {len(rooms)} rooms...")
     
@@ -121,10 +124,23 @@ def main():
             "time": result.get("time", ""),
         })
         
-        # 状态变化 → 推送
+        # 记录日志
         prev = prev_state.get(key)
-        if prev and prev != result["status"]:
-            if should_push(prev, result["status"]):
+        changed = (prev is not None and prev != result["status"])
+        log_entries.append({
+            "time": now_str,
+            "name": name,
+            "platform": platform,
+            "status": result["status"],
+            "title": result.get("title", ""),
+            "changed": changed,
+            "prev": prev if changed else None,
+        })
+        
+        # 状态变化 → 推送
+        prev_status = prev_state.get(key)
+        if prev_status and prev_status != result["status"]:
+            if should_push(prev_status, result["status"]):
                 push_title = format_push_title(name, platform, result)
                 push_desp = format_push_desp(name, platform, rid, result)
                 print(f"    → Pushing notification...")
@@ -136,7 +152,7 @@ def main():
                         print(f"    → No sendkey configured, skip push")
                 except Exception as e:
                     print(f"    → Push error: {e}")
-        elif prev is None and result["status"] == "live":
+        elif prev_status is None and result["status"] == "live":
             # 首次检测到开播也推送
             push_title = format_push_title(name, platform, result)
             push_desp = format_push_desp(name, platform, rid, result)
@@ -152,6 +168,17 @@ def main():
         json.dump(new_state, f, ensure_ascii=False, indent=2)
     with open(STATUS_FILE, "w") as f:
         json.dump({"updated": now.strftime("%Y-%m-%d %H:%M:%S"), "rooms": status_list}, f, ensure_ascii=False, indent=2)
+    
+    # 更新日志（保留最近 200 条）
+    old_log = []
+    if os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE) as f:
+            old_log = json.load(f)
+    all_log = old_log + log_entries
+    if len(all_log) > 200:
+        all_log = all_log[-200:]
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(all_log, f, ensure_ascii=False, indent=2)
     
     print(f"[{now:%H:%M:%S}] Done. Status updated.")
 

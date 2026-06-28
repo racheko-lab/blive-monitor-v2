@@ -48,6 +48,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
   <button class="tab" onclick="fil('douyin')">抖音</button>
 </div>
 <div id="list"><div class="empty">🔄 加载中...</div></div>
+
+<details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
+  <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);list-style:none">📋 监控日志 <span id="logcnt" style="font-size:11px">(0)</span></summary>
+  <div id="logbox" style="max-height:300px;overflow-y:auto;margin-top:8px;font-size:11px;color:var(--text2);font-family:monospace;line-height:1.8"></div>
+</details>
 </div>
 
 <div class="footer">
@@ -109,10 +114,10 @@ function ld(){
   var bt=document.querySelector('.btn-p');bt.textContent='⏳';
   var t=Date.now();
 
-  // 并行拉取，简单可靠
   Promise.all([
     fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})
+    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})
   ]).then(function(v){
     if(v[0])stat=v[0];
     if(v[1])rooms=v[1];
@@ -121,11 +126,31 @@ function ld(){
     var live=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='live'}):false;
     document.getElementById('sdot').innerHTML=live?'<span class="dot d-live"></span>有直播':'<span class="dot d-ok"></span>已更新';
     ren();
+    if(v[2])renlog(v[2]);
     bt.textContent='🔍 刷新';
   });
 }
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renlog(log){
+  if(!log||!log.length){document.getElementById('logbox').innerHTML='<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';return;}
+  document.getElementById('logcnt').textContent='('+log.length+')';
+  var h='';
+  for(var i=log.length-1;i>=Math.max(0,log.length-50);i--){
+    var l=log[i];
+    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'❓';
+    var chg=l.changed?' <span style="color:var(--yellow)">[变化]</span>':'';
+    h+='<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)">'+
+      '<span style="color:#666">'+l.time.substring(11,16)+'</span> '+
+      '<span style="color:'+(l.platform==='bilibili'?'var(--accent)':'var(--blue)')+'">'+(l.platform==='bilibili'?'B站':'抖音')+'</span> '+
+      stIcon+' '+e(l.name)+chg+
+      (l.title?' <span style="color:#555">'+e(l.title)+'</span>':'')+
+    '</div>';
+  }
+  document.getElementById('logbox').innerHTML=h||'<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';
+  document.getElementById('logbox').scrollTop=0;
+}
 document.addEventListener('DOMContentLoaded',ld);
 window.addEventListener('beforeunload',function(){if(tm)clearInterval(tm);});
 </script>
