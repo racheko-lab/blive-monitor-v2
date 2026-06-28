@@ -15,20 +15,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border-radius:14px;padding:4px}
 .tab{flex:1;text-align:center;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:transparent}
 .tab.active{background:var(--accent);color:#fff}
-.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;border-left:3px solid #333}
-.card.live{border-left-color:var(--live)}.card.replay{border-left-color:var(--yellow)}.card.offline{border-left-color:#444}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;border-left:3px solid #333;transition:border-color .3s}
+.card.live{border-left-color:var(--live)}.card.replay{border-left-color:var(--yellow)}.card.offline{border-left-color:#444}.card.error{border-left-color:var(--blue)}
 .tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-left:8px}
 .tag-bili{background:rgba(251,114,153,.15);color:var(--accent)}.tag-dy{background:rgba(24,144,255,.15);color:var(--blue)}
 .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:8px}
-.b-live{background:rgba(255,77,79,.15);color:var(--live)}.b-replay{background:rgba(250,173,20,.15);color:var(--yellow)}.b-offline{background:rgba(102,102,102,.15);color:#888}.b-wait{background:rgba(24,144,255,.15);color:var(--blue)}
+.b-live{background:rgba(255,77,79,.15);color:var(--live)}.b-replay{background:rgba(250,173,20,.15);color:var(--yellow)}.b-offline{background:rgba(102,102,102,.15);color:#888}.b-wait{background:rgba(24,144,255,.15);color:var(--blue)}.b-error{background:rgba(255,77,79,.1);color:#ff8888}
 .info{font-size:12px;color:var(--text2);margin-top:6px}
 .btn-go{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;background:var(--live);color:#fff;text-decoration:none;display:inline-block;margin-top:8px}
 .footer{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);border-top:1px solid #222;padding:10px 16px 12px;display:flex;gap:8px}
 .footer button{flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer}
 .btn-p{background:var(--accent);color:#fff}.btn-s{background:transparent;border:1px solid #444;color:var(--text)}.btn-g{background:var(--green);color:#fff}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
-.d-ok{background:var(--green)}.d-warn{background:var(--yellow)}.d-live{background:var(--live)}
+.d-ok{background:var(--green)}.d-warn{background:var(--yellow)}.d-live{background:var(--live)}.d-err{background:var(--blue)}
 .empty{text-align:center;padding:50px 20px;color:var(--text2)}
+.push-tag{font-size:9px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:600}
+.pt-ok{background:rgba(82,196,26,.15);color:var(--green)}.pt-fail{background:rgba(255,77,79,.15);color:var(--live)}.pt-skip{background:rgba(102,102,102,.15);color:#888}
 </style>
 </head>
 <body>
@@ -51,7 +53,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 
 <details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
   <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);list-style:none">📋 监控日志 <span id="logcnt" style="font-size:11px">(0)</span></summary>
-  <div id="logbox" style="max-height:300px;overflow-y:auto;margin-top:8px;font-size:11px;color:var(--text2);font-family:monospace;line-height:1.8"></div>
+  <div id="logbox" style="max-height:350px;overflow-y:auto;margin-top:8px;font-size:11px;font-family:monospace;line-height:1.8"></div>
 </details>
 </div>
 
@@ -61,7 +63,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 
 <script>
-var stat=null, rooms=[], fl='all', tm=null;
+var stat=null, rooms=[], hist=[], fl='all', tm=null;
 
 function fil(f){ fl=f;
   var ts=document.querySelectorAll('.tab');
@@ -81,11 +83,12 @@ function au(){
 }
 
 function ren(){
-  if(!rooms.length){document.getElementById('list').innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
+  var lb=document.getElementById('list');
+  if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili'});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin'});
-  if(!rs.length){document.getElementById('list').innerHTML='<div class="empty">该平台暂无房间</div>';return;}
+  if(!rs.length){lb.innerHTML='<div class="empty">该平台暂无房间</div>';return;}
 
   var up=(stat&&stat.updated)||'等待数据...';
   var h='<div style="font-size:10px;color:var(--text2);text-align:center;margin-bottom:8px">更新: '+up+'</div>';
@@ -97,17 +100,40 @@ function ren(){
       }
     }
     var st=s?s.status:'offline';
-    var bc=s?({live:'b-live',replay:'b-replay',offline:'b-offline'})[s.status]||'b-wait':'b-wait';
-    var bt=s?({live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播'})[s.status]||s.status:'⏳ 等待数据';
+    var cls={live:'live',replay:'replay',offline:'offline',error:'error'}[st]||'offline';
+    var bc=s?({live:'b-live',replay:'b-replay',offline:'b-offline',error:'b-error'})[s.status]||'b-wait':'b-wait';
+    var bt=s?({live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播',error:'❌ 检测失败'})[s.status]||s.status:'⏳ 等待数据';
     var pl=r.platform==='bilibili'?'B站':'抖音';
     var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:'https://live.douyin.com/'+r.id;
     var ex=[];
     if(s&&s.title)ex.push('标题: '+e(s.title));
     if(s&&s.area)ex.push(s.area);
     if(s&&s.online)ex.push('人气: '+s.online);
-    h+='<div class="card '+st+'"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-size:15px;font-weight:700">'+e(r.name)+'</span><span class="tag '+(r.platform==='bilibili'?'tag-bili':'tag-dy')+'">'+pl+'</span></div><span class="badge '+bc+'">'+bt+'</span>'+(ex.length?'<div class="info">'+ex.join(' | ')+'</div>':'')+(s&&s.status==='live'?'<a class="btn-go" href="'+u+'" target="_blank">👉 进入直播间</a>':'')+'</div>';
+    h+='<div class="card '+cls+'"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-size:15px;font-weight:700">'+e(s?s.name:r.name)+'</span><span class="tag '+(r.platform==='bilibili'?'tag-bili':'tag-dy')+'">'+pl+'</span></div><span class="badge '+bc+'">'+bt+'</span>'+(ex.length?'<div class="info">'+ex.join(' | ')+'</div>':'')+(s&&s.status==='live'?'<a class="btn-go" href="'+u+'" target="_blank">👉 进入直播间</a>':'')+'</div>';
   }
-  document.getElementById('list').innerHTML=h;
+  lb.innerHTML=h;
+}
+
+function renlog(log){
+  var lb=document.getElementById('logbox');
+  if(!log||!log.length){lb.innerHTML='<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';document.getElementById('logcnt').textContent='(0)';return;}
+  document.getElementById('logcnt').textContent='('+log.length+')';
+  var pushMap={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次推送</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">推送异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
+  var h='';
+  for(var i=log.length-1;i>=Math.max(0,log.length-50);i--){
+    var l=log[i];
+    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'❓';
+    var chg=l.changed?' <span style="color:var(--yellow)">[变化]</span>':'';
+    var pt=pushMap[l.push]||'';
+    h+='<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03)">'+
+      '<span style="color:#666">'+l.time.substring(11,16)+'</span> '+
+      '<span style="color:'+(l.platform==='bilibili'?'var(--accent)':'var(--blue)')+'">'+(l.platform==='bilibili'?'B站':'抖音')+'</span> '+
+      stIcon+' '+e(l.name)+chg+pt+
+      (l.title?' <span style="color:#555">'+e(l.title)+'</span>':'')+
+    '</div>';
+  }
+  lb.innerHTML=h||'<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';
+  lb.scrollTop=0;
 }
 
 function ld(){
@@ -121,36 +147,25 @@ function ld(){
   ]).then(function(v){
     if(v[0])stat=v[0];
     if(v[1])rooms=v[1];
+    if(v[2])hist=v[2];
     var n=new Date();
     document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN');
     var live=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='live'}):false;
-    document.getElementById('sdot').innerHTML=live?'<span class="dot d-live"></span>有直播':'<span class="dot d-ok"></span>已更新';
+    var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
+    var dotCls=live?'d-live':(hasErr?'d-err':'d-ok');
+    var dotTxt=live?'有直播':(hasErr?'有异常':'已更新');
+    document.getElementById('sdot').innerHTML='<span class="dot '+dotCls+'"></span>'+dotTxt;
     ren();
-    if(v[2])renlog(v[2]);
+    renlog(hist);
     bt.textContent='🔍 刷新';
+  }).catch(function(){
+    document.getElementById('sdot').innerHTML='<span class="dot d-err"></span>加载失败';
+    bt.textContent='🔍 刷新';
+    if(!rooms.length)document.getElementById('list').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
   });
 }
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
-function renlog(log){
-  if(!log||!log.length){document.getElementById('logbox').innerHTML='<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';return;}
-  document.getElementById('logcnt').textContent='('+log.length+')';
-  var h='';
-  for(var i=log.length-1;i>=Math.max(0,log.length-50);i--){
-    var l=log[i];
-    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'❓';
-    var chg=l.changed?' <span style="color:var(--yellow)">[变化]</span>':'';
-    h+='<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,.03)">'+
-      '<span style="color:#666">'+l.time.substring(11,16)+'</span> '+
-      '<span style="color:'+(l.platform==='bilibili'?'var(--accent)':'var(--blue)')+'">'+(l.platform==='bilibili'?'B站':'抖音')+'</span> '+
-      stIcon+' '+e(l.name)+chg+
-      (l.title?' <span style="color:#555">'+e(l.title)+'</span>':'')+
-    '</div>';
-  }
-  document.getElementById('logbox').innerHTML=h||'<div style="text-align:center;padding:12px;color:var(--text2)">暂无日志</div>';
-  document.getElementById('logbox').scrollTop=0;
-}
 document.addEventListener('DOMContentLoaded',ld);
 window.addEventListener('beforeunload',function(){if(tm)clearInterval(tm);});
 </script>
