@@ -133,7 +133,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <script>
-const DEFAULT_URL = "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/status.json";
+const DEFAULT_URL = "status.json";  // 同域名，无CORS问题
 const LS_ROOMS = 'blive_myrooms';
 let currentTab = 'all';
 let statusData = null;
@@ -225,22 +225,36 @@ function refresh() {
 
 async function fetchStatus() {
   document.getElementById('statusDot').innerHTML = '<span class="dot dot-warn"></span>加载中';
-  try {
-    const resp = await fetch(DEFAULT_URL, { signal: AbortSignal.timeout(8000) });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    statusData = await resp.json();
-    
-    const now = new Date();
-    document.getElementById('updateTime').textContent = now.toLocaleTimeString('zh-CN');
-    const hasLive = (statusData.rooms||[]).some(r => r.status==='live');
-    document.getElementById('statusDot').innerHTML = hasLive
-      ? '<span class="dot dot-live"></span>有直播'
-      : '<span class="dot dot-ok"></span>已更新';
-    renderRooms();
-  } catch(e) {
-    document.getElementById('statusDot').innerHTML = '<span class="dot dot-warn"></span>加载失败';
-    renderRooms();
+  
+  // 优先同域名（无 CORS），失败用 jsDelivr CDN，再失败用 GitHub Raw
+  const urls = [
+    "status.json",
+    "https://cdn.jsdelivr.net/gh/racheko-lab/blive-monitor@master/status.json",
+    "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/status.json"
+  ];
+  
+  let error;
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      statusData = await resp.json();
+      
+      const now = new Date();
+      document.getElementById('updateTime').textContent = now.toLocaleTimeString('zh-CN');
+      const hasLive = (statusData.rooms||[]).some(r => r.status==='live');
+      document.getElementById('statusDot').innerHTML = hasLive
+        ? '<span class="dot dot-live"></span>有直播'
+        : '<span class="dot dot-ok"></span>已更新';
+      renderRooms();
+      document.querySelector('.footer-bar .btn-p').innerHTML = '🔍 刷新';
+      return;
+    } catch(e) { error = e; }
   }
+  
+  // 所有URL都失败
+  document.getElementById('statusDot').innerHTML = '<span class="dot dot-warn"></span>加载失败';
+  renderRooms();  // 显示本地房间但无状态数据
   document.querySelector('.footer-bar .btn-p').innerHTML = '🔍 刷新';
 }
 
