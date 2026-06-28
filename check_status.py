@@ -81,10 +81,13 @@ def fetch_douyin(web_rid):
         html
     )
 
+    # 提取昵称：页面上有多个 nickname 字段，前几个可能是 $undefined
     nickname = None
-    nick_match = re.search(r'\\"nickname\\":\\"([^"\\]+)\\"', html)
-    if nick_match:
-        nickname = nick_match.group(1)
+    for nick_match in re.finditer(r'\\"nickname\\":\\"([^"\\]+)\\"', html):
+        val = nick_match.group(1)
+        if val and val != "$undefined":
+            nickname = val
+            break
 
     web_rid_match = re.search(r'\\"web_rid\\":\\"([^"\\]+)\\"', html)
     actual_web_rid = web_rid_match.group(1) if web_rid_match else web_rid
