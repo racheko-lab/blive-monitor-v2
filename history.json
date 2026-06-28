@@ -1,0 +1,29 @@
+[
+  {
+    "time": "2026-06-28 12:26:44",
+    "name": "峰哥亡命天涯",
+    "platform": "bilibili",
+    "status": "live",
+    "title": "be一会儿",
+    "changed": true,
+    "prev": "offline"
+  },
+  {
+    "time": "2026-06-28 12:26:44",
+    "name": "小猪装机",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "",
+    "changed": false,
+    "prev": null
+  },
+  {
+    "time": "2026-06-28 12:26:44",
+    "name": "misssiir",
+    "platform": "douyin",
+    "status": "live",
+    "title": "樱桃哥🍒（外卖技巧分享）",
+    "changed": false,
+    "prev": null
+  }
+]

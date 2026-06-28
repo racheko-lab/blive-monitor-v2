@@ -1,15 +1,15 @@
 {
-  "updated": "2026-06-28 11:34:32",
+  "updated": "2026-06-28 12:26:44",
   "rooms": [
     {
       "platform": "bilibili",
       "id": "22230707",
       "name": "峰哥亡命天涯",
-      "status": "offline",
+      "status": "live",
       "title": "be一会儿",
-      "online": 0,
+      "online": 153863,
       "area": "生活·户外",
-      "time": "2026-06-28 11:34:32"
+      "time": "2026-06-28 12:26:44"
     },
     {
       "platform": "douyin",
@@ -19,7 +19,7 @@
       "title": "",
       "online": 0,
       "area": "",
-      "time": "2026-06-28 11:34:35"
+      "time": "2026-06-28 12:26:48"
     },
     {
       "platform": "douyin",
@@ -29,7 +29,7 @@
       "title": "樱桃哥🍒（外卖技巧分享）",
       "online": 0,
       "area": "",
-      "time": "2026-06-28 11:34:37"
+      "time": "2026-06-28 12:26:50"
     }
   ]
 }
