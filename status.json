@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28 11:22:47",
+  "updated": "2026-06-28 11:34:32",
   "rooms": [
     {
       "platform": "bilibili",
@@ -9,7 +9,7 @@
       "title": "be一会儿",
       "online": 0,
       "area": "生活·户外",
-      "time": "2026-06-28 11:22:48"
+      "time": "2026-06-28 11:34:32"
     },
     {
       "platform": "douyin",
@@ -19,7 +19,17 @@
       "title": "",
       "online": 0,
       "area": "",
-      "time": "2026-06-28 11:22:51"
+      "time": "2026-06-28 11:34:35"
+    },
+    {
+      "platform": "douyin",
+      "id": "misssiir",
+      "name": "misssiir",
+      "status": "live",
+      "title": "樱桃哥🍒（外卖技巧分享）",
+      "online": 0,
+      "area": "",
+      "time": "2026-06-28 11:34:37"
     }
   ]
 }
