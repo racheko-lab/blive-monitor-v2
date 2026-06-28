@@ -111,7 +111,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">还没有添加房间</div>
     </div>
     <div class="tip">
-      💡 网页添加的房间仅本地显示。要启用后台监控 + 微信推送，需将房间号<a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">编辑到 rooms.json →</a>
+      ⚡ <b>网页添加的房间</b>：临时查看状态（通过代理，不一定稳定）。<br>
+      ✅ <b>要永久监控 + 微信推送</b>：点<a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">这里编辑 rooms.json →</a> 添加房间号后保存。
     </div>
   </div>
 </details>
@@ -283,12 +284,16 @@ function renderRooms() {
     return;
   }
   
+  // 对没有状态数据的房间，尝试直接查询
+  const needDirect = rooms.filter(r => !r._status);
+  if (needDirect.length > 0) checkDirect(needDirect);
+  
   container.innerHTML = `<div style="text-align:center;font-size:10px;color:var(--text2);margin-bottom:8px">数据: ${updated}</div>` +
     rooms.map(r => {
       const s = r._status;
       const cls = s ? s.status : 'offline';
       const badgeCls = s ? {live:'badge-live',replay:'badge-replay',offline:'badge-offline'}[s.status]||'badge-checking' : 'badge-checking';
-      const badgeText = s ? {live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播'}[s.status]||'⏳ '+(s.status||'未知') : '⏳ 等待数据';
+      const badgeText = s ? {live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播'}[s.status]||'⏳ '+(s.status||'未知') : '⏳ 等待同步';
       const platLabel = r.platform==='bilibili'?'B站':'抖音';
       const liveUrl = r.platform==='bilibili'?`https://live.bilibili.com/${r.id}`:`https://live.douyin.com/${r.id}`;
       let extra = [];
@@ -296,13 +301,38 @@ function renderRooms() {
       if (s && s.area) extra.push(s.area);
       if (s && s.online) extra.push(`人气: ${s.online}`);
       
-      return `<div class="room-card ${cls}">
+      return `<div class="room-card ${cls}" id="card-${r.platform}-${r.id}">
         <div class="row1"><span class="name">${esc(r.name)}</span><span class="platform-tag ${r.platform==='bilibili'?'tag-bili':'tag-dy'}">${platLabel}</span></div>
-        <div><span class="badge ${badgeCls}">${badgeText}</span></div>
+        <div><span class="badge ${badgeCls}" id="badge-${r.platform}-${r.id}">${badgeText}</span></div>
         ${extra.length ? '<div class="info">'+extra.join(' | ')+'</div>' : ''}
+        ${!s ? '<div class="info" style="color:var(--yellow)">⚠ 需<a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">同步到GitHub</a>才能自动监控</div>' : ''}
         ${s && s.status==='live' ? `<a class="btn-sm btn-live" href="${liveUrl}" target="_blank">👉 进入直播间</a>` : ''}
       </div>`;
     }).join('');
+}
+
+// 直接查询单个房间（通过代理，用于临时查看）
+async function checkDirect(rooms) {
+  for (const room of rooms) {
+    if (room.platform !== 'bilibili') continue;  // 抖音暂不支持直接查
+    try {
+      const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${room.id}`)}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.code === 0 && data.data) {
+        const st = {0:'offline',1:'live',2:'replay'}[data.data.live_status] || 'offline';
+        const badge = document.getElementById(`badge-${room.platform}-${room.id}`);
+        if (badge) {
+          const map = {live:['badge-live','🔴 直播中'],replay:['badge-replay','▶️ 回放中'],offline:['badge-offline','⚫ 未开播']};
+          const [cls, txt] = map[st] || ['badge-checking', st];
+          badge.className = `badge ${cls}`;
+          badge.textContent = txt;
+        }
+      }
+    } catch(e) { /* proxy down, ignore */ }
+  }
+}
 }
 
 function switchTab(tab) {
