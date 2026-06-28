@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f0f">
+<title>B站/抖音 直播监控</title>
+<style>
+:root {
+  --bg:#0a0a0f; --card:#141420; --card2:#1a1a2e;
+  --accent:#fb7299; --live:#ff4d4f; --douyin:#111;
+  --text:#e8e8e8; --text2:#999; --green:#52c41a;
+  --blue:#1890ff; --yellow:#faad14; --border:#222;
+  --radius:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100dvh; padding:0 0 80px; line-height:1.5;
+}
+
+/* 顶栏 */
+.topbar{
+  position:sticky; top:0; z-index:10;
+  background:rgba(10,10,15,.92); backdrop-filter:blur(12px);
+  padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.topbar h1{ font-size:17px; font-weight:700; color:var(--accent); }
+.topbar .proxy-dot{
+  width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px;
+}
+.proxy-ok{ background:var(--green); box-shadow:0 0 6px rgba(82,196,26,.5); }
+.proxy-warn{ background:var(--yellow); }
+.proxy-fail{ background:var(--live); }
+.topbar .top-status{ font-size:11px; color:var(--text2); display:flex; align-items:center; gap:6px; }
+
+/* 内容区 */
+.content{ padding:12px 16px; }
+.section{ margin-bottom:20px; }
+
+/* 平台标签 */
+.tabs{
+  display:flex; gap:6px; margin-bottom:14px;
+  background:var(--card); border-radius:var(--radius); padding:4px;
+}
+.tab{
+  flex:1; text-align:center; padding:8px 0; border-radius:10px;
+  font-size:13px; font-weight:600; cursor:pointer; transition:all .2s;
+  color:var(--text2); border:none; background:transparent;
+}
+.tab.active{ background:var(--accent); color:#fff; }
+.tab:active{ opacity:.8; }
+
+/* 房间卡片 */
+.room-card{
+  background:var(--card); border-radius:var(--radius); padding:14px;
+  margin-bottom:10px; position:relative; overflow:hidden;
+  border-left:3px solid #333; transition:border-color .3s;
+}
+.room-card.status-live{ border-left-color:var(--live); }
+.room-card.status-replay{ border-left-color:var(--yellow); }
+.room-card.status-offline{ border-left-color:#444; }
+.room-card.status-loading{ border-left-color:var(--blue); }
+
+.room-card .row1{
+  display:flex; align-items:flex-start; justify-content:space-between;
+}
+.room-card .name{ font-size:15px; font-weight:700; }
+.room-card .platform-tag{
+  font-size:10px; padding:2px 8px; border-radius:10px; font-weight:600;
+  white-space:nowrap; margin-left:8px;
+}
+.tag-bili{ background:rgba(251,114,153,.15); color:var(--accent); }
+.tag-dy{ background:rgba(24,144,255,.15); color:var(--blue); }
+
+.badge{
+  display:inline-block; padding:2px 10px; border-radius:20px;
+  font-size:11px; font-weight:600; margin-top:6px;
+}
+.badge-live{ background:rgba(255,77,79,.15); color:var(--live); }
+.badge-replay{ background:rgba(250,173,20,.15); color:var(--yellow); }
+.badge-offline{ background:rgba(102,102,102,.15); color:#888; }
+.badge-checking{ background:rgba(24,144,255,.15); color:var(--blue); }
+
+.room-card .info{ font-size:12px; color:var(--text2); margin-top:6px; }
+.room-card .info .val{ color:var(--text); }
+.room-card .actions{ margin-top:10px; display:flex; gap:8px; }
+.btn-sm{
+  padding:5px 14px; border-radius:20px; font-size:11px; font-weight:600;
+  border:none; cursor:pointer; transition:opacity .2s; text-decoration:none;
+  display:inline-block;
+}
+.btn-sm:active{ opacity:.7; }
+.btn-live{ background:var(--live); color:#fff; }
+.btn-replay{ background:var(--yellow); color:#000; }
+.btn-offline{ background:#333; color:#888; }
+
+/* 设置面板 */
+.setup-panel{
+  background:var(--card); border-radius:var(--radius); padding:16px; margin-bottom:16px;
+}
+.setup-panel summary{
+  font-size:14px; font-weight:600; cursor:pointer; padding:4px 0;
+  color:var(--text2); list-style:none;
+}
+.setup-panel summary::after{ content:' ⚙️'; font-size:16px; }
+.setup-panel[open] summary::after{ content:' ✕'; }
+.setup-body{ margin-top:12px; }
+.setup-body label{ font-size:11px; color:var(--text2); display:block; margin-bottom:3px; }
+.setup-body input, .setup-body textarea{
+  width:100%; padding:10px 12px; border-radius:10px;
+  border:1px solid var(--border); background:var(--bg); color:var(--text);
+  font-size:13px; margin-bottom:10px; outline:none; resize:vertical;
+  font-family:monospace;
+}
+.setup-body input:focus{ border-color:var(--accent); }
+.setup-body textarea{ min-height:80px; font-size:12px; }
+.btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.btn{
+  padding:10px 16px; border-radius:10px; border:none; font-size:13px;
+  font-weight:600; cursor:pointer; transition:opacity .2s;
+}
+.btn:active{ opacity:.7; }
+.btn-p{ background:var(--accent); color:#fff; }
+.btn-s{ background:transparent; border:1px solid #444; color:var(--text); }
+.btn-g{ background:var(--green); color:#fff; }
+.btn-b{ background:var(--blue); color:#fff; }
+.btn-sm-full{ flex:1; }
+
+/* 平台选择器 */
+.platform-picker{ display:flex; gap:8px; margin-bottom:10px; }
+.plat-btn{
+  flex:1; padding:10px 0; border-radius:10px; border:2px solid var(--border);
+  background:transparent; color:var(--text2); font-size:13px; font-weight:600;
+  cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:4px;
+}
+.plat-btn .plat-icon{ font-size:16px; }
+.plat-btn.active.bilibili{ border-color:var(--accent); background:rgba(251,114,153,.08); color:var(--accent); }
+.plat-btn.active.douyin{ border-color:var(--blue); background:rgba(24,144,255,.08); color:var(--blue); }
+
+/* 配置房间列表 */
+.room-config-list{ margin-bottom:8px; }
+.room-config-item{
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  background:var(--bg); border-radius:10px; margin-bottom:6px;
+  border:1px solid var(--border);
+}
+.room-config-item .rc-platform{
+  font-size:10px; padding:2px 6px; border-radius:8px; font-weight:600; white-space:nowrap;
+}
+.rc-bili{ background:rgba(251,114,153,.12); color:var(--accent); }
+.rc-dy{ background:rgba(24,144,255,.12); color:var(--blue); }
+.room-config-item .rc-info{ flex:1; min-width:0; }
+.room-config-item .rc-name{ font-size:13px; font-weight:600; }
+.room-config-item .rc-id{ font-size:11px; color:var(--text2); }
+.room-config-item .rc-del{
+  width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,77,79,.1);
+  color:var(--live); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.room-config-item .rc-del:active{ background:rgba(255,77,79,.3); }
+
+/* 日志 */
+.log-area{
+  background:#050510; border-radius:10px; padding:10px;
+  max-height:160px; overflow-y:auto; font-family:monospace;
+  font-size:10.5px; color:#777; margin-top:12px;
+}
+.log-area .entry{ padding:2px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+.log-ok{ color:var(--green); }
+.log-warn{ color:var(--yellow); }
+.log-err{ color:var(--live); }
+
+/* 底部控制栏 */
+.footer-bar{
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(10,10,15,.94); backdrop-filter:blur(12px);
+  border-top:1px solid var(--border); padding:10px 16px;
+  display:flex; gap:8px; align-items:center;
+  padding-bottom:max(10px, env(safe-area-inset-bottom));
+}
+.footer-bar .btn{ flex:1; font-size:12px; padding:8px; }
+.footer-bar .auto-indicator{
+  font-size:10px; color:var(--green); display:flex; align-items:center; gap:4px;
+}
+.footer-bar .dot-pulse{
+  width:6px; height:6px; border-radius:50%; background:var(--green);
+  animation:pulse 1.5s ease infinite;
+}
+@keyframes pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.3 } }
+
+/* 提示 */
+.tip{
+  background:rgba(24,144,255,.08); border:1px solid rgba(24,144,255,.15);
+  border-radius:10px; padding:8px 12px; font-size:11px; color:var(--blue);
+  margin-top:8px; line-height:1.5;
+}
+.hidden{ display:none !important; }
+.spinner{
+  width:14px; height:14px; border:2px solid #333; border-top-color:var(--accent);
+  border-radius:50%; animation:spin .6s linear infinite; display:inline-block;
+}
+@keyframes spin{ to{ transform:rotate(360deg) } }
+
+/* 确认弹窗 */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.modal{
+  background:var(--card2); border-radius:var(--radius); padding:20px; width:100%; max-width:340px;
+}
+.modal h3{ font-size:15px; margin-bottom:12px; }
+.modal p{ font-size:13px; color:var(--text2); margin-bottom:16px; line-height:1.6; }
+.modal .btn-row{ justify-content:flex-end; }
+</style>
+</head>
+<body>
+
+<!-- 顶栏 -->
+<div class="topbar">
+  <div>
+    <h1>📡 直播监控</h1>
+  </div>
+  <div class="top-status">
+    <span id="proxyStatus"><span class="proxy-dot proxy-warn"></span>检测中</span>
+    <span id="timeDisplay" style="font-size:10px"></span>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="content">
+<details class="setup-panel" id="setupPanel" open>
+  <summary>监控配置</summary>
+  <div class="setup-body">
+    <!-- SendKey -->
+    <label>🔑 Server酱 SendKey <a href="https://sct.ftqq.com/" target="_blank" style="color:var(--accent);font-size:10px">去获取→</a></label>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="sendkeyInput" placeholder="SCT123456..." style="flex:1;margin-bottom:0">
+      <button class="btn btn-s" onclick="saveSendKey()" style="white-space:nowrap">💾 保存</button>
+    </div>
+
+    <!-- 自定义代理 -->
+    <label>🔗 自定义 CORS 代理 <span style="font-weight:400;color:var(--text2);font-size:10px">（推荐，解决公共代理抽风问题）</span></label>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input type="text" id="customProxyInput" placeholder="https://你的worker.workers.dev/?url=" style="flex:1;margin-bottom:0;font-size:12px">
+      <button class="btn btn-s" onclick="saveCustomProxy()" style="white-space:nowrap">💾</button>
+    </div>
+    <div class="tip" style="margin-bottom:12px">
+      ⚡ <b>推荐自建代理：</b>用 Cloudflare Workers 部署 <code>cors-proxy-worker.js</code>，2分钟搞定，永久免费。<br>
+      填好代理地址后检测立刻变稳，不再依赖公共代理。
+    </div>
+
+    <!-- 添加房间 -->
+    <label style="margin-top:4px">➕ 添加监控房间</label>
+    <div class="platform-picker" id="platformPicker">
+      <button class="plat-btn active" data-plat="bilibili" onclick="pickPlatform('bilibili')">
+        <span class="plat-icon">📺</span> B站
+      </button>
+      <button class="plat-btn" data-plat="douyin" onclick="pickPlatform('douyin')">
+        <span class="plat-icon">🎵</span> 抖音
+      </button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="newRoomId" placeholder="房间号" style="flex:1;margin-bottom:0" inputmode="numeric">
+      <input type="text" id="newRoomName" placeholder="昵称(选填)" style="flex:2;margin-bottom:0">
+    </div>
+    <div class="btn-row" style="margin-bottom:14px">
+      <button class="btn btn-p btn-sm-full" onclick="addRoom()">➕ 添加</button>
+      <button class="btn btn-s btn-sm-full" onclick="quickFill()">📋 快速预设</button>
+    </div>
+
+    <!-- 已添加的房间列表 -->
+    <label>📋 已监控房间 (<span id="roomCount">0</span>)</label>
+    <div class="room-config-list" id="roomConfigList">
+      <div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">还没有添加房间</div>
+    </div>
+    <div class="tip" id="addTip">
+      💡 B站房间号在直播链接里：<code>live.bilibili.com/<b>1874913653</b></code><br>
+      抖音房间号：<code>live.douyin.com/<b>wsyzxz6688</b></code>
+    </div>
+  </div>
+</details>
+
+<!-- 平台标签 -->
+<div class="tabs" id="tabs">
+  <button class="tab active" onclick="switchTab('all')">全部</button>
+  <button class="tab" onclick="switchTab('bilibili')">B站</button>
+  <button class="tab" onclick="switchTab('douyin')">抖音</button>
+</div>
+
+<!-- 房间列表 -->
+<div id="roomList"><div style="text-align:center;padding:40px;color:var(--text2)">请先配置监控房间</div></div>
+
+<!-- 日志 -->
+<div class="log-area hidden" id="logArea"></div>
+</div>
+
+<!-- 底部控制栏 -->
+<div class="footer-bar hidden" id="footerBar">
+  <span class="auto-indicator hidden" id="autoIndicator">
+    <span class="dot-pulse"></span> 自动监控中
+  </span>
+  <button class="btn btn-p" onclick="checkAll()" id="btnCheck">🔍 检测</button>
+  <button class="btn btn-s" onclick="toggleAuto()" id="btnAuto">▶ 自动</button>
+  <button class="btn btn-s" onclick="testPush()" id="btnTest">📤 测试</button>
+</div>
+
+<script>
+// ==================== 常量 ====================
+const LS_KEY = 'blive2_config';
+const LS_STATE = 'blive2_state';
+
+// CORS 代理池（按优先级排列）
+const PROXIES = [
+  { id:'allorigins', url:'https://api.allorigins.win/raw?url=', method:'direct' },
+  { id:'cloudflare', url:'https://cloudflare-cors-anywhere.pages.dev/', method:'prefix' },
+  { id:'killcors', url:'https://killcors.com/', method:'prefix' },
+  { id:'freeboard', url:'https://thingproxy.freeboard.io/fetch/', method:'prefix' },
+  { id:'x2u', url:'https://cors.x2u.in/', method:'prefix' },
+];
+
+let config = { sendkey:'', rooms:[], customProxy:'' };
+let prevStates = {};  // { roomKey: statusString }
+let currentTab = 'all';
+let workingProxy = null;
+let autoTimer = null;
+let proxyCheckDone = false;
+let selectedPlatform = 'bilibili';  // 当前选中的平台
+
+// ==================== 初始化 ====================
+function init() {
+  loadFromStorage();
+  checkProxyHealth();
+  
+  const saved = JSON.parse(localStorage.getItem(LS_STATE) || '{}');
+  prevStates = saved;
+  
+  if (config.rooms.length > 0) {
+    document.getElementById('footerBar').classList.remove('hidden');
+    document.getElementById('logArea').classList.remove('hidden');
+    renderRooms();
+  }
+}
+
+// ==================== 配置管理 ====================
+function loadFromStorage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+    if (saved.sendkey) config.sendkey = saved.sendkey;
+    if (saved.rooms) config.rooms = saved.rooms;
+    if (saved.customProxy) config.customProxy = saved.customProxy;
+    
+    document.getElementById('sendkeyInput').value = config.sendkey || '';
+    document.getElementById('customProxyInput').value = config.customProxy || '';
+    renderRoomConfigList();
+    
+    if (config.rooms.length > 0) {
+      document.getElementById('footerBar').classList.remove('hidden');
+      document.getElementById('logArea').classList.remove('hidden');
+      renderRooms();
+    }
+    addLog('已加载保存的配置', 'ok');
+  } catch(e) { addLog('加载配置失败: '+e.message, 'err'); }
+}
+
+function saveSendKey() {
+  const sendkey = document.getElementById('sendkeyInput').value.trim();
+  if (!sendkey) { alert('请填写 Server酱 SendKey！'); return; }
+  config.sendkey = sendkey;
+  localStorage.setItem(LS_KEY, JSON.stringify(config));
+  addLog('✅ SendKey 已保存', 'ok');
+}
+
+function saveCustomProxy() {
+  const proxy = document.getElementById('customProxyInput').value.trim();
+  config.customProxy = proxy;
+  localStorage.setItem(LS_KEY, JSON.stringify(config));
+  proxyCheckDone = false;  // 强制重新检测代理
+  workingProxy = null;
+  checkProxyHealth();
+  if (proxy) {
+    addLog('✅ 自定义代理已保存，正在测试连通性...', 'ok');
+  } else {
+    addLog('已清除自定义代理，将使用公共代理', 'warn');
+  }
+}
+
+function pickPlatform(plat) {
+  selectedPlatform = plat;
+  document.querySelectorAll('.plat-btn').forEach(b => {
+    b.classList.remove('active', 'bilibili', 'douyin');
+    if (b.dataset.plat === plat) {
+      b.classList.add('active', plat);
+    }
+  });
+}
+
+function addRoom() {
+  const idEl = document.getElementById('newRoomId');
+  const nameEl = document.getElementById('newRoomName');
+  const id = idEl.value.trim();
+  const name = nameEl.value.trim();
+  
+  if (!id) { alert('请输入房间号！'); return; }
+  
+  // 检查重复
+  if (config.rooms.some(r => r.platform === selectedPlatform && r.id === id)) {
+    alert('该房间已在监控列表中！');
+    return;
+  }
+  
+  const platform = selectedPlatform;
+  const defaultName = platform === 'bilibili' ? `B站房间${id}` : `抖音${id}`;
+  
+  config.rooms.push({ platform, id, name: name || defaultName });
+  localStorage.setItem(LS_KEY, JSON.stringify(config));
+  
+  idEl.value = '';
+  nameEl.value = '';
+  idEl.focus();
+  
+  renderRoomConfigList();
+  
+  if (config.rooms.length === 1) {
+    document.getElementById('footerBar').classList.remove('hidden');
+    document.getElementById('logArea').classList.remove('hidden');
+  }
+  renderRooms();
+  addLog(`✅ 已添加: ${name || defaultName} (${platform === 'bilibili' ? 'B站' : '抖音'} ${id})`, 'ok');
+}
+
+function removeRoom(index) {
+  const room = config.rooms[index];
+  config.rooms.splice(index, 1);
+  localStorage.setItem(LS_KEY, JSON.stringify(config));
+  
+  // 清除该房间的状态
+  const key = roomKey(room);
+  delete prevStates[key];
+  localStorage.setItem(LS_STATE, JSON.stringify(prevStates));
+  
+  renderRoomConfigList();
+  renderRooms();
+  addLog(`已移除: ${room.name}`, 'warn');
+}
+
+function quickFill() {
+  const defaults = [
+    { platform:'bilibili', id:'1874913653', name:'峰哥亡命天涯' },
+    { platform:'douyin', id:'wsyzxz6688', name:'小猪装机' },
+    { platform:'bilibili', id:'7734200', name:'LPL赛事官方' },
+  ];
+  
+  let added = 0;
+  for (const d of defaults) {
+    if (!config.rooms.some(r => r.platform === d.platform && r.id === d.id)) {
+      config.rooms.push(d);
+      added++;
+    }
+  }
+  
+  if (added > 0) {
+    localStorage.setItem(LS_KEY, JSON.stringify(config));
+    renderRoomConfigList();
+    renderRooms();
+    document.getElementById('footerBar').classList.remove('hidden');
+    document.getElementById('logArea').classList.remove('hidden');
+    document.getElementById('setupPanel').open = false;
+    addLog(`✅ 已添加 ${added} 个预设房间`, 'ok');
+  } else {
+    addLog('预设房间已全部添加过', 'warn');
+  }
+}
+
+function renderRoomConfigList() {
+  const container = document.getElementById('roomConfigList');
+  document.getElementById('roomCount').textContent = config.rooms.length;
+  
+  if (config.rooms.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">还没有添加房间</div>';
+    return;
+  }
+  
+  const platLabel = { bilibili:'B站', douyin:'抖音' };
+  const platClass = { bilibili:'rc-bili', douyin:'rc-dy' };
+  
+  container.innerHTML = config.rooms.map((r, i) => `
+    <div class="room-config-item">
+      <span class="rc-platform ${platClass[r.platform] || 'rc-bili'}">${platLabel[r.platform] || r.platform}</span>
+      <div class="rc-info">
+        <div class="rc-name">${escHtml(r.name)}</div>
+        <div class="rc-id">ID: ${escHtml(r.id)}</div>
+      </div>
+      <button class="rc-del" onclick="removeRoom(${i})" title="移除">✕</button>
+    </div>
+  `).join('');
+}
+
+// ==================== UI 渲染 ====================
+function renderRooms() {
+  const container = document.getElementById('roomList');
+  let rooms = config.rooms;
+  
+  // 按标签筛选
+  if (currentTab === 'bilibili') rooms = rooms.filter(r => r.platform === 'bilibili');
+  else if (currentTab === 'douyin') rooms = rooms.filter(r => r.platform === 'douyin');
+  
+  if (rooms.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">该平台暂无监控房间</div>';
+    return;
+  }
+  
+  container.innerHTML = rooms.map(r => {
+    const key = roomKey(r);
+    const prev = prevStates[key];
+    const [stText, stClass, badgeClass, badgeText] = statusDisplay(prev);
+    const platformLabel = r.platform === 'bilibili' ? 'B站' : '抖音';
+    const platformTagClass = r.platform === 'bilibili' ? 'tag-bili' : 'tag-dy';
+    const liveUrl = r.platform === 'bilibili' 
+      ? `https://live.bilibili.com/${r.id}`
+      : `https://live.douyin.com/${r.id}`;
+    
+    let actionsHtml = '';
+    if (prev === 'live') {
+      actionsHtml = `<a class="btn-sm btn-live" href="${liveUrl}" target="_blank">👉 进入直播间</a>`;
+    } else if (prev === 'replay') {
+      actionsHtml = `<a class="btn-sm btn-replay" href="${liveUrl}" target="_blank">📺 查看回放</a>`;
+    }
+    
+    return `<div class="room-card status-${stClass}" id="card-${key.replace(/[^a-zA-Z0-9]/g,'_')}">
+      <div class="row1">
+        <span class="name">${escHtml(r.name)}</span>
+        <span class="platform-tag ${platformTagClass}">${platformLabel}</span>
+      </div>
+      <div><span class="badge badge-${badgeClass}">${badgeText}</span></div>
+      <div class="info">
+        ID: <span class="val">${escHtml(r.id)}</span>
+        <span id="extra-${key.replace(/[^a-zA-Z0-9]/g,'_')}"></span>
+      </div>
+      <div class="actions">${actionsHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function statusDisplay(state) {
+  if (!state && state !== 0) return ['未知', 'loading', 'checking', '⏳ 待检测'];
+  if (state === 'live') return ['直播中', 'live', 'live', '🔴 直播中'];
+  if (state === 'replay') return ['回放中', 'replay', 'replay', '▶️ 回放中'];
+  if (state === 'offline') return ['未开播', 'offline', 'offline', '⚫ 未开播'];
+  return ['未知', 'loading', 'checking', '⏳ 检测中'];
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${tab}"]`)?.classList.add('active');
+  renderRooms();
+}
+
+// ==================== 代理管理 ====================
+async function checkProxyHealth() {
+  addLog('🔍 检测代理连通性...');
+  const testUrl = 'https://api.live.bilibili.com/room/v1/Room/get_info?room_id=6';
+  let found = false;
+  
+  // 1. 优先测试自定义代理
+  if (config.customProxy) {
+    const ok = await testCustomProxy(config.customProxy, testUrl);
+    if (ok) {
+      workingProxy = { id:'custom', url:config.customProxy, method:'custom' };
+      found = true;
+      addLog(`  ✓ 自定义代理可用`, 'ok');
+    } else {
+      addLog(`  ✗ 自定义代理不可用，回退公共代理`, 'warn');
+    }
+  }
+  
+  // 2. 回退到公共代理池
+  if (!found) {
+    for (const proxy of PROXIES) {
+      const ok = await testProxy(proxy, testUrl);
+      if (ok) {
+        workingProxy = proxy;
+        found = true;
+        addLog(`  ✓ 选中公共代理: ${proxy.id}`, 'ok');
+        break;
+      }
+      addLog(`  ✗ ${proxy.id} 不可用`, 'warn');
+    }
+  }
+  
+  proxyCheckDone = true;
+  updateProxyIndicator(found);
+  
+  if (!found) {
+    addLog('❌ 所有代理均不可用！', 'err');
+    addLog('💡 请部署 Cloudflare Worker 代理，填入上方「自定义代理」', 'warn');
+  }
+}
+
+async function testCustomProxy(proxyUrl, testUrl) {
+  try {
+    const url = proxyUrl + encodeURIComponent(testUrl);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const text = await resp.text();
+    const data = JSON.parse(text);
+    return data && (data.code === 0 || (data.data && data.data.live_status !== undefined));
+  } catch(e) { return false; }
+}
+
+async function testProxy(proxy, testUrl) {
+  try {
+    const url = buildProxyUrl(proxy, testUrl);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const text = await resp.text();
+    const data = JSON.parse(text);
+    return data && (data.code === 0 || (data.data && data.data.live_status !== undefined));
+  } catch(e) { return false; }
+}
+
+function buildProxyUrl(proxy, targetUrl) {
+  if (proxy.method === 'direct') return proxy.url + encodeURIComponent(targetUrl);
+  return proxy.url + targetUrl;
+}
+
+function updateProxyIndicator(ok) {
+  const el = document.getElementById('proxyStatus');
+  if (ok && workingProxy) {
+    el.innerHTML = `<span class="proxy-dot proxy-ok"></span>代理: ${workingProxy.id}`;
+  } else if (proxyCheckDone) {
+    el.innerHTML = `<span class="proxy-dot proxy-fail"></span>代理离线`;
+  } else {
+    el.innerHTML = `<span class="proxy-dot proxy-warn"></span>检测中`;
+  }
+}
+
+async function fetchViaProxy(targetUrl) {
+  if (!proxyCheckDone) await checkProxyHealth();
+  if (!workingProxy) throw new Error('无可用代理');
+  
+  let lastError;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const url = workingProxy.method === 'custom'
+        ? workingProxy.url + encodeURIComponent(targetUrl)
+        : buildProxyUrl(workingProxy, targetUrl);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.text();
+    } catch(e) {
+      lastError = e;
+      if (i < 2) await sleep(1000 * (i + 1));
+    }
+  }
+  
+  addLog(`⚠ 代理失败，重新检测...`, 'warn');
+  proxyCheckDone = false; workingProxy = null;
+  await checkProxyHealth();
+  
+  if (workingProxy) {
+    const url = workingProxy.method === 'custom'
+      ? workingProxy.url + encodeURIComponent(targetUrl)
+      : buildProxyUrl(workingProxy, targetUrl);
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    return await resp.text();
+  }
+  throw lastError;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ==================== B站检测 ====================
+async function checkBilibili(room) {
+  const apiUrl = `https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${room.id}`;
+  try {
+    const text = await fetchViaProxy(apiUrl);
+    const data = JSON.parse(text);
+    if (data.code !== 0) throw new Error(`API code=${data.code}`);
+    
+    const d = data.data;
+    let status;
+    if (d.live_status === 1) status = 'live';
+    else if (d.live_status === 2) status = 'replay';
+    else status = 'offline';
+    
+    return {
+      status,
+      title: d.title || '',
+      extra: `标题: ${d.title || '-'} | 人气: ${d.online || 0} | ${d.parent_area_name || ''}·${d.area_name || ''}`,
+      raw: d
+    };
+  } catch(e) {
+    throw new Error(`B站检测失败: ${e.message}`);
+  }
+}
+
+// ==================== 抖音检测 ====================
+async function checkDouyin(room) {
+  const pageUrl = `https://live.douyin.com/${room.id}`;
+  try {
+    const html = await fetchViaProxy(pageUrl);
+    
+    // 判断直播状态
+    // 抖音直播页面特征:
+    // - "直播已结束" → offline
+    // - "正在直播" + shareDesc → live
+    // - "直播加载中" → might be live (uncertain)
+    
+    if (html.includes('直播已结束') || html.includes('直播已结束')) {
+      return { status: 'offline', title: '', extra: '直播已结束' };
+    }
+    
+    // 检查分享描述中是否包含"正在直播"
+    const shareMatch = html.match(/shareDesc["\s]*value=["\s]*([^"]+)/i);
+    const shareDesc = shareMatch ? shareMatch[1] : '';
+    
+    if (shareDesc.includes('正在直播')) {
+      // 提取标题
+      const titleMatch = html.match(/shareTitle["\s]*value=["\s]*([^"]+)/i);
+      const title = titleMatch ? titleMatch[1].replace(/的直播$/, '') : '';
+      return { status: 'live', title, extra: '正在直播' };
+    }
+    
+    // 检查是否有 RENDER_DATA
+    if (html.includes('RENDER_DATA')) {
+      // 页面加载中但不确定状态
+      const renderMatch = html.match(/id=["\s]*RENDER_DATA["\s]*[^>]*>([^<]+)/);
+      if (renderMatch) {
+        try {
+          const decoded = decodeURIComponent(renderMatch[1]);
+          const rdata = JSON.parse(decoded);
+          // 查找房间状态
+          const roomData = findNested(rdata, 'room');
+          const statusData = findNested(rdata, 'status');
+          if (statusData === 2 || (roomData && roomData.status === 2)) {
+            return { status: 'live', title: '', extra: '正在直播 (RENDER_DATA)' };
+          }
+          if (statusData === 4 || (roomData && roomData.status === 4)) {
+            return { status: 'offline', title: '', extra: '直播已结束' };
+          }
+        } catch(e) { /* parse failed, fall through */ }
+      }
+    }
+    
+    // 无法确定状态，默认为 offline
+    // 如果页面中有主播名称，说明页面加载成功
+    if (html.includes('shareTitle')) {
+      return { status: 'offline', title: '', extra: '未检测到直播' };
+    }
+    
+    return { status: 'offline', title: '', extra: '无法解析状态' };
+    
+  } catch(e) {
+    throw new Error(`抖音检测失败: ${e.message}`);
+  }
+}
+
+function findNested(obj, key) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (obj[key] !== undefined) return obj[key];
+  for (const k in obj) {
+    const found = findNested(obj[k], key);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+// ==================== 检测主逻辑 ====================
+async function checkAll() {
+  if (config.rooms.length === 0) {
+    addLog('❌ 未配置监控房间，请先保存配置', 'err');
+    return;
+  }
+  if (!config.sendkey) {
+    addLog('❌ 未配置 SendKey', 'err');
+    return;
+  }
+  
+  document.getElementById('btnCheck').innerHTML = '<span class="spinner"></span>';
+  document.getElementById('btnCheck').disabled = true;
+  
+  const now = new Date();
+  document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('zh-CN');
+  addLog(`📡 开始检测 ${config.rooms.length} 个房间...`);
+  
+  let changedCount = 0;
+  
+  for (const room of config.rooms) {
+    const key = roomKey(room);
+    try {
+      let result;
+      if (room.platform === 'bilibili') {
+        result = await checkBilibili(room);
+      } else if (room.platform === 'douyin') {
+        result = await checkDouyin(room);
+      } else {
+        addLog(`  ⚠ ${room.name}: 未知平台 ${room.platform}`, 'warn');
+        continue;
+      }
+      
+      const prev = prevStates[key];
+      const [stText, , , badgeText] = statusDisplay(result.status);
+      addLog(`  ${room.name}: ${badgeText} ${result.extra}`, result.status === 'live' ? 'ok' : '');
+      
+      // 更新卡片信息
+      updateCard(room, result);
+      
+      // 状态变化检测
+      if (prev !== result.status) {
+        const shouldPush = shouldNotify(prev, result.status);
+        if (shouldPush) {
+          addLog(`  → 状态变化 (${prev || '未知'} → ${stText}), 推送通知...`);
+          const pushed = await sendPush(room, result);
+          if (pushed) {
+            addLog(`  ✓ 微信推送成功`, 'ok');
+            changedCount++;
+          }
+        }
+        prevStates[key] = result.status;
+      } else {
+        prevStates[key] = result.status;
+      }
+      
+    } catch(e) {
+      addLog(`  ✗ ${room.name}: ${e.message}`, 'err');
+    }
+  }
+  
+  // 保存状态
+  localStorage.setItem(LS_STATE, JSON.stringify(prevStates));
+  
+  document.getElementById('btnCheck').innerHTML = '🔍 检测';
+  document.getElementById('btnCheck').disabled = false;
+  addLog(`✅ 检测完成 (${changedCount} 个状态变化)`);
+  renderRooms();
+}
+
+function shouldNotify(prevStatus, newStatus) {
+  // 首次检测: 只有开播才推
+  if (!prevStatus && prevStatus !== 0) {
+    return newStatus === 'live';
+  }
+  // 状态变化: 开播和回放推，下播不推
+  if (prevStatus !== newStatus) {
+    return newStatus !== 'offline';
+  }
+  return false;
+}
+
+function updateCard(room, result) {
+  const key = roomKey(room);
+  const cardId = `card-${key.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  
+  // 更新状态样式
+  const [, stClass, badgeClass, badgeText] = statusDisplay(result.status);
+  card.className = `room-card status-${stClass}`;
+  const badge = card.querySelector('.badge');
+  if (badge) {
+    badge.className = `badge badge-${badgeClass}`;
+    badge.textContent = badgeText;
+  }
+  
+  // 更新额外信息
+  const extraEl = document.getElementById(`extra-${key.replace(/[^a-zA-Z0-9]/g,'_')}`);
+  if (extraEl && result.extra) {
+    extraEl.innerHTML = ` | ${escHtml(result.extra)}`;
+  }
+  
+  // 更新操作按钮
+  const actions = card.querySelector('.actions');
+  if (actions) {
+    const liveUrl = room.platform === 'bilibili' 
+      ? `https://live.bilibili.com/${room.id}`
+      : `https://live.douyin.com/${room.id}`;
+    if (result.status === 'live') {
+      actions.innerHTML = `<a class="btn-sm btn-live" href="${liveUrl}" target="_blank">👉 进入直播间</a>`;
+    } else {
+      actions.innerHTML = '';
+    }
+  }
+}
+
+// ==================== 推送 ====================
+async function sendPush(room, result) {
+  const sendkey = config.sendkey;
+  const [stText, , , badgeText] = statusDisplay(result.status);
+  const liveUrl = room.platform === 'bilibili'
+    ? `https://live.bilibili.com/${room.id}`
+    : `https://live.douyin.com/${room.id}`;
+  const now = new Date().toLocaleString('zh-CN');
+  
+  let title, desp;
+  if (result.status === 'live') {
+    title = `🔴 ${room.name} 开播了！`;
+    desp = [
+      `## 🎬 ${room.name} 开播了！`,
+      ``,
+      `**平台**: ${room.platform === 'bilibili' ? 'B站' : '抖音'}`,
+      `**标题**: ${result.title || '-'}`,
+      `**状态**: ${badgeText}`,
+      ``,
+      `👉 [进入直播间](${liveUrl})`,
+      ``,
+      `---`,
+      `检测时间: ${now}`,
+    ].join('\n');
+  } else if (result.status === 'replay') {
+    title = `▶️ ${room.name} 轮播/回放中`;
+    desp = [
+      `## ▶️ ${room.name} 轮播/回放中`,
+      ``,
+      `**平台**: ${room.platform === 'bilibili' ? 'B站' : '抖音'}`,
+      ``,
+      `👉 [查看](${liveUrl})`,
+      ``,
+      `---`,
+      `检测时间: ${now}`,
+    ].join('\n');
+  } else {
+    return false;
+  }
+  
+  try {
+    const url = `https://sctapi.ftqq.com/${sendkey}.send`;
+    const body = new URLSearchParams({ title, desp: desp.substring(0, 10000) });
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    return data.code === 0 || data.errno === 0;
+  } catch(e) {
+    addLog(`  推送失败: ${e.message}`, 'err');
+    return false;
+  }
+}
+
+async function testPush() {
+  if (!config.sendkey) { alert('请先配置 SendKey！'); return; }
+  addLog('📤 发送测试推送...');
+  try {
+    const url = `https://sctapi.ftqq.com/${config.sendkey}.send`;
+    const body = new URLSearchParams({
+      title: '✅ 直播监控 - 测试消息',
+      desp: `推送通道正常！\n\n时间: ${new Date().toLocaleString('zh-CN')}`
+    });
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json();
+    if (data.code === 0 || data.errno === 0) {
+      addLog('✓ 测试推送成功！请检查微信', 'ok');
+    } else {
+      addLog(`⚠ 推送返回: ${JSON.stringify(data)}`, 'warn');
+    }
+  } catch(e) {
+    addLog(`✗ 推送失败: ${e.message}`, 'err');
+  }
+}
+
+// ==================== 自动监控 ====================
+function toggleAuto() {
+  const btn = document.getElementById('btnAuto');
+  const indicator = document.getElementById('autoIndicator');
+  
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    btn.textContent = '▶ 自动';
+    btn.className = 'btn btn-s';
+    indicator.classList.add('hidden');
+    addLog('⏸ 自动监控已停止');
+  } else {
+    const interval = parseInt(prompt('检测间隔（秒，建议60-300）', '120')) || 120;
+    if (interval < 30) { alert('间隔不能小于30秒'); return; }
+    
+    autoTimer = setInterval(checkAll, interval * 1000);
+    btn.textContent = '⏸ 停止';
+    btn.className = 'btn btn-g';
+    indicator.classList.remove('hidden');
+    addLog(`▶ 自动监控已启动 (每${interval}秒)`);
+    checkAll(); // 立即执行一次
+  }
+}
+
+// ==================== 工具 ====================
+function roomKey(room) {
+  return `${room.platform}_${room.id}`;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function addLog(msg, level) {
+  const area = document.getElementById('logArea');
+  if (!area) return;
+  const time = new Date().toLocaleTimeString('zh-CN');
+  area.innerHTML += `<div class="entry log-${level || ''}">[${time}] ${msg}</div>`;
+  area.scrollTop = area.scrollHeight;
+  
+  // 限制日志条数
+  const entries = area.querySelectorAll('.entry');
+  if (entries.length > 100) entries[0].remove();
+}
+
+// ==================== 启动 ====================
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('beforeunload', () => {
+  if (autoTimer) clearInterval(autoTimer);
+});
+</script>
+</body>
+</html>
