@@ -1,1 +1,35 @@
-{"updated":"","rooms":[]}
+{
+  "updated": "2026-06-28 10:23:03",
+  "rooms": [
+    {
+      "platform": "bilibili",
+      "id": "1874913653",
+      "name": "峰哥亡命天涯",
+      "status": "replay",
+      "title": "峰哥亡命天涯直播回放",
+      "online": 0,
+      "area": "生活·生活杂谈",
+      "time": "2026-06-28 10:23:04"
+    },
+    {
+      "platform": "douyin",
+      "id": "wsyzxz6688",
+      "name": "小猪装机",
+      "status": "offline",
+      "title": "",
+      "online": 0,
+      "area": "",
+      "time": "2026-06-28 10:23:07"
+    },
+    {
+      "platform": "bilibili",
+      "id": "7734200",
+      "name": "LPL赛事官方",
+      "status": "live",
+      "title": "【预告】29号11点T1 vs KC",
+      "online": 773584,
+      "area": "赛事·游戏赛事",
+      "time": "2026-06-28 10:23:07"
+    }
+  ]
+}
