@@ -134,22 +134,29 @@ function render() {
 function load() {
   document.querySelector('.footer-bar .btn-p').innerHTML = '<span class="spinner"></span>';
   
-  fetch('status.json',{signal:AbortSignal.timeout(8000)})
-    .then(function(r){ if(r.ok) return r.json(); throw new Error('fail'); })
-    .then(function(d){ status = d; })
-    .catch(function(){})
-    .then(function(){ return fetch('rooms.json',{signal:AbortSignal.timeout(8000)}); })
-    .then(function(r){ if(r.ok) return r.json(); throw new Error('fail'); })
-    .then(function(d){ rooms = d; })
-    .catch(function(){})
-    .then(function(){
-      var now = new Date();
-      document.getElementById('time').textContent = now.toLocaleTimeString('zh-CN');
-      var live = status&&status.rooms?status.rooms.some(function(r){return r.status==='live'}):false;
-      document.getElementById('dot').innerHTML = live?'<span class="dot dot-live"></span>有直播':'<span class="dot dot-ok"></span>已更新';
-      render();
-      document.querySelector('.footer-bar .btn-p').innerHTML = '🔍 刷新';
-    });
+  // jsDelivr CDN (国内有节点，更新快) + 同域名 fallback
+  var base = 'https://cdn.jsdelivr.net/gh/racheko-lab/blive-monitor@master/';
+  
+  function get(u) {
+    return fetch(u,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():Promise.reject('fail')});
+  }
+  
+  get(base+'status.json').then(function(d){status=d;}).catch(function(){
+    return get('status.json');
+  }).then(function(d){if(d)status=d;}).catch(function(){})
+  .then(function(){
+    return get(base+'rooms.json').then(function(d){rooms=d;}).catch(function(){
+      return get('rooms.json');
+    }).then(function(d){if(d)rooms=d;});
+  }).catch(function(){})
+  .then(function(){
+    var now = new Date();
+    document.getElementById('time').textContent = now.toLocaleTimeString('zh-CN');
+    var live = status&&status.rooms?status.rooms.some(function(r){return r.status==='live'}):false;
+    document.getElementById('dot').innerHTML = live?'<span class="dot dot-live"></span>有直播':'<span class="dot dot-ok"></span>已更新';
+    render();
+    document.querySelector('.footer-bar .btn-p').innerHTML = '🔍 刷新';
+  });
 }
 
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
