@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28 11:09:30",
+  "updated": "2026-06-28 11:22:47",
   "rooms": [
     {
       "platform": "bilibili",
@@ -9,7 +9,17 @@
       "title": "be一会儿",
       "online": 0,
       "area": "生活·户外",
-      "time": "2026-06-28 11:09:31"
+      "time": "2026-06-28 11:22:48"
+    },
+    {
+      "platform": "douyin",
+      "id": "wsyzxz6688",
+      "name": "小猪装机",
+      "status": "offline",
+      "title": "",
+      "online": 0,
+      "area": "",
+      "time": "2026-06-28 11:22:51"
     }
   ]
 }
