@@ -6,59 +6,30 @@
 <meta name="theme-color" content="#0a0a0f">
 <title>B站/抖音 直播监控</title>
 <style>
-:root{--bg:#0a0a0f;--card:#141420;--accent:#fb7299;--live:#ff4d4f;
-  --text:#e8e8e8;--text2:#999;--green:#52c41a;--blue:#1890ff;--yellow:#faad14;--border:#222;--radius:14px}
+:root{--bg:#0a0a0f;--card:#141420;--accent:#fb7299;--live:#ff4d4f;--text:#e8e8e8;--text2:#999;--green:#52c41a;--blue:#1890ff;--yellow:#faad14;--border:#222;--radius:14px}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  background:var(--bg);color:var(--text);min-height:100dvh;padding:0 0 80px}
-
-.topbar{position:sticky;top:0;z-index:10;background:rgba(10,10,15,.92);
-  backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;
-  justify-content:space-between;border-bottom:1px solid var(--border)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding:0 0 70px}
+.topbar{position:sticky;top:0;z-index:10;background:rgba(10,10,15,.92);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
 .topbar h1{font-size:17px;font-weight:700;color:var(--accent)}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
 .dot-ok{background:var(--green)}.dot-warn{background:var(--yellow)}.dot-live{background:var(--live)}
-
 .content{padding:12px 16px}
 .tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border-radius:var(--radius);padding:4px}
 .tab{flex:1;text-align:center;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:transparent}
 .tab.active{background:var(--accent);color:#fff}
-
 .room-card{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:10px;border-left:3px solid #333}
 .room-card.live{border-left-color:var(--live)}.room-card.replay{border-left-color:var(--yellow)}.room-card.offline{border-left-color:#444}
-.name{font-size:15px;font-weight:700}.info{font-size:12px;color:var(--text2);margin-top:6px}
 .platform-tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-left:8px}
 .tag-bili{background:rgba(251,114,153,.15);color:var(--accent)}.tag-dy{background:rgba(24,144,255,.15);color:var(--blue)}
 .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:6px}
 .badge-live{background:rgba(255,77,79,.15);color:var(--live)}.badge-replay{background:rgba(250,173,20,.15);color:var(--yellow)}.badge-offline{background:rgba(102,102,102,.15);color:#888}
-.btn-sm{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;text-decoration:none;display:inline-block;margin-top:8px}
+.btn-sm{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;text-decoration:none;display:inline-block;margin-top:8px}
 .btn-live{background:var(--live);color:#fff}
-
-/* config */
-.setup-panel{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:16px}
-.setup-panel summary{font-size:14px;font-weight:600;cursor:pointer;padding:4px 0;color:var(--text2);list-style:none}
-.setup-panel summary:after{content:' ⚙️'}
-.setup-panel[open] summary:after{content:' ✕'}
-.setup-body{margin-top:12px}
-.setup-body input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;margin-bottom:8px;outline:none}
-.btn{flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer}
+.info{font-size:12px;color:var(--text2);margin-top:6px}
+.footer-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;align-items:center;padding-bottom:env(safe-area-inset-bottom,10px)}
+.btn{flex:1;padding:10px 12px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer}
 .btn-p{background:var(--accent);color:#fff}.btn-s{background:transparent;border:1px solid #444;color:var(--text)}.btn-g{background:var(--green);color:#fff}
-
-.platform-picker{display:flex;gap:8px;margin-bottom:10px}
-.plat-btn{flex:1;padding:10px 0;border-radius:10px;border:2px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
-.plat-btn.active.bilibili{border-color:var(--accent);background:rgba(251,114,153,.08);color:var(--accent)}
-.plat-btn.active.douyin{border-color:var(--blue);background:rgba(24,144,255,.08);color:var(--blue)}
-
-.room-config-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:6px;border:1px solid var(--border)}
-.rc-bili{background:rgba(251,114,153,.12);color:var(--accent);font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600}
-.rc-dy{background:rgba(24,144,255,.12);color:var(--blue);font-size:10px;padding:2px 6px;border-radius:8px;font-weight:600}
-.rc-info{flex:1;min-width:0}.rc-name{font-size:13px;font-weight:600}.rc-id{font-size:11px;color:var(--text2)}
-.rc-del{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,77,79,.1);color:var(--live);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-
-.footer-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);
-  border-top:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;align-items:center;padding-bottom:env(safe-area-inset-bottom,10px)}
-.footer-bar .btn{font-size:12px;padding:8px}
-.tip{background:rgba(24,144,255,.08);border:1px solid rgba(24,144,255,.15);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--blue);margin-top:8px;line-height:1.5}
+.tip{background:rgba(24,144,255,.08);border:1px solid rgba(24,144,255,.15);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--blue);margin-top:12px;text-align:center}
 .empty{text-align:center;padding:40px 20px;color:var(--text2)}
 .spinner{width:16px;height:16px;border:2px solid #333;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -75,34 +46,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <div class="content">
-
-<details class="setup-panel">
-  <summary>添加监控房间</summary>
-  <div class="setup-body">
-    <div class="platform-picker">
-      <button class="plat-btn active bilibili" id="platBili" onclick="pick('bilibili')">📺 B站</button>
-      <button class="plat-btn" id="platDy" onclick="pick('douyin')">🎵 抖音</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input id="rid" placeholder="房间号" style="flex:1;margin-bottom:0" inputmode="numeric">
-      <input id="rname" placeholder="昵称(选填)" style="flex:2;margin-bottom:0">
-    </div>
-    <button class="btn btn-p" onclick="add()" style="width:100%;margin-bottom:10px">➕ 添加</button>
-    <div>已监控: <b id="cnt">0</b> 个房间</div>
-    <div id="clist" style="margin-top:6px"></div>
-    <div class="tip">
-      ⚡ 网页添加的房间仅本地显示。要启用后台自动监控+微信推送，修改 <a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">rooms.json →</a>
-    </div>
-  </div>
-</details>
-
 <div class="tabs">
   <button class="tab active" onclick="tab('all')">全部</button>
   <button class="tab" onclick="tab('bilibili')">B站</button>
   <button class="tab" onclick="tab('douyin')">抖音</button>
 </div>
-
 <div id="list"><div class="empty">🔄 加载中...</div></div>
+<div class="tip">📋 要添加/修改监控直播间？找 WorkBuddy 直接改 rooms.json</div>
 </div>
 
 <div class="footer-bar">
@@ -111,71 +61,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 
 <script>
-var rooms = [];
-var status = null;
-var cur = 'all';
-var plat = 'bilibili';
-var timer = null;
-
-function pick(p) { plat = p;
-  document.getElementById('platBili').className = 'plat-btn' + (p==='bilibili'?' active bilibili':'');
-  document.getElementById('platDy').className = 'plat-btn' + (p==='douyin'?' active douyin':'');
-}
-
-function add() {
-  var id = document.getElementById('rid').value.trim();
-  var nm = document.getElementById('rname').value.trim();
-  if (!id) return alert('请输入房间号');
-  if (rooms.some(function(r){ return r.platform===plat && r.id===id })) return alert('已存在');
-  rooms.push({platform:plat, id:id, name:nm||(plat==='bilibili'?'B站'+id:'抖音'+id)});
-  save(); document.getElementById('rid').value=''; document.getElementById('rname').value='';
-  render();
-}
-
-function del(i) { rooms.splice(i,1); save(); render(); }
-
-function save() { try { localStorage.setItem('blv3_rooms', JSON.stringify(rooms)); } catch(e){} }
-function loadr() { try { rooms = JSON.parse(localStorage.getItem('blv3_rooms')||'[]'); } catch(e) { rooms = []; } }
+var rooms = [], status = null, cur = 'all', timer = null;
 
 function tab(t) { cur = t;
-  var tabs = document.querySelectorAll('.tab');
-  for (var i=0; i<tabs.length; i++) {
-    tabs[i].className = 'tab' + (tabs[i].textContent.includes(t==='all'?'全部':t==='bilibili'?'B站':'抖音')?' active':'');
-  }
+  document.querySelectorAll('.tab').forEach(function(el,i){
+    var names = ['全部','B站','抖音'];
+    el.className = 'tab' + (el.textContent.trim()===names[i] && (t==='all'||el.textContent.includes(names[i==0?0:i]))?' active':'');
+  });
+  if (t==='all') document.querySelectorAll('.tab')[0].className = 'tab active';
+  else if (t==='bilibili') document.querySelectorAll('.tab')[1].className = 'tab active';
+  else document.querySelectorAll('.tab')[2].className = 'tab active';
   render();
 }
 
 function auto() {
-  if (timer) { clearInterval(timer); timer = null; document.getElementById('abtn').textContent = '▶ 自动'; document.getElementById('abtn').className = 'btn btn-s'; return; }
-  var s = parseInt(prompt('刷新间隔(秒)','120')) || 120;
+  if (timer) { clearInterval(timer); timer=null; document.getElementById('abtn').textContent='▶ 自动'; document.getElementById('abtn').className='btn btn-s'; return; }
+  var s = parseInt(prompt('刷新间隔(秒)','120'))||120;
   if (s<30) return alert('最少30秒');
-  timer = setInterval(load, s*1000);
-  document.getElementById('abtn').textContent = '⏸ 停止'; document.getElementById('abtn').className = 'btn btn-g';
+  timer = setInterval(load,s*1000);
+  document.getElementById('abtn').textContent='⏸ 停止'; document.getElementById('abtn').className='btn btn-g';
   load();
 }
 
 function render() {
-  document.getElementById('cnt').textContent = rooms.length;
-  // config list
-  var h = '';
-  for (var i=0; i<rooms.length; i++) {
-    var r = rooms[i];
-    h += '<div class="room-config-item"><span class="'+(r.platform==='bilibili'?'rc-bili':'rc-dy')+'">'+(r.platform==='bilibili'?'B站':'抖音')+'</span><div class="rc-info"><div class="rc-name">'+esc(r.name)+'</div><div class="rc-id">ID: '+esc(r.id)+'</div></div><button class="rc-del" onclick="del('+i+')">✕</button></div>';
+  if (!rooms.length) {
+    document.getElementById('list').innerHTML = '<div class="empty">📭 暂无监控房间</div>';
+    return;
   }
-  document.getElementById('clist').innerHTML = h || '<div style="text-align:center;padding:10px;color:var(--text2);font-size:12px">暂无房间</div>';
   
-  // room cards
   var rs = rooms.slice();
   if (cur==='bilibili') rs = rs.filter(function(r){ return r.platform==='bilibili' });
   else if (cur==='douyin') rs = rs.filter(function(r){ return r.platform==='douyin' });
   
-  if (rs.length===0) {
-    document.getElementById('list').innerHTML = '<div class="empty">📭 该平台暂无房间</div>';
-    return;
-  }
+  if (!rs.length) { document.getElementById('list').innerHTML = '<div class="empty">📭 该平台暂无房间</div>'; return; }
   
-  var up = status && status.updated ? status.updated : '等待数据...';
-  h = '<div style="text-align:center;font-size:10px;color:var(--text2);margin-bottom:6px">更新: '+up+'</div>';
+  var up = (status && status.updated) || '等待数据...';
+  var h = '<div style="text-align:center;font-size:10px;color:var(--text2);margin-bottom:6px">更新: '+up+'</div>';
   
   for (var i=0; i<rs.length; i++) {
     var r = rs[i];
@@ -187,73 +108,54 @@ function render() {
         }
       }
     }
-    
     var cls = s ? s.status : 'offline';
-    var bcls = s ? ({live:'badge-live',replay:'badge-replay',offline:'badge-offline'}[s.status]||'badge-offline') : 'badge-offline';
-    var btxt = s ? ({live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播'}[s.status]||s.status) : '⏳ 等待同步';
+    var bcls = s ? ({live:'badge-live',replay:'badge-replay',offline:'badge-offline'})[s.status]||'badge-offline' : 'badge-offline';
+    var btxt = s ? ({live:'🔴 直播中',replay:'▶️ 回放中',offline:'⚫ 未开播'})[s.status]||s.status : '⏳ 等待数据';
     var pl = r.platform==='bilibili'?'B站':'抖音';
     var url = r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:'https://live.douyin.com/'+r.id;
-    var ext = '';
-    if (s && s.title) ext += '标题: '+esc(s.title);
-    if (s && s.area) ext += (ext?' | ':'') + s.area;
-    if (s && s.online) ext += (ext?' | ':'') + '人气: '+s.online;
-    var sync = '';
-    if (!s) sync = '<div style="font-size:11px;color:var(--yellow);margin-top:6px">⚠ 需<a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank" style="color:var(--yellow)">同步到GitHub</a>才能自动监控</div>';
+    var ext = [];
+    if (s&&s.title) ext.push('标题: '+esc(s.title));
+    if (s&&s.area) ext.push(s.area);
+    if (s&&s.online) ext.push('人气: '+s.online);
     
     h += '<div class="room-card '+cls+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
-        '<span class="name" style="flex:1">'+esc(r.name)+'</span>'+
+        '<span style="font-size:15px;font-weight:700">'+esc(r.name)+'</span>'+
         '<span class="platform-tag '+(r.platform==='bilibili'?'tag-bili':'tag-dy')+'">'+pl+'</span>'+
       '</div>'+
       '<span class="badge '+bcls+'">'+btxt+'</span>'+
-      (ext ? '<div class="info">'+ext+'</div>' : '')+
-      sync+
-      (s && s.status==='live' ? '<a class="btn-sm btn-live" href="'+url+'" target="_blank">👉 进入直播间</a>' : '')+
+      (ext.length?'<div class="info">'+ext.join(' | ')+'</div>':'')+
+      (s&&s.status==='live'?'<a class="btn-sm btn-live" href="'+url+'" target="_blank">👉 进入直播间</a>':'')+
     '</div>';
   }
-  
   document.getElementById('list').innerHTML = h;
 }
 
 function load() {
   document.querySelector('.footer-bar .btn-p').innerHTML = '<span class="spinner"></span>';
   
-  fetch('status.json', {signal: AbortSignal.timeout(8000)})
-    .then(function(r) { if (!r.ok) throw new Error('status fail'); return r.json(); })
-    .then(function(d) { status = d; })
-    .catch(function() {})
-    .then(function() {
-      return fetch('rooms.json', {signal: AbortSignal.timeout(8000)});
-    })
-    .then(function(r) { if (!r.ok) throw new Error('rooms fail'); return r.json(); })
-    .then(function(d) {
-      // merge repo rooms
-      for (var i=0; i<d.length; i++) {
-        if (!rooms.some(function(r){ return r.platform===d[i].platform && r.id===d[i].id })) {
-          rooms.push(d[i]);
-        }
-      }
-      save();
-    })
-    .catch(function() {})
-    .then(function() {
+  fetch('status.json',{signal:AbortSignal.timeout(8000)})
+    .then(function(r){ if(r.ok) return r.json(); throw new Error('fail'); })
+    .then(function(d){ status = d; })
+    .catch(function(){})
+    .then(function(){ return fetch('rooms.json',{signal:AbortSignal.timeout(8000)}); })
+    .then(function(r){ if(r.ok) return r.json(); throw new Error('fail'); })
+    .then(function(d){ rooms = d; })
+    .catch(function(){})
+    .then(function(){
       var now = new Date();
       document.getElementById('time').textContent = now.toLocaleTimeString('zh-CN');
-      var live = status && status.rooms ? status.rooms.some(function(r){ return r.status==='live' }) : false;
-      document.getElementById('dot').innerHTML = live ? '<span class="dot dot-live"></span>有直播' : '<span class="dot dot-ok"></span>已更新';
+      var live = status&&status.rooms?status.rooms.some(function(r){return r.status==='live'}):false;
+      document.getElementById('dot').innerHTML = live?'<span class="dot dot-live"></span>有直播':'<span class="dot dot-ok"></span>已更新';
       render();
       document.querySelector('.footer-bar .btn-p').innerHTML = '🔍 刷新';
     });
 }
 
-function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-document.addEventListener('DOMContentLoaded', function() {
-  loadr();
-  render();
-  load();
-});
-window.addEventListener('beforeunload', function() { if (timer) clearInterval(timer); });
+document.addEventListener('DOMContentLoaded',load);
+window.addEventListener('beforeunload',function(){ if(timer) clearInterval(timer); });
 </script>
 </body>
 </html>
