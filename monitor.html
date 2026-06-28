@@ -87,14 +87,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       <input id="rid" placeholder="房间号" style="flex:1;margin-bottom:0" inputmode="numeric">
       <input id="rname" placeholder="昵称(选填)" style="flex:2;margin-bottom:0">
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="btn btn-p" onclick="add()">➕ 添加</button>
-      <button class="btn btn-s" onclick="preset()">📋 快速预设</button>
-    </div>
+    <button class="btn btn-p" onclick="add()" style="width:100%;margin-bottom:10px">➕ 添加</button>
     <div>已监控: <b id="cnt">0</b> 个房间</div>
     <div id="clist" style="margin-top:6px"></div>
     <div class="tip">
-      ⚡ 网页添加的房间通过代理临时查看。要永久监控+微信推送，<a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">编辑 rooms.json →</a>
+      ⚡ 网页添加的房间仅本地显示。要启用后台自动监控+微信推送，修改 <a href="https://github.com/racheko-lab/blive-monitor/edit/master/rooms.json" target="_blank">rooms.json →</a>
     </div>
   </div>
 </details>
@@ -136,21 +133,6 @@ function add() {
 }
 
 function del(i) { rooms.splice(i,1); save(); render(); }
-
-function preset() {
-  var d = [
-    {platform:'bilibili',id:'1874913653',name:'峰哥亡命天涯'},
-    {platform:'douyin',id:'wsyzxz6688',name:'小猪装机'},
-    {platform:'bilibili',id:'7734200',name:'LPL赛事官方'}
-  ];
-  var a = 0;
-  for (var i=0; i<d.length; i++) {
-    if (!rooms.some(function(r){ return r.platform===d[i].platform && r.id===d[i].id })) {
-      rooms.push(d[i]); a++;
-    }
-  }
-  if (a) { save(); render(); }
-}
 
 function save() { try { localStorage.setItem('blv3_rooms', JSON.stringify(rooms)); } catch(e){} }
 function loadr() { try { rooms = JSON.parse(localStorage.getItem('blv3_rooms')||'[]'); } catch(e) { rooms = []; } }
@@ -268,7 +250,6 @@ function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 document.addEventListener('DOMContentLoaded', function() {
   loadr();
-  if (!rooms.length) preset();
   render();
   load();
 });
