@@ -59,11 +59,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 
 <div class="footer">
   <button class="btn-p" onclick="ld()">🔍 刷新</button>
-  <button class="btn-s" onclick="au()" id="abtn">▶ 自动</button>
 </div>
 
 <script>
-var stat=null, rooms=[], hist=[], fl='all', tm=null;
+var stat=null, rooms=[], hist=[], fl='all';
 
 function fil(f){ fl=f;
   var ts=document.querySelectorAll('.tab');
@@ -71,15 +70,6 @@ function fil(f){ fl=f;
   ts[1].className='tab'+(f==='bilibili'?' active':'');
   ts[2].className='tab'+(f==='douyin'?' active':'');
   ren();
-}
-
-function au(){
-  if(tm){clearInterval(tm);tm=null;document.getElementById('abtn').textContent='▶ 自动';document.getElementById('abtn').className='btn btn-s';return;}
-  var s=parseInt(prompt('刷新间隔(秒)','120'))||120;
-  if(s<30)return alert('最少30秒');
-  tm=setInterval(ld,s*1000);
-  document.getElementById('abtn').textContent='⏸ 停止';document.getElementById('abtn').className='btn btn-g';
-  ld();
 }
 
 function ren(){
@@ -167,7 +157,6 @@ function ld(){
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 document.addEventListener('DOMContentLoaded',ld);
-window.addEventListener('beforeunload',function(){if(tm)clearInterval(tm);});
 </script>
 </body>
 </html>
