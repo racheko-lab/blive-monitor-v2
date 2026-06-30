@@ -1,16 +1,6 @@
 /**
  * B站/抖音直播监控 - Cloudflare Worker
- * 
- * 部署步骤:
- * 1. 打开 https://dash.cloudflare.com → Workers & Pages → 创建 Worker
- * 2. 起名 blive-monitor → 部署
- * 3. 把这个文件内容粘贴进去 → 部署
- * 4. Settings → Variables → 添加:
- *    - GH_TOKEN: ghp_你的GitHub token
- *    - SENDKEY: SCT你的Server酱密钥
- * 5. Settings → Triggers → Cron Triggers → 添加: */10 * * * *
- * 6. 保存
- * 
+ * Cron Triggers: 每10分钟 (0/10 * * * *)
  * 仓库 rooms.json 管理监控列表，Worker 自动读取
  * 状态写入仓库的 status.json / state.json / history.json
  */
