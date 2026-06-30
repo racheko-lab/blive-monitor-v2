@@ -29,9 +29,14 @@ jobs:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: python3 check_status.py
 
+      - name: Check new posts
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: python3 check_new_posts.py
+
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json status.json history.json tracking.json
+          git add state.json status.json history.json tracking.json post_tracking.json
           git commit -m "📡 Update live status [skip ci]" && git push || echo "No changes to push"
