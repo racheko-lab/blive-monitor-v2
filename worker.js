@@ -241,7 +241,7 @@ async function ghPutFile(token, path, content) {
 
   // 写入新内容
   const jsonStr = JSON.stringify(content, null, 2);
-  const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+  const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(jsonStr)));
   
   const body = {
     message: `📡 Update ${path}`,
