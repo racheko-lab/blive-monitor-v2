@@ -216,6 +216,19 @@ async function sendWechat(sendkey, title, desp) {
 }
 
 // ============ GitHub 文件操作 ============
+function toBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function fromBase64(b64) {
+  const bin = atob(b64.replace(/\n/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
 async function ghGetFile(token, path) {
   const resp = await fetch(
     `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}?ref=${GH_BRANCH}`,
@@ -223,25 +236,21 @@ async function ghGetFile(token, path) {
   );
   if (!resp.ok) return null;
   const data = await resp.json();
-  const content = atob(data.content.replace(/\n/g, ""));
-  return JSON.parse(content);
+  return JSON.parse(fromBase64(data.content));
 }
 
 async function ghPutFile(token, path, content) {
-  // 先获取当前文件的 sha
+  // 获取当前 sha
   const resp = await fetch(
     `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}?ref=${GH_BRANCH}`,
     { headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" } }
   );
   let sha = null;
-  if (resp.ok) {
-    const data = await resp.json();
-    sha = data.sha;
-  }
+  if (resp.ok) { const d = await resp.json(); sha = d.sha; }
 
-  // 写入新内容
+  // 写入
   const jsonStr = JSON.stringify(content, null, 2);
-  const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(jsonStr)));
+  const encoded = toBase64(new TextEncoder().encode(jsonStr));
   
   const body = {
     message: `📡 Update ${path}`,
