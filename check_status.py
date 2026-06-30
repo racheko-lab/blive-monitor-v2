@@ -94,9 +94,9 @@ def fetch_douyin(web_rid):
             nickname = val
             break
 
-    # 提取 sec_uid（HTML 中为 \\\\"sec_uid\\\\":\\\\"...\\\\"）
+    # 提取 sec_uid
     sec_uid = ""
-    sec_match = re.search(r'\\\\"sec_uid\\\\":\\\\"([^"\\\\]+)\\\\"', html)
+    sec_match = re.search(r'\\"sec_uid\\":\\"([^"\\]+)\\"', html)
     if sec_match:
         sec_uid = sec_match.group(1)
 
