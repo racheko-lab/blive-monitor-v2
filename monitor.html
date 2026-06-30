@@ -51,7 +51,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 <div id="list"><div class="empty">🔄 加载中...</div></div>
 
-<div id="postAlerts" style="margin-top:8px"></div>
+<!-- 27作品模块 -->
+<div id="post27" style="background:var(--card);border-radius:14px;padding:14px;margin-top:12px;display:none">
+  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">🎬 27 最新作品</div>
+  <div id="post27Content" style="font-size:12px;color:var(--text2)">
+    <span class="spinner"></span>检测中...
+  </div>
+</div>
 
 <details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
   <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);list-style:none">📋 监控日志 <span id="logcnt" style="font-size:11px">(0)</span></summary>
@@ -151,7 +157,7 @@ function ld(){
     document.getElementById('sdot').innerHTML='<span class="dot '+dotCls+'"></span>'+dotTxt;
     ren();
     renlog(hist);
-    checkNewPosts();
+    fetch27Posts();
     bt.textContent='🔍 刷新';
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot d-err"></span>加载失败';
@@ -160,30 +166,57 @@ function ld(){
   });
 }
 
-// 客户端抖音新作品检测（手机浏览器在中国可正常访问）
-function checkNewPosts(){
+// 27作品检测（客户端，中国网络）
+function fetch27Posts(){
   if(!stat||!stat.rooms)return;
-  var douyinRooms=stat.rooms.filter(function(r){return r.platform==='douyin'&&r.sec_uid});
-  if(!douyinRooms.length)return;
-  douyinRooms.forEach(function(r){
-    var url='https://aweme.snssdk.com/aweme/v1/aweme/post/?sec_user_id='+encodeURIComponent(r.sec_uid)+'&count=2';
-    fetch(url,{signal:AbortSignal.timeout(6000)})
-      .then(function(resp){return resp.ok?resp.json():null})
-      .then(function(d){
-        if(!d||!d.aweme_list||!d.aweme_list.length)return;
-        var latest=d.aweme_list[0];
-        var key='post_'+r.id;
-        var prev=localStorage.getItem(key);
-        if(prev&&prev!==String(latest.aweme_id)){
-          // 新作品！
-          var desc=latest.desc||'[无描述]';
-          var alert=document.getElementById('postAlerts');
-          alert.innerHTML='<div style="background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;border-left:3px solid var(--yellow)"><div style="font-size:13px;font-weight:600">🆕 '+esc(r.name)+' 发布新作品</div><div style="font-size:11px;color:var(--text2);margin:4px 0">'+esc(desc.substring(0,60))+'</div><a href="https://www.douyin.com/video/'+latest.aweme_id+'" target="_blank" style="font-size:11px;color:var(--accent)">👉 查看作品</a></div>'+alert.innerHTML;
-        }
-        localStorage.setItem(key,String(latest.aweme_id));
-      })
-      .catch(function(){});
-  });
+  var r27=stat.rooms.find(function(r){return r.id==='83134194400'});
+  if(!r27||!r27.sec_uid){document.getElementById('post27').style.display='none';return;}
+
+  var sec=r27.sec_uid;
+  var card=document.getElementById('post27');
+  card.style.display='block';
+  
+  var cached=localStorage.getItem('post27_list');
+  if(cached){try{render27Posts(JSON.parse(cached));}catch(e){}}
+  else{document.getElementById('post27Content').innerHTML='<span class=\"spinner\"></span>检测中...';}
+
+  var url='https://aweme.snssdk.com/aweme/v1/aweme/post/?sec_user_id='+encodeURIComponent(sec)+'&count=3';
+  fetch(url,{signal:AbortSignal.timeout(8000)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(!d||!d.aweme_list||!d.aweme_list.length){if(!cached)document.getElementById('post27Content').innerHTML='暂无作品';return;}
+      localStorage.setItem('post27_list',JSON.stringify(d.aweme_list));
+      render27Posts(d.aweme_list);
+      var prev=localStorage.getItem('post27_latest');
+      var latest=String(d.aweme_list[0].aweme_id);
+      if(prev&&prev!==latest)card.style.borderLeft='3px solid var(--yellow)';
+      localStorage.setItem('post27_latest',latest);
+    })
+    .catch(function(e){
+      var proxy='https://api.allorigins.win/raw?url='+encodeURIComponent(url);
+      fetch(proxy,{signal:AbortSignal.timeout(10000)})
+        .then(function(r){return r.json()})
+        .then(function(d){
+          if(!d||!d.aweme_list||!d.aweme_list.length){if(!cached)document.getElementById('post27Content').innerHTML='暂无作品（代理）';return;}
+          localStorage.setItem('post27_list',JSON.stringify(d.aweme_list));
+          render27Posts(d.aweme_list);
+        })
+        .catch(function(){if(!cached)document.getElementById('post27Content').innerHTML='⚠ 获取失败';});
+    });
+}
+
+function render27Posts(posts){
+  var h='';
+  for(var i=0;i<Math.min(posts.length,3);i++){
+    var p=posts[i];
+    var desc=p.desc||'[无描述]';
+    var t='';try{var dt=new Date(p.create_time*1000);t=dt.toLocaleDateString('zh-CN')+' '+dt.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});}catch(e){}
+    h+='<div style=\"padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)\">'+
+      '<a href=\"https://www.douyin.com/video/'+p.aweme_id+'\" target=\"_blank\" style=\"color:var(--text);text-decoration:none;font-weight:600\">📹 '+e((desc||'[无描述]').substring(0,50))+((desc||'').length>50?'...':'')+'</a>'+
+      (t?'<div style=\"font-size:10px;color:var(--text2);margin-top:2px\">'+t+'</div>':'')+
+    '</div>';
+  }
+  document.getElementById('post27Content').innerHTML=h||'暂无作品';
 }
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
