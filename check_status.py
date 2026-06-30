@@ -252,6 +252,7 @@ def main():
             "online": result.get("online", 0),
             "area": result.get("area", ""),
             "time": result.get("time", ""),
+            "sec_uid": result.get("sec_uid", ""),
         })
 
         # 开播追踪：记录开播开始时间、上次开播、直播时长

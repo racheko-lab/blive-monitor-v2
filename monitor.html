@@ -51,6 +51,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 <div id="list"><div class="empty">🔄 加载中...</div></div>
 
+<div id="postAlerts" style="margin-top:8px"></div>
+
 <details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
   <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);list-style:none">📋 监控日志 <span id="logcnt" style="font-size:11px">(0)</span></summary>
   <div id="logbox" style="max-height:350px;overflow-y:auto;margin-top:8px;font-size:11px;font-family:monospace;line-height:1.8"></div>
@@ -149,11 +151,38 @@ function ld(){
     document.getElementById('sdot').innerHTML='<span class="dot '+dotCls+'"></span>'+dotTxt;
     ren();
     renlog(hist);
+    checkNewPosts();
     bt.textContent='🔍 刷新';
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot d-err"></span>加载失败';
     bt.textContent='🔍 刷新';
     if(!rooms.length)document.getElementById('list').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
+  });
+}
+
+// 客户端抖音新作品检测（手机浏览器在中国可正常访问）
+function checkNewPosts(){
+  if(!stat||!stat.rooms)return;
+  var douyinRooms=stat.rooms.filter(function(r){return r.platform==='douyin'&&r.sec_uid});
+  if(!douyinRooms.length)return;
+  douyinRooms.forEach(function(r){
+    var url='https://aweme.snssdk.com/aweme/v1/aweme/post/?sec_user_id='+encodeURIComponent(r.sec_uid)+'&count=2';
+    fetch(url,{signal:AbortSignal.timeout(6000)})
+      .then(function(resp){return resp.ok?resp.json():null})
+      .then(function(d){
+        if(!d||!d.aweme_list||!d.aweme_list.length)return;
+        var latest=d.aweme_list[0];
+        var key='post_'+r.id;
+        var prev=localStorage.getItem(key);
+        if(prev&&prev!==String(latest.aweme_id)){
+          // 新作品！
+          var desc=latest.desc||'[无描述]';
+          var alert=document.getElementById('postAlerts');
+          alert.innerHTML='<div style="background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;border-left:3px solid var(--yellow)"><div style="font-size:13px;font-weight:600">🆕 '+esc(r.name)+' 发布新作品</div><div style="font-size:11px;color:var(--text2);margin:4px 0">'+esc(desc.substring(0,60))+'</div><a href="https://www.douyin.com/video/'+latest.aweme_id+'" target="_blank" style="font-size:11px;color:var(--accent)">👉 查看作品</a></div>'+alert.innerHTML;
+        }
+        localStorage.setItem(key,String(latest.aweme_id));
+      })
+      .catch(function(){});
   });
 }
 
