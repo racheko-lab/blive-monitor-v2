@@ -96,9 +96,13 @@ def fetch_douyin(web_rid):
 
     # 提取 sec_uid
     sec_uid = ""
-    sec_match = re.search(r'\\"sec_uid\\":\\"([^"\\]+)\\"', html)
-    if sec_match:
-        sec_uid = sec_match.group(1)
+    idx = html.find('sec_uid')
+    if idx >= 0:
+        start = html.find('\\"', idx + 10)
+        if start >= 0:
+            end = html.find('\\"', start + 2)
+            if end >= 0 and end - start < 200:
+                sec_uid = html[start+2:end]
 
     web_rid_match = re.search(r'\\"web_rid\\":\\"([^"\\]+)\\"', html)
     actual_web_rid = web_rid_match.group(1) if web_rid_match else web_rid
