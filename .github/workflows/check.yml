@@ -9,20 +9,36 @@ on:
       - rooms.json
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # 恢复上次状态（跨 run 持久化，不存 Git）
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: _state/
+          key: live-state-v2
+
+      - name: Load cached state
+        run: |
+          mkdir -p _state
+          if [ -f _state/state.json ]; then cp _state/state.json .; fi
+          if [ -f _state/tracking.json ]; then cp _state/tracking.json .; fi
+          if [ -f _state/history.json ]; then cp _state/history.json .; fi
 
       - name: Run check
         env:
@@ -32,12 +48,44 @@ jobs:
       - name: Check new posts (disabled by default)
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
-          # ENABLE_POST_CHECK: "true"  ← 取消注释即可启用
+          # ENABLE_POST_CHECK: "true"
         run: python3 check_new_posts.py
 
-      - name: Commit changes
+      # 保存状态到 cache
+      - name: Save state
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json status.json history.json tracking.json post_tracking.json
-          git commit -m "📡 Update live status [skip ci]" && git push || echo "No changes to push"
+          cp state.json _state/
+          cp tracking.json _state/
+          cp history.json _state/
+
+      - uses: actions/cache/save@v4
+        with:
+          path: _state/
+          key: live-state-v2
+
+      # 构建 Pages 目录（同域名部署，零 Git commit）
+      - name: Build Pages
+        run: |
+          mkdir -p _site
+          cp monitor.html _site/
+          cp index.html _site/ 2>/dev/null || true
+          cp rooms.json _site/
+          cp status.json _site/
+          cp history.json _site/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
