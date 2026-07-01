@@ -29,9 +29,10 @@ jobs:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: python3 check_status.py
 
-      - name: Check new posts
+      - name: Check new posts (disabled by default)
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          # ENABLE_POST_CHECK: "true"  ← 取消注释即可启用
         run: python3 check_new_posts.py
 
       - name: Commit changes

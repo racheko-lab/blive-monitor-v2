@@ -52,7 +52,10 @@ def send_wechat_push(sendkey, title, desp):
     return result.get("code") == 0 or result.get("errno") == 0
 
 def main():
-    sendkey = ""
+    # 通过环境变量控制是否启用
+    if os.environ.get("ENABLE_POST_CHECK", "").lower() != "true":
+        print("Post check disabled (set ENABLE_POST_CHECK=true to enable)")
+        return
     raw = os.environ.get("BLIVE_CONFIG", "{}")
     try:
         cfg = json.loads(raw)
