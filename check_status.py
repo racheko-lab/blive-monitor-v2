@@ -48,25 +48,20 @@ def fetch_with_retry(url, headers=None, retries=2, timeout=10):
     raise last_err
 
 
-def fetch_bilibili(room_id):
-    """B站直播间检测 - 官方 API"""
-    url = f"https://api.live.bilibili.com/room/v1/Room/get_info?room_id={room_id}"
+def fetch_bilibili_batch(room_ids):
+    """B站直播间批量检测 - getRoomBaseInfo 接口，一次查所有房间"""
+    params = [("req_biz", "web_room_componet")]
+    for rid in room_ids:
+        params.append(("room_ids", rid))
+    url = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?" + urllib.parse.urlencode(params)
     raw = fetch_with_retry(url, headers={
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         "Referer": "https://live.bilibili.com/",
     })
     data = json.loads(raw)
-    if data["code"] != 0:
-        raise Exception(f"B站API错误: code={data['code']}")
-    d = data["data"]
-    status = {0: "offline", 1: "live", 2: "replay"}.get(d["live_status"], "unknown")
-    return {
-        "status": status,
-        "title": d.get("title", ""),
-        "online": d.get("online", 0),
-        "area": f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·") or "",
-        "time": bjnow().strftime("%Y-%m-%d %H:%M:%S"),
-    }
+    if data.get("code") != 0:
+        raise Exception(f"B站批量接口错误: {data}")
+    return data["data"]["by_room_ids"]  # {room_id_str: {live_status, title, uname, online, ...}}
 
 
 def fetch_douyin(web_rid):
@@ -223,17 +218,39 @@ def main():
 
     print(f"[{now:%H:%M:%S}] Checking {len(rooms)} rooms...")
 
-    for room in rooms:
+    # Step 1: 批量查询所有 B站房间
+    bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
+    bili_data = {}
+    if bili_rooms:
+        try:
+            bili_ids = [r["id"] for r, _ in bili_rooms]
+            bili_data = fetch_bilibili_batch(bili_ids)
+        except Exception as e:
+            print(f"  B站批量查询失败: {e}")
+
+    # Step 2: 逐个检测所有房间（B站取批量数据，抖音逐个抓）
+    results = []  # 存每个房间的检测结果
+    newly_live = []  # 用于合并推送
+
+    for idx, room in enumerate(rooms):
         platform = room.get("platform", "bilibili")
         rid = room.get("id", "")
         name = room.get("name", f"{platform}-{rid}")
         key = f"{platform}_{rid}"
-
-        push_result = None  # 记录推送结果
+        push_result = None
 
         try:
             if platform == "bilibili":
-                result = fetch_bilibili(rid)
+                d = bili_data.get(str(rid))
+                if not d:
+                    raise Exception(f"批量接口未返回房间 {rid} 的数据")
+                status_code = d.get("live_status", 0)
+                result = {
+                    "status": {0: "offline", 1: "live", 2: "replay"}.get(status_code, "unknown"),
+                    "title": d.get("title", ""),
+                    "online": d.get("online", 0),
+                    "area": f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·") or "",
+                }
             else:
                 result = fetch_douyin(rid)
         except Exception as e:
@@ -241,7 +258,6 @@ def main():
             result = {"status": "error", "title": str(e), "online": 0, "area": "", "time": now_str}
             push_result = "error"
 
-        # 用抖音返回的真实昵称更新名称
         display_name = name
         if platform == "douyin" and result.get("nickname") and result["nickname"] != name:
             display_name = result["nickname"]
@@ -255,11 +271,11 @@ def main():
             "title": result.get("title", ""),
             "online": result.get("online", 0),
             "area": result.get("area", ""),
-            "time": result.get("time", ""),
+            "time": result.get("time", now_str),
             "sec_uid": result.get("sec_uid", ""),
         })
 
-        # 开播追踪：记录开播开始时间、上次开播、直播时长
+        # 开播追踪
         t = tracking.get(key, {})
         last_live = t.get("last_live", "")
         live_start_str = t.get("live_start", "")
@@ -267,10 +283,8 @@ def main():
 
         if result["status"] == "live":
             if not live_start_str:
-                # 刚开播，记录开始时间
                 live_start_str = now_str
             else:
-                # 持续直播中，计算时长
                 try:
                     start_dt = datetime.strptime(live_start_str, "%Y-%m-%d %H:%M:%S")
                     secs = int((now - start_dt).total_seconds())
@@ -280,7 +294,6 @@ def main():
                 except:
                     pass
         elif live_start_str:
-            # 下播了，计算本次时长
             try:
                 start_dt = datetime.strptime(live_start_str, "%Y-%m-%d %H:%M:%S")
                 secs = int((now - start_dt).total_seconds())
@@ -296,46 +309,23 @@ def main():
         t["live_start"] = live_start_str
         if live_duration:
             t["live_duration"] = live_duration
-        # 保存 sec_uid（供新作品检测复用）
         if platform == "douyin" and result.get("sec_uid"):
             t["sec_uid"] = result["sec_uid"]
         tracking[key] = t
 
-        # 追加到 status 数据
         status_list[-1]["last_live"] = last_live
         status_list[-1]["live_duration"] = live_duration
 
-        # 状态变化 → 推送
+        # 状态变化检测
         prev_status = prev_state.get(key)
         changed = (prev_status is not None and prev_status != result["status"])
 
         if changed and should_push(prev_status, result["status"]):
-            push_title = format_push_title(display_name, result)
-            push_desp = format_push_desp(display_name, platform, rid, result)
-            print(f"    → Pushing notification...")
-            try:
-                if sendkey:
-                    ok = send_wechat_push(sendkey, push_title, push_desp)
-                    push_result = "pushed_ok" if ok else "pushed_fail"
-                    print(f"    → Push {'OK' if ok else 'FAILED'}")
-                else:
-                    push_result = "no_sendkey"
-                    print(f"    → No sendkey, skip")
-            except Exception as e:
-                push_result = "push_error"
-                print(f"    → Push error: {e}")
+            newly_live.append({"name": display_name, "platform": platform, "rid": rid, "result": result})
+            push_result = "queued"  # 待合并推送
         elif prev_status is None and result["status"] == "live":
-            push_title = format_push_title(display_name, result)
-            push_desp = format_push_desp(display_name, platform, rid, result)
-            print(f"    → First detection LIVE, pushing...")
-            try:
-                if sendkey:
-                    ok = send_wechat_push(sendkey, push_title, push_desp)
-                    push_result = "first_live_ok" if ok else "first_live_fail"
-                else:
-                    push_result = "no_sendkey"
-            except Exception as e:
-                push_result = "push_error"
+            newly_live.append({"name": display_name, "platform": platform, "rid": rid, "result": result})
+            push_result = "queued"
 
         # 记录日志
         log_entries.append({
@@ -348,6 +338,39 @@ def main():
             "prev": prev_status if changed else None,
             "push": push_result,
         })
+
+    # Step 3: 合并推送
+    if newly_live and sendkey:
+        try:
+            if len(newly_live) == 1:
+                s = newly_live[0]
+                title = format_push_title(s["name"], s["result"])
+                desp = format_push_desp(s["name"], s["platform"], s["rid"], s["result"])
+            else:
+                names = "、".join(s["name"] for s in newly_live)
+                title = f"🔴 {len(newly_live)}位主播开播：{names}"
+                desp_lines = []
+                for s in newly_live:
+                    desp_lines.append(format_push_desp(s["name"], s["platform"], s["rid"], s["result"]))
+                desp = "\n\n---\n\n".join(desp_lines)
+            
+            ok = send_wechat_push(sendkey, title, desp)
+            push_tag = "pushed_ok" if ok else "pushed_fail"
+            print(f"  → Push {'OK' if ok else 'FAILED'}: {title}")
+            # 更新日志里的推送标记
+            for le in log_entries:
+                if le["push"] == "queued":
+                    le["push"] = push_tag
+        except Exception as e:
+            print(f"  → Push error: {e}")
+            for le in log_entries:
+                if le["push"] == "queued":
+                    le["push"] = "push_error"
+    elif newly_live:
+        print(f"  → {len(newly_live)} rooms changed but no SendKey configured")
+        for le in log_entries:
+            if le["push"] == "queued":
+                le["push"] = "no_sendkey"
 
     # 保存状态
     with open(STATE_FILE, "w") as f:
