@@ -1,0 +1,5 @@
+# blive-monitor 依赖
+# 本项目目前只使用 Python 标准库，无需额外安装依赖
+# 保留此文件以便未来扩展
+
+# Python 版本要求: Python 3.8+

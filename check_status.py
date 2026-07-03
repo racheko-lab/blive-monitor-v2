@@ -1,18 +1,30 @@
 #!/usr/bin/env python3
 """
 B站/抖音直播状态检测（GitHub Actions 用）
-- B站: 官方 API
-- 抖音: 页面 SSR 数据提取（RENDER_DATA + script 内嵌 JSON）
+
+功能说明：
+- B站: 官方 API 批量查询
+- 抖音: 页面 SSR 数据提取（多种策略兜底）
 - 状态变化时通过 Server酱 推送微信通知
-- 更新 status.json / state.json / history.json
+- 更新 status.json / state.json / history.json / tracking.json
 """
-import json, os, re, sys, time, urllib.request, urllib.parse
+
+import json
+import os
+import re
+import time
+import logging
+import urllib.request
+import urllib.parse
 from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional, Tuple, Any
+
+# ==================== 常量配置 ====================
 
 # 北京时间（UTC+8）
-def bjnow():
-    return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=8)
+BEIJING_TZ = timezone(timedelta(hours=8))
 
+# 文件路径
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 STATE_FILE = os.path.join(REPO_DIR, "state.json")
 STATUS_FILE = os.path.join(REPO_DIR, "status.json")
@@ -20,260 +32,613 @@ HISTORY_FILE = os.path.join(REPO_DIR, "history.json")
 TRACKING_FILE = os.path.join(REPO_DIR, "tracking.json")
 ROOMS_FILE = os.path.join(REPO_DIR, "rooms.json")
 
+# 历史日志保留条数
+HISTORY_MAX_ENTRIES = 200
 
-def load_config():
-    rooms = []
+# HTTP 请求默认配置
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
+DEFAULT_TIMEOUT = 10
+DEFAULT_RETRIES = 2
+
+# 抖音状态码
+DOUYIN_STATUS_LIVE = 2
+DOUYIN_STATUS_OFFLINE = 4
+
+# B站状态码映射
+BILIBILI_STATUS_MAP = {
+    0: "offline",
+    1: "live",
+    2: "replay",
+}
+
+# ==================== 日志配置 ====================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+
+# ==================== 工具函数 ====================
+
+def bjnow() -> datetime:
+    """获取当前北京时间"""
+    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
+
+
+def load_json_file(filepath: str, default: Any = None) -> Any:
+    """安全加载 JSON 文件"""
+    if default is None:
+        default = {}
+    if not os.path.exists(filepath):
+        return default
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning("加载 %s 失败: %s", filepath, e)
+        return default
+
+
+def save_json_file(filepath: str, data: Any) -> None:
+    """安全保存 JSON 文件"""
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except IOError as e:
+        logger.error("保存 %s 失败: %s", filepath, e)
+
+
+# ==================== 配置加载 ====================
+
+def load_config() -> Dict[str, Any]:
+    """加载配置（rooms.json + 环境变量 BLIVE_CONFIG）"""
+    # 从 rooms.json 加载房间列表
+    rooms: List[Dict[str, str]] = []
     if os.path.exists(ROOMS_FILE):
-        with open(ROOMS_FILE) as f:
-            rooms = json.load(f)
-    raw = os.environ.get("BLIVE_CONFIG", "{}")
-    cfg = json.loads(raw)
-    return {"sendkey": cfg.get("sendkey", ""), "rooms": rooms}
+        try:
+            with open(ROOMS_FILE, "r", encoding="utf-8") as f:
+                rooms = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error("加载 rooms.json 失败: %s", e)
+
+    # 从环境变量加载配置
+    raw_config = os.environ.get("BLIVE_CONFIG", "{}")
+    try:
+        cfg = json.loads(raw_config)
+    except json.JSONDecodeError as e:
+        logger.error("解析 BLIVE_CONFIG 失败: %s", e)
+        cfg = {}
+
+    return {
+        "sendkey": cfg.get("sendkey", ""),
+        "rooms": rooms,
+    }
 
 
-def fetch_with_retry(url, headers=None, retries=2, timeout=10):
-    """带重试的 HTTP 请求"""
-    last_err = None
+# ==================== HTTP 请求 ====================
+
+def fetch_with_retry(
+    url: str,
+    headers: Optional[Dict[str, str]] = None,
+    retries: int = DEFAULT_RETRIES,
+    timeout: int = DEFAULT_TIMEOUT,
+) -> bytes:
+    """带重试的 HTTP 请求
+
+    Args:
+        url: 请求 URL
+        headers: 请求头
+        retries: 重试次数
+        timeout: 超时时间（秒）
+
+    Returns:
+        响应内容 bytes
+
+    Raises:
+        Exception: 所有重试都失败时抛出最后一次异常
+    """
+    last_err: Optional[Exception] = None
+    base_headers = {"User-Agent": DEFAULT_USER_AGENT}
+    if headers:
+        base_headers.update(headers)
+
     for i in range(retries + 1):
         try:
-            req = urllib.request.Request(url, headers=headers or {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            })
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.read()
+            req = urllib.request.Request(url, headers=base_headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
         except Exception as e:
             last_err = e
             if i < retries:
+                logger.debug("请求失败，%d秒后重试 (%d/%d): %s", 1, i + 1, retries, e)
                 time.sleep(1)
+
+    assert last_err is not None
     raise last_err
 
 
-def fetch_bilibili_batch(room_ids):
-    """B站直播间批量检测 - getRoomBaseInfo 接口，一次查所有房间"""
+# ==================== B站 API ====================
+
+def fetch_bilibili_batch(room_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    """B站直播间批量检测 - getRoomBaseInfo 接口
+
+    Args:
+        room_ids: 直播间 ID 列表
+
+    Returns:
+        {room_id_str: {live_status, title, uname, online, ...}}
+
+    Raises:
+        Exception: API 返回错误时抛出
+    """
     params = [("req_biz", "web_room_componet")]
     for rid in room_ids:
         params.append(("room_ids", rid))
-    url = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?" + urllib.parse.urlencode(params)
-    raw = fetch_with_retry(url, headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Referer": "https://live.bilibili.com/",
-    })
-    data = json.loads(raw)
-    if data.get("code") != 0:
-        raise Exception(f"B站批量接口错误: {data}")
-    return data["data"]["by_room_ids"]  # {room_id_str: {live_status, title, uname, online, ...}}
 
-
-def fetch_douyin(web_rid):
-    """抖音直播间检测 - 页面 SSR 数据提取"""
-    url = f"https://live.douyin.com/{web_rid}"
-    raw = fetch_with_retry(url, headers={
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "zh-CN,zh;q=0.9",
-    })
-    html = raw.decode("utf-8", errors="replace")
-
-    # 方法1: 查找内嵌的房间数据 (status + user_count_str + title)
-    # 数据格式: \"id_str\":\"数字\",\"status\":数字,\"status_str\":\"数字\",\"title\":\"标题\",...\"user_count_str\":\"数字\"
-    room_match = re.search(
-        r'\\"id_str\\":\\"(\d+)\\",\\"status\\":(\d+),\\"status_str\\":\\"(\d+)\\",\\"title\\":\\"([^"]*)\\".*?\\"user_count_str\\":\\"(\d+)\\"',
-        html
+    url = (
+        "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?"
+        + urllib.parse.urlencode(params)
     )
 
-    # 提取昵称：页面上有多个 nickname 字段，前几个可能是 $undefined
-    nickname = None
-    for nick_match in re.finditer(r'\\"nickname\\":\\"([^"\\]+)\\"', html):
-        val = nick_match.group(1)
-        if val and val != "$undefined":
-            nickname = val
-            break
+    raw = fetch_with_retry(
+        url,
+        headers={
+            "Referer": "https://live.bilibili.com/",
+        },
+    )
 
-    # 提取 sec_uid
-    sec_uid = ""
+    data = json.loads(raw)
+    if data.get("code") != 0:
+        raise Exception(f"B站批量接口错误: code={data.get('code')}, msg={data.get('message')}")
+
+    return data["data"]["by_room_ids"]
+
+
+# ==================== 抖音数据提取（多种策略） ====================
+
+def _extract_douyin_from_render_data(html: str) -> Optional[Dict[str, Any]]:
+    """策略1: 从 RENDER_DATA 中提取房间数据"""
+    # 尝试匹配房间状态数据（多种格式变体）
+    patterns = [
+        # 标准格式
+        r'\\"id_str\\":\\"(\d+)\\",\\"status\\":(\d+),\\"status_str\\":\\"(\d+)\\",\\"title\\":\\"([^"\\]*)\\".*?\\"user_count_str\\":\\"(\d+)\\"',
+        # 不带 status_str
+        r'\\"id_str\\":\\"(\d+)\\",\\"status\\":(\d+),\\"title\\":\\"([^"\\]*)\\".*?\\"user_count_str\\":\\"(\d+)\\"',
+        # user_count 是数字
+        r'\\"id_str\\":\\"(\d+)\\",\\"status\\":(\d+),\\"title\\":\\"([^"\\]*)\\".*?\\"user_count\\":(\d+)',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, html)
+        if match:
+            groups = match.groups()
+            # 根据匹配组数解析
+            if len(groups) == 5:
+                _, status_code, _, title, user_count = groups
+            elif len(groups) == 4:
+                _, status_code, title, user_count = groups
+            else:
+                continue
+
+            try:
+                status_code_int = int(status_code)
+                user_count_int = int(user_count)
+            except (ValueError, TypeError):
+                continue
+
+            status = "live" if status_code_int == DOUYIN_STATUS_LIVE else "offline"
+            return {
+                "status": status,
+                "title": title,
+                "online": user_count_int,
+            }
+
+    return None
+
+
+def _extract_douyin_from_share_meta(html: str) -> Optional[Dict[str, Any]]:
+    """策略2: 从分享 meta 标签提取"""
+    # 检查是否直播中
+    share_desc_match = re.search(
+        r'shareDesc["\s]*value=["\s]*([^"]+)', html
+    )
+    if share_desc_match and "正在直播" in share_desc_match.group(1):
+        title_match = re.search(
+            r'shareTitle["\s]*value=["\s]*([^"]+)', html
+        )
+        title = title_match.group(1).replace("的直播", "") if title_match else ""
+        return {
+            "status": "live",
+            "title": title,
+            "online": 0,
+        }
+
+    # 检查是否已结束
+    if "直播已结束" in html:
+        return {
+            "status": "offline",
+            "title": "",
+            "online": 0,
+        }
+
+    return None
+
+
+def _extract_douyin_from_page_text(html: str) -> Optional[Dict[str, Any]]:
+    """策略3: 从页面文本关键词推断"""
+    # 直播中的特征文本
+    live_indicators = ["正在直播", "直播中", "观看人数"]
+    offline_indicators = ["直播已结束", "该主播暂无直播", "主播不在"]
+
+    live_count = sum(1 for indicator in live_indicators if indicator in html)
+    offline_count = sum(1 for indicator in offline_indicators if indicator in html)
+
+    if live_count > offline_count and live_count >= 2:
+        return {"status": "live", "title": "", "online": 0}
+    if offline_count >= 1:
+        return {"status": "offline", "title": "", "online": 0}
+
+    return None
+
+
+def _extract_douyin_nickname(html: str) -> str:
+    """提取主播昵称"""
+    # 从 nickname 字段提取
+    for match in re.finditer(r'\\"nickname\\":\\"([^"\\]+)\\"', html):
+        val = match.group(1)
+        if val and val != "$undefined" and not val.startswith("$"):
+            return val
+
+    # 从 og:title 提取
+    og_title_match = re.search(r'<meta[^>]*property="og:title"[^>]*content="([^"]+)"', html)
+    if og_title_match:
+        title = og_title_match.group(1)
+        if "的直播" in title:
+            return title.replace("的直播", "").strip()
+        return title.strip()
+
+    return ""
+
+
+def _extract_douyin_sec_uid(html: str) -> str:
+    """提取 sec_uid"""
+    # 方法1: 直接查找 sec_uid 字段
     idx = html.find('sec_uid')
     if idx >= 0:
         start = html.find('\\"', idx + 10)
         if start >= 0:
             end = html.find('\\"', start + 2)
             if end >= 0 and end - start < 200:
-                sec_uid = html[start+2:end]
+                return html[start + 2 : end]
 
-    web_rid_match = re.search(r'\\"web_rid\\":\\"([^"\\]+)\\"', html)
-    actual_web_rid = web_rid_match.group(1) if web_rid_match else web_rid
+    # 方法2: 正则匹配
+    match = re.search(r'\\"sec_uid\\":\\"([^"\\]+)\\"', html)
+    if match:
+        return match.group(1)
 
-    if room_match:
-        status_code = int(room_match.group(2))
-        # 抖音 status: 2=直播中, 4=已结束
-        status = "live" if status_code == 2 else "offline"
-        title = room_match.group(4)
-        user_count = int(room_match.group(5))
+    return ""
+
+
+def fetch_douyin(web_rid: str) -> Dict[str, Any]:
+    """抖音直播间检测 - 多种策略兜底提取
+
+    Args:
+        web_rid: 直播间 web_rid
+
+    Returns:
+        直播间状态字典
+    """
+    url = f"https://live.douyin.com/{web_rid}"
+    now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        raw = fetch_with_retry(
+            url,
+            headers={
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "zh-CN,zh;q=0.9",
+            },
+        )
+        html = raw.decode("utf-8", errors="replace")
+    except Exception as e:
+        logger.warning("获取抖音页面失败 (%s): %s", web_rid, e)
         return {
-            "status": status,
-            "title": title,
-            "online": user_count,
+            "status": "error",
+            "title": f"获取失败: {str(e)}",
+            "online": 0,
             "area": "",
-            "nickname": nickname or "",
-            "sec_uid": sec_uid,
-            "time": bjnow().strftime("%Y-%m-%d %H:%M:%S"),
+            "nickname": "",
+            "sec_uid": "",
+            "time": now_str,
         }
 
-    # 方法2: 兜底 - 关键词匹配
-    if "直播已结束" in html:
-        return {"status": "offline", "title": "", "online": 0, "area": "", "nickname": nickname or "", "sec_uid": sec_uid, "time": bjnow().strftime("%Y-%m-%d %H:%M:%S")}
+    # 提取公共字段
+    nickname = _extract_douyin_nickname(html)
+    sec_uid = _extract_douyin_sec_uid(html)
 
-    share_match = re.search(r'shareDesc["\s]*value=["\s]*([^"]+)', html)
-    if share_match and "正在直播" in share_match.group(1):
-        title_match = re.search(r'shareTitle["\s]*value=["\s]*([^"]+)', html)
-        title = title_match.group(1).replace("的直播", "") if title_match else ""
-        return {"status": "live", "title": title, "online": 0, "area": "", "nickname": nickname or "", "sec_uid": sec_uid, "time": bjnow().strftime("%Y-%m-%d %H:%M:%S")}
+    # 策略1: 从 RENDER_DATA 提取（最准确）
+    result = _extract_douyin_from_render_data(html)
+    if result:
+        result.update(
+            {
+                "area": "",
+                "nickname": nickname,
+                "sec_uid": sec_uid,
+                "time": now_str,
+            }
+        )
+        logger.debug("抖音策略1成功 (RENDER_DATA): %s", web_rid)
+        return result
 
-    return {"status": "offline", "title": "", "online": 0, "area": "", "nickname": nickname or "", "sec_uid": sec_uid, "time": bjnow().strftime("%Y-%m-%d %H:%M:%S")}
+    # 策略2: 从分享 meta 提取
+    result = _extract_douyin_from_share_meta(html)
+    if result:
+        result.update(
+            {
+                "area": "",
+                "nickname": nickname,
+                "sec_uid": sec_uid,
+                "time": now_str,
+            }
+        )
+        logger.debug("抖音策略2成功 (share_meta): %s", web_rid)
+        return result
+
+    # 策略3: 页面文本关键词推断（兜底）
+    result = _extract_douyin_from_page_text(html)
+    if result:
+        result.update(
+            {
+                "area": "",
+                "nickname": nickname,
+                "sec_uid": sec_uid,
+                "time": now_str,
+            }
+        )
+        logger.debug("抖音策略3成功 (page_text): %s", web_rid)
+        return result
+
+    # 所有策略都失败，默认返回离线状态
+    logger.warning("抖音所有提取策略都失败: %s", web_rid)
+    return {
+        "status": "offline",
+        "title": "",
+        "online": 0,
+        "area": "",
+        "nickname": nickname,
+        "sec_uid": sec_uid,
+        "time": now_str,
+    }
 
 
-def send_wechat_push(sendkey, title, desp):
-    url = f"https://sctapi.ftqq.com/{sendkey}.send"
-    data = urllib.parse.urlencode({"title": title, "desp": desp[:10000]}).encode()
-    req = urllib.request.Request(url, data=data, headers={
-        "Content-Type": "application/x-www-form-urlencoded"
-    })
-    with urllib.request.urlopen(req, timeout=10) as r:
-        result = json.loads(r.read())
-    return result.get("code") == 0 or result.get("errno") == 0
+# ==================== 微信推送 ====================
 
+def send_wechat_push(sendkey: str, title: str, desp: str) -> bool:
+    """通过 Server酱 发送微信推送
 
-def should_push(prev, curr):
-    if curr == "offline":
+    Args:
+        sendkey: Server酱 SendKey
+        title: 消息标题
+        desp: 消息内容（Markdown）
+
+    Returns:
+        是否发送成功
+    """
+    if not sendkey:
         return False
-    if prev == "offline" and curr == "live":
+
+    url = f"https://sctapi.ftqq.com/{sendkey}.send"
+    data = urllib.parse.urlencode(
+        {"title": title, "desp": desp[:10000]}
+    ).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+        return result.get("code") == 0 or result.get("errno") == 0
+    except Exception as e:
+        logger.error("微信推送失败: %s", e)
+        return False
+
+
+def should_push(prev_status: Optional[str], curr_status: str) -> bool:
+    """判断是否需要推送通知
+
+    Args:
+        prev_status: 之前的状态
+        curr_status: 当前状态
+
+    Returns:
+        是否需要推送
+    """
+    if curr_status == "offline" or curr_status == "error":
+        return False
+    if prev_status is None:
+        return curr_status in ("live", "replay")
+
+    # 从离线/错误状态变为直播或回放，需要推送
+    if prev_status in ("offline", "error") and curr_status in ("live", "replay"):
         return True
-    if prev == "replay" and curr == "live":
+    # 从回放变为直播，需要推送
+    if prev_status == "replay" and curr_status == "live":
         return True
-    if prev == "offline" and curr == "replay":
-        return True
+
     return False
 
 
-def format_push_title(name, result):
+def format_push_title(name: str, result: Dict[str, Any]) -> str:
+    """格式化推送标题"""
     if result["status"] == "live":
         return f"🔴 {name} 开播了！"
     return f"▶️ {name} 轮播/回放中"
 
 
-def format_push_desp(name, platform, rid, result):
+def format_push_desp(
+    name: str, platform: str, rid: str, result: Dict[str, Any]
+) -> str:
+    """格式化推送内容"""
     platform_label = "B站" if platform == "bilibili" else "抖音"
-    live_url = f"https://live.bilibili.com/{rid}" if platform == "bilibili" else f"https://live.douyin.com/{rid}"
+    live_url = (
+        f"https://live.bilibili.com/{rid}"
+        if platform == "bilibili"
+        else f"https://live.douyin.com/{rid}"
+    )
     now = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+
     lines = [
-        f"## 🎬 {name} 开播了！" if result["status"] == "live" else f"## ▶️ {name} 轮播/回放中",
+        f"## 🎬 {name} 开播了！"
+        if result["status"] == "live"
+        else f"## ▶️ {name} 轮播/回放中",
         "",
         f"**平台**: {platform_label}",
         f"**标题**: {result.get('title', '-')}",
     ]
+
     if result.get("area"):
         lines.append(f"**分区**: {result['area']}")
     if result.get("online"):
         lines.append(f"**人气**: {result['online']}")
-    lines.extend([
-        "",
-        f"👉 [进入直播间]({live_url})",
-        "",
-        f"---",
-        f"检测时间: {now}",
-    ])
+
+    lines.extend(
+        [
+            "",
+            f"👉 [进入直播间]({live_url})",
+            "",
+            f"---",
+            f"检测时间: {now}",
+        ]
+    )
+
     return "\n".join(lines)
 
 
-def main():
+# ==================== 直播时长计算 ====================
+
+def calculate_duration(start_str: str, now_dt: datetime) -> str:
+    """计算直播时长
+
+    Args:
+        start_str: 开始时间字符串 "%Y-%m-%d %H:%M:%S"
+        now_dt: 当前时间
+
+    Returns:
+        格式化的时长字符串，如 "1h30min" 或 "45min"
+    """
+    try:
+        start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+        secs = int((now_dt - start_dt).total_seconds())
+        if secs < 0:
+            return ""
+        h, m = divmod(secs, 3600)
+        m, _ = divmod(m, 60)
+        return f"{h}h{m}min" if h > 0 else f"{m}min"
+    except (ValueError, TypeError):
+        return ""
+
+
+# ==================== 主逻辑 ====================
+
+def main() -> None:
+    """主函数"""
     cfg = load_config()
     rooms = cfg.get("rooms", [])
     sendkey = cfg.get("sendkey", "")
 
     if not rooms:
-        print("No rooms configured")
+        logger.info("没有配置监控房间")
         return
 
-    prev_state = {}
-    if os.path.exists(STATE_FILE):
-        try:
-            with open(STATE_FILE) as f:
-                prev_state = json.load(f)
-        except:
-            prev_state = {}
+    # 加载之前的状态
+    prev_state: Dict[str, str] = load_json_file(STATE_FILE, {})
+    tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
 
-    new_state = {}
-    status_list = []
-    log_entries = []
+    new_state: Dict[str, str] = {}
+    status_list: List[Dict[str, Any]] = []
+    log_entries: List[Dict[str, Any]] = []
+    newly_live: List[Dict[str, Any]] = []
+
     now = bjnow()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-    # 读取开播追踪数据
-    tracking = {}
-    if os.path.exists(TRACKING_FILE):
-        try:
-            with open(TRACKING_FILE) as f:
-                tracking = json.load(f)
-        except:
-            tracking = {}
-
-    print(f"[{now:%H:%M:%S}] Checking {len(rooms)} rooms...")
+    logger.info("开始检测 %d 个房间...", len(rooms))
 
     # Step 1: 批量查询所有 B站房间
     bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
-    bili_data = {}
+    bili_data: Dict[str, Dict[str, Any]] = {}
+
     if bili_rooms:
         try:
             bili_ids = [r["id"] for r, _ in bili_rooms]
             bili_data = fetch_bilibili_batch(bili_ids)
+            logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_data))
         except Exception as e:
-            print(f"  B站批量查询失败: {e}")
+            logger.error("B站批量查询失败: %s", e)
 
-    # Step 2: 逐个检测所有房间（B站取批量数据，抖音逐个抓）
-    results = []  # 存每个房间的检测结果
-    newly_live = []  # 用于合并推送
-
-    for idx, room in enumerate(rooms):
+    # Step 2: 逐个检测所有房间
+    for room in rooms:
         platform = room.get("platform", "bilibili")
         rid = room.get("id", "")
         name = room.get("name", f"{platform}-{rid}")
         key = f"{platform}_{rid}"
-        push_result = None
+        push_result: Optional[str] = None
 
+        # 获取当前状态
         try:
             if platform == "bilibili":
                 d = bili_data.get(str(rid))
                 if not d:
                     raise Exception(f"批量接口未返回房间 {rid} 的数据")
+
                 status_code = d.get("live_status", 0)
                 result = {
-                    "status": {0: "offline", 1: "live", 2: "replay"}.get(status_code, "unknown"),
+                    "status": BILIBILI_STATUS_MAP.get(status_code, "unknown"),
                     "title": d.get("title", ""),
                     "online": d.get("online", 0),
-                    "area": f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·") or "",
+                    "area": (
+                        f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
+                        or ""
+                    ),
                 }
-            else:
+            else:  # douyin
                 result = fetch_douyin(rid)
+
         except Exception as e:
-            print(f"  [{name}] Error: {e}")
-            result = {"status": "error", "title": str(e), "online": 0, "area": "", "time": now_str}
+            logger.warning("[%s] 检测失败: %s", name, e)
+            result = {
+                "status": "error",
+                "title": str(e),
+                "online": 0,
+                "area": "",
+                "time": now_str,
+            }
             push_result = "error"
 
+        # 显示名称处理
         display_name = name
         if platform == "douyin" and result.get("nickname") and result["nickname"] != name:
             display_name = result["nickname"]
 
-        print(f"  [{display_name}] {result['status']} - {result.get('title', '')}")
+        logger.info(
+            "  [%s] %s - %s",
+            display_name,
+            result["status"],
+            result.get("title", "")[:30],
+        )
 
+        # 更新状态
         new_state[key] = result["status"]
-        status_list.append({
-            "platform": platform, "id": rid, "name": display_name,
-            "status": result["status"],
-            "title": result.get("title", ""),
-            "online": result.get("online", 0),
-            "area": result.get("area", ""),
-            "time": result.get("time", now_str),
-            "sec_uid": result.get("sec_uid", ""),
-        })
 
         # 开播追踪
         t = tracking.get(key, {})
@@ -285,24 +650,11 @@ def main():
             if not live_start_str:
                 live_start_str = now_str
             else:
-                try:
-                    start_dt = datetime.strptime(live_start_str, "%Y-%m-%d %H:%M:%S")
-                    secs = int((now - start_dt).total_seconds())
-                    h, m = divmod(secs, 3600)
-                    m, s = divmod(m, 60)
-                    live_duration = f"{h}h{m}min" if h > 0 else f"{m}min"
-                except:
-                    pass
+                live_duration = calculate_duration(live_start_str, now)
         elif live_start_str:
-            try:
-                start_dt = datetime.strptime(live_start_str, "%Y-%m-%d %H:%M:%S")
-                secs = int((now - start_dt).total_seconds())
-                h, m = divmod(secs, 3600)
-                m, s = divmod(m, 60)
-                last_live = live_start_str
-                t["last_duration"] = f"{h}h{m}min" if h > 0 else f"{m}min"
-            except:
-                pass
+            # 刚下播，记录上次直播信息
+            last_live = live_start_str
+            t["last_duration"] = calculate_duration(live_start_str, now)
             live_start_str = ""
 
         t["last_live"] = last_live
@@ -313,31 +665,50 @@ def main():
             t["sec_uid"] = result["sec_uid"]
         tracking[key] = t
 
-        status_list[-1]["last_live"] = last_live
-        status_list[-1]["live_duration"] = live_duration
+        # 构建状态列表项
+        status_item = {
+            "platform": platform,
+            "id": rid,
+            "name": display_name,
+            "status": result["status"],
+            "title": result.get("title", ""),
+            "online": result.get("online", 0),
+            "area": result.get("area", ""),
+            "time": result.get("time", now_str),
+            "sec_uid": result.get("sec_uid", ""),
+            "last_live": last_live,
+            "live_duration": live_duration,
+        }
+        status_list.append(status_item)
 
         # 状态变化检测
         prev_status = prev_state.get(key)
-        changed = (prev_status is not None and prev_status != result["status"])
+        changed = prev_status is not None and prev_status != result["status"]
 
-        if changed and should_push(prev_status, result["status"]):
-            newly_live.append({"name": display_name, "platform": platform, "rid": rid, "result": result})
-            push_result = "queued"  # 待合并推送
-        elif prev_status is None and result["status"] == "live":
-            newly_live.append({"name": display_name, "platform": platform, "rid": rid, "result": result})
+        if should_push(prev_status, result["status"]):
+            newly_live.append(
+                {
+                    "name": display_name,
+                    "platform": platform,
+                    "rid": rid,
+                    "result": result,
+                }
+            )
             push_result = "queued"
 
         # 记录日志
-        log_entries.append({
-            "time": now_str,
-            "name": display_name,
-            "platform": platform,
-            "status": result["status"],
-            "title": result.get("title", ""),
-            "changed": changed,
-            "prev": prev_status if changed else None,
-            "push": push_result,
-        })
+        log_entries.append(
+            {
+                "time": now_str,
+                "name": display_name,
+                "platform": platform,
+                "status": result["status"],
+                "title": result.get("title", ""),
+                "changed": changed,
+                "prev": prev_status if changed else None,
+                "push": push_result,
+            }
+        )
 
     # Step 3: 合并推送
     if newly_live and sendkey:
@@ -349,52 +720,47 @@ def main():
             else:
                 names = "、".join(s["name"] for s in newly_live)
                 title = f"🔴 {len(newly_live)}位主播开播：{names}"
-                desp_lines = []
-                for s in newly_live:
-                    desp_lines.append(format_push_desp(s["name"], s["platform"], s["rid"], s["result"]))
+                desp_lines = [
+                    format_push_desp(s["name"], s["platform"], s["rid"], s["result"])
+                    for s in newly_live
+                ]
                 desp = "\n\n---\n\n".join(desp_lines)
-            
+
             ok = send_wechat_push(sendkey, title, desp)
             push_tag = "pushed_ok" if ok else "pushed_fail"
-            print(f"  → Push {'OK' if ok else 'FAILED'}: {title}")
+            logger.info("推送%s: %s", "成功" if ok else "失败", title)
+
             # 更新日志里的推送标记
             for le in log_entries:
                 if le["push"] == "queued":
                     le["push"] = push_tag
         except Exception as e:
-            print(f"  → Push error: {e}")
+            logger.error("推送异常: %s", e)
             for le in log_entries:
                 if le["push"] == "queued":
                     le["push"] = "push_error"
     elif newly_live:
-        print(f"  → {len(newly_live)} rooms changed but no SendKey configured")
+        logger.info("%d 个房间状态变化，但未配置 SendKey", len(newly_live))
         for le in log_entries:
             if le["push"] == "queued":
                 le["push"] = "no_sendkey"
 
-    # 保存状态
-    with open(STATE_FILE, "w") as f:
-        json.dump(new_state, f, ensure_ascii=False, indent=2)
-    with open(STATUS_FILE, "w") as f:
-        json.dump({"updated": now_str, "rooms": status_list}, f, ensure_ascii=False, indent=2)
-    with open(TRACKING_FILE, "w") as f:
-        json.dump(tracking, f, ensure_ascii=False, indent=2)
+    # 保存状态文件
+    save_json_file(STATE_FILE, new_state)
+    save_json_file(
+        STATUS_FILE,
+        {"updated": now_str, "rooms": status_list},
+    )
+    save_json_file(TRACKING_FILE, tracking)
 
-    # 更新日志（保留最近 200 条）
-    old_log = []
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE) as f:
-                old_log = json.load(f)
-        except:
-            old_log = []
+    # 更新历史日志
+    old_log: List[Dict[str, Any]] = load_json_file(HISTORY_FILE, [])
     all_log = old_log + log_entries
-    if len(all_log) > 200:
-        all_log = all_log[-200:]
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(all_log, f, ensure_ascii=False, indent=2)
+    if len(all_log) > HISTORY_MAX_ENTRIES:
+        all_log = all_log[-HISTORY_MAX_ENTRIES:]
+    save_json_file(HISTORY_FILE, all_log)
 
-    print(f"[{now:%H:%M:%S}] Done. Status updated.")
+    logger.info("检测完成，状态已更新")
 
 
 if __name__ == "__main__":

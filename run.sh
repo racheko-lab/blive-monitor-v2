@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # ============================================================
-#  B站直播监控 - 一键运行脚本
+#  B站/抖音直播监控 - 一键运行脚本
 # ============================================================
 #  使用方法:
-#    1. 设置 SendKey:  export BLIVE_SENDKEY="SCTxxxxxxxxxxxxxx"
-#    2. 设置房间:      export BLIVE_ROOMS="1874913653:峰哥亡命天涯"
-#    3. 运行:          ./run.sh
+#    1. 配置 rooms.json 文件（推荐）
+#    2. 设置环境变量（可选，用于微信推送）:
+#       export BLIVE_CONFIG='{"sendkey": "SCTxxxxxxxxxxxxxx"}'
+#    3. 运行: ./run.sh
 #
 #  或者一行搞定:
-#    BLIVE_SENDKEY="SCTxxx" BLIVE_ROOMS="1874913653:峰哥亡命天涯" ./run.sh
+#    BLIVE_CONFIG='{"sendkey": "SCTxxx"}' ./run.sh
 # ============================================================
-
 set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PY_SCRIPT="$SCRIPT_DIR/bilibili_live_monitor.py"
+PY_SCRIPT="$SCRIPT_DIR/check_status.py"
+POST_SCRIPT="$SCRIPT_DIR/check_new_posts.py"
 
 echo "========================================"
-echo "  B站直播监控 v1.0"
+echo "  B站/抖音直播监控 v1.0"
 echo "========================================"
 
 # 检查 Python
@@ -25,40 +27,59 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
+# 检查主脚本是否存在
+if [ ! -f "$PY_SCRIPT" ]; then
+    echo "[ERROR] 未找到 $PY_SCRIPT"
+    exit 1
+fi
+
 # 默认行为
 CMD="${1:-once}"
 
 case "$CMD" in
-    once|1)
-        python3 "$PY_SCRIPT" once
+    once|check|1)
+        echo "开始检测直播状态..."
+        python3 "$PY_SCRIPT"
+        echo "检测完成"
         ;;
-    loop|watch|2)
+    posts|2)
+        echo "开始检测新作品..."
+        ENABLE_POST_CHECK=true python3 "$POST_SCRIPT"
+        echo "检测完成"
+        ;;
+    all|3)
+        echo "开始检测直播状态..."
+        python3 "$PY_SCRIPT"
+        echo "开始检测新作品..."
+        ENABLE_POST_CHECK=true python3 "$POST_SCRIPT"
+        echo "全部检测完成"
+        ;;
+    loop|watch|4)
         echo "持续监控模式 (Ctrl+C 停止)..."
-        python3 "$PY_SCRIPT" loop
-        ;;
-    config|c)
-        python3 "$PY_SCRIPT" config
-        ;;
-    test|t)
-        python3 "$PY_SCRIPT" test
-        ;;
-    add|a)
-        python3 "$PY_SCRIPT" add
-        ;;
-    setup|s)
-        python3 "$PY_SCRIPT" setup
-        ;;
-    dry|d|--dry-run|-n)
-        shift || true
-        python3 "$PY_SCRIPT" "${1:-once}" --dry-run
-        ;;
-    reset)
-        python3 "$PY_SCRIPT" reset
+        echo "每 60 秒检测一次"
+        while true; do
+            echo "--- $(date '+%Y-%m-%d %H:%M:%S') ---"
+            python3 "$PY_SCRIPT"
+            sleep 60
+        done
         ;;
     help|h|-h|--help)
-        python3 "$PY_SCRIPT" help
+        echo "用法: ./run.sh [命令]"
+        echo ""
+        echo "命令:"
+        echo "  once / check   检测一次直播状态（默认）"
+        echo "  posts          检测抖音新作品"
+        echo "  all            检测直播状态 + 新作品"
+        echo "  loop / watch   持续监控（每60秒）"
+        echo "  help           显示帮助信息"
+        echo ""
+        echo "环境变量:"
+        echo "  BLIVE_CONFIG   JSON格式配置，如: '{\"sendkey\": \"SCTxxx\"}'"
+        echo "  ENABLE_POST_CHECK=true  启用作品检测"
         ;;
     *)
-        echo "用法: ./run.sh [once|loop|config|test|add|setup|dry|reset|help]"
+        echo "未知命令: $CMD"
+        echo "使用 ./run.sh help 查看帮助"
+        exit 1
         ;;
 esac
