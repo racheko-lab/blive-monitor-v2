@@ -468,8 +468,8 @@ def should_push(prev_status: Optional[str], curr_status: str) -> bool:
     if prev_status is None:
         return curr_status in ("live", "replay")
 
-    # 从离线/错误状态变为直播或回放，需要推送
-    if prev_status in ("offline", "error") and curr_status in ("live", "replay"):
+    # 只有从「离线」状态变为「直播/回放」才推送（error 状态不触发，避免检测失败导致反复推送）
+    if prev_status == "offline" and curr_status in ("live", "replay"):
         return True
     # 从回放变为直播，需要推送
     if prev_status == "replay" and curr_status == "live":
