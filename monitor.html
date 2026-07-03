@@ -51,10 +51,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 <div id="list"><div class="empty">🔄 加载中...</div></div>
 
-<!-- 27作品模块 - 暂时不可用（抖音API需签名认证） -->
-<div id="post27" style="background:var(--card);border-radius:14px;padding:14px;margin-top:12px;display:none">
-  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px">🎬 27 最新作品</div>
-  <div id="post27Content" style="font-size:12px;color:var(--text2)">暂无法获取（抖音API限制）</div>
+<!-- 抖音作品模块 - 占位（抖音作品API需签名认证，暂不可用） -->
+<div id="douyinPosts" style="background:var(--card);border-radius:14px;padding:14px;margin-top:12px;display:none">
+  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px">🎬 抖音最新作品</div>
+  <div style="font-size:12px;color:var(--text2)">
+    ⚠️ 暂无法获取（抖音作品API需签名认证，技术门槛较高）
+    <br><br>
+    <span style="font-size:11px;color:#666">直播监控功能正常使用中</span>
+  </div>
 </div>
 
 <details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
@@ -155,7 +159,7 @@ function ld(){
     document.getElementById('sdot').innerHTML='<span class="dot '+dotCls+'"></span>'+dotTxt;
     ren();
     renlog(hist);
-    fetch27Posts();
+    updateDouyinPostsModule();
     bt.textContent='🔍 刷新';
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot d-err"></span>加载失败';
@@ -164,11 +168,12 @@ function ld(){
   });
 }
 
-// 27作品检测（客户端，中国网络）
-function fetch27Posts(){
+// 抖音作品模块 - 占位显示（抖音作品API需签名认证，暂不可用）
+function updateDouyinPostsModule(){
   if(!stat||!stat.rooms)return;
-  var r27=stat.rooms.find(function(r){return r.id==='83134194400'});
-  document.getElementById('post27').style.display=r27?'block':'none';
+  // 检测是否有抖音房间
+  var hasDouyin = stat.rooms.some(function(r){return r.platform==='douyin'});
+  document.getElementById('douyinPosts').style.display=hasDouyin?'block':'none';
 }
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}

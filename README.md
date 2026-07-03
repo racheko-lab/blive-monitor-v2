@@ -78,6 +78,36 @@ export BLIVE_CONFIG='{"sendkey": "SCTxxxxxxxxxxxxxx"}'
 3. 启用 GitHub Pages：Settings → Pages → Source 选择 `GitHub Actions`
 4. 工作流会自动每 5 分钟检测一次，并更新监控页面
 
+**⚠️ 重要提示**：GitHub Actions 的 schedule 触发器不太稳定，可能会延迟或跳过执行。为了保证检测频率，建议配合外部定时服务使用（见下方"外部定时触发"）。
+
+#### 外部定时触发（推荐配置）
+
+使用 [cron-job.org](https://cron-job.org) 作为外部触发器，保证检测频率稳定：
+
+1. 注册并登录 [cron-job.org](https://cron-job.org)
+2. 点击 **CREATE CRONJOB** 创建新任务
+3. 切换到 **Advanced** 高级模式，填写以下配置：
+
+| 字段 | 值 |
+|------|-----|
+| **URL** | `https://api.github.com/repos/你的用户名/仓库名/actions/workflows/check.yml/dispatches` |
+| **Method** | `POST` |
+| **Content-Type** | `application/json` |
+| **Headers** | 两行：<br>`Authorization: Bearer <你的GitHub Token>`<br>`Accept: application/vnd.github+json` |
+| **Body** | `{"ref":"master"}` |
+| **Schedule** | Custom → Minutes: `*/5`，其余全 `*` |
+| **Notifications** | 建议打开失败邮件提醒 |
+
+4. 点击 **TEST RUN** 测试，History 中看到 `204` 状态码即为成功
+5. 点击 **CREATE** 创建任务
+
+**如何获取 GitHub Token：**
+1. 前往 GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. 点击 Generate new token，勾选 `repo` 权限
+3. 复制生成的 token（以 `ghp_` 开头）
+
+> 💡 配置完成后，GitHub Actions 的 schedule 和 cron-job.org 会同时触发，形成双保险，互不冲突。
+
 ### 方案二：Netlify（最简单）
 
 1. 打开 [Netlify Drop](https://app.netlify.com/drop)
@@ -145,10 +175,24 @@ blive-monitor/
 
 ## 📝 注意事项
 
-1. **抖音数据稳定性**：抖音直播状态通过页面 HTML 提取，平台改版可能导致失效
-2. **检测频率**：GitHub Actions 免费版建议不低于 5 分钟一次
-3. **API 限制**：频繁请求可能被平台限流，请合理设置检测间隔
+### 已知限制
+
+1. **GitHub Actions schedule 不稳定**：GitHub 的定时触发器可能会延迟或跳过执行，建议配合外部定时服务（如 cron-job.org）使用
+2. **抖音直播数据稳定性**：抖音直播状态通过页面 HTML 提取，平台改版可能导致失效
+3. **抖音新作品检测**：抖音作品 API 需要签名认证（X-Bogus/msToken 等），技术门槛较高，目前默认禁用
 4. **状态持久化**：GitHub Actions 使用 Cache 保存状态，可能偶尔丢失
+
+### 安全提示
+
+1. **SendKey 保密**：Server酱的 SendKey 相当于推送密码，请勿公开或提交到代码仓库
+2. **GitHub Token 权限**：创建 Personal Access Token 时只勾选必要的权限（`repo` 即可）
+3. **定期轮换密钥**：建议定期更换 SendKey 和 GitHub Token，降低泄露风险
+
+### 使用建议
+
+1. **检测频率**：建议 5 分钟一次，过于频繁可能被平台限流
+2. **监控房间数量**：建议控制在 10 个以内，避免单次检测时间过长
+3. **异常处理**：如果检测失败，系统会自动重试，无需手动干预
 
 ## 🤝 贡献
 
