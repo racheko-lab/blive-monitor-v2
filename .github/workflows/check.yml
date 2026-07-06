@@ -11,7 +11,7 @@ on:
       - rooms.json
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
   actions: write
@@ -65,7 +65,18 @@ jobs:
           path: _state/
           key: live-state-v2
 
-      # 构建 Pages 目录（同域名部署，零 Git commit）
+      - name: Persist state & keepalive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 强制跟踪被 .gitignore 忽略的状态文件，缓存 miss 时作可靠后备，杜绝重复推送
+          git add -f state.json tracking.json
+          # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+          git add .keepalive
+          git commit -m "📡 update state [skip ci]" && git push origin HEAD:master || echo "nothing to commit"
+
+      # 构建 Pages 目录（同域名部署；状态已提交 Git 作可靠后备）
       - name: Build Pages
         run: |
           mkdir -p _site
