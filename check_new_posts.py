@@ -5,11 +5,12 @@
 设计说明：
 - 本脚本与直播监控完全解耦：直播监控读 rooms.json、写 tracking.json/state.json；
   本脚本只读 post_rooms.json（独立的抖音号列表），写 post_tracking.json。
-- 抖音作品列表接口需要 X-Bogus + msToken 签名，纯服务端 urllib 无法获取；用户主页
-  又是 JS 反爬墙。因此用无头 Chromium（Playwright）加载用户主页，由浏览器原生完成
-  签名/挑战，读取渲染后的视频列表，取用户「作品」里最新的一条。
-- 每个账号的 sec_uid 在本脚本内自行解析（优先用已存值；否则从直播页主页链接提取），
-  不依赖直播监控的任何产物。
+- 抖音作品列表接口需要 X-Bogus + msToken 签名，纯服务端 urllib 无法获取。但只要在
+  已加载抖音页面的浏览器上下文里用 fetch 调用该接口，浏览器会自动带上签名/cookie，
+  返回完整 JSON（含图文 note 和视频 video，按发布时间倒序）。本脚本据此实现：
+  先用无头 Chromium 打开用户主页，再在页面内 fetch 作品 API，取最新一条。
+- 每个账号的 sec_uid 在本脚本内自行解析（优先用已存值；否则从直播页提取），不依赖
+  直播监控的任何产物。
 - 通过 Server酱 推送通知；通过环境变量 ENABLE_POST_CHECK=true 启用。
 """
 
@@ -27,13 +28,19 @@ BEIJING_TZ = timezone(timedelta(hours=8))
 
 # 文件路径（与本脚本同目录）
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(REPO_DIR, "post_rooms.json")     # 作品监控的抖音号列表（独立）
+CONFIG_FILE = os.path.join(REPO_DIR, "post_rooms.json")      # 作品监控的抖音号列表（独立）
 TRACKING_FILE = os.path.join(REPO_DIR, "post_tracking.json")  # 作品监控状态（独立）
 
 # 浏览器配置
-BROWSER_TIMEOUT = 30000       # 页面加载超时（ms）
-SELECTOR_TIMEOUT = 20000      # 等待视频卡片超时（ms）
-SETTLE_WAIT = 2500            # 卡片出现后额外等待懒加载（ms）
+BROWSER_TIMEOUT = 30000   # 页面加载超时（ms）
+SETTLE_WAIT = 6000        # 主页加载后等待 SPA 渲染（ms）
+
+# 抖音作品列表 API（在浏览器页面内 fetch，自动带签名/cookie）
+AWEME_POST_API = (
+    "https://www.douyin.com/aweme/v1/web/aweme/post/"
+    "?device_platform=webapp&aid=6383&channel=channel_pc_web"
+    "&sec_user_id={sec_uid}&max_cursor=0&count=20"
+)
 
 # ==================== 日志配置 ====================
 
@@ -81,7 +88,7 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
     """解析某抖音号的 sec_uid
 
     优先：entry_id 本身已是 sec_uid（MS4w 开头）则直接用；
-    否则：打开该号的直播页，从主播主页链接 a[href*="/user/"] 提取主人 sec_uid。
+    否则：打开该号的直播页，从页面 HTML 提取主人 sec_uid（直播中取主页链接，离线取首个 sec_uid）。
 
     Args:
         context: Playwright BrowserContext
@@ -98,7 +105,7 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
         page.wait_for_timeout(3000)
-        # 优先：主播主页链接 a[href*="/user/"]（直播中时出现，最可靠）
+        # 优先：主播主页链接（直播中时出现，最可靠）
         links = page.eval_on_selector_all(
             'a[href*="/user/"]',
             "els => els.map(a => a.getAttribute('href') || '').filter(h => h.indexOf('/user/') >= 0)",
@@ -109,7 +116,7 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
             m = re.search(r"/user/(MS4wLjABAAAA[A-Za-z0-9_\-]+)", h)
             if m:
                 return m.group(1)
-        # 兜底：从页面 HTML 取第一个 sec_uid（离线房间也能拿到房间主人，RENDER_DATA 中第一个即本人）
+        # 兜底：从页面 HTML 取第一个 sec_uid（离线房间也能拿到房间主人）
         html = page.content()
         m = re.search(r"MS4wLjABAAAA[A-Za-z0-9_\-]+", html)
         if m:
@@ -126,7 +133,10 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
 # ==================== 浏览器抓取 ====================
 
 def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
-    """用无头浏览器加载用户主页，取用户最新作品
+    """在浏览器页面内 fetch 作品 API，取用户最新作品
+
+    流程：打开用户主页（让浏览器拿到 cookie / 签名上下文）→ 在页面内 fetch 作品 API
+    → 解析 JSON 取 aweme_list[0]。返回的 aweme_id 同时覆盖 video 和 note(图文)。
 
     Args:
         context: Playwright BrowserContext（复用，避免每房间重启浏览器）
@@ -135,59 +145,51 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
     Returns:
         最新作品信息字典，失败返回 None
     """
-    url = f"https://www.douyin.com/user/{sec_uid}"
+    home = f"https://www.douyin.com/user/{sec_uid}"
     page = context.new_page()
     try:
-        page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
-        try:
-            page.wait_for_selector('a[href*="/video/"]', timeout=SELECTOR_TIMEOUT)
-        except Exception:
-            logger.warning("  [%s] 未等到视频卡片（可能触发验证或账号无作品）", sec_uid[:12])
-            return None
+        page.goto(home, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
         page.wait_for_timeout(SETTLE_WAIT)
 
-        # 切到「作品」标签页（默认也可能混有「猜你喜欢」推荐流）
-        for sel in [
-            '[role="tab"]:has-text("作品")',
-            'a:has-text("作品")',
-            'div:has-text("作品")',
-        ]:
-            try:
-                el = page.locator(sel).first
-                if el.count() and el.is_visible():
-                    el.click(timeout=5000)
-                    break
-            except Exception:
-                pass
-
-        # 滚动若干次，触发作品网格懒加载（推荐流有时抢先渲染）
-        for _ in range(4):
-            page.mouse.wheel(0, 1000)
-            page.wait_for_timeout(900)
-
-        cards = page.eval_on_selector_all(
-            'a[href*="/video/"]',
-            """els => els.slice(0, 20).map(a => {
-                const href = a.getAttribute('href') || '';
-                const m = href.match(/\\/video\\/(\\d+)/);
-                const id = m ? m[1] : '';
-                const txt = (a.innerText || a.getAttribute('aria-label') || '').trim().replace(/\\s+/g, ' ');
-                return { href, id, txt: txt.slice(0, 200) };
-            })""",
+        # 在页面上下文内 fetch 作品 API（浏览器自动带签名与 cookie）
+        result = page.evaluate(
+            """async (sec_uid) => {
+                const url = 'https://www.douyin.com/aweme/v1/web/aweme/post/'
+                    + '?device_platform=webapp&aid=6383&channel=channel_pc_web'
+                    + '&sec_user_id=' + sec_uid + '&max_cursor=0&count=20';
+                try {
+                    const r = await fetch(url, {credentials: 'include', headers: {'accept': 'application/json'}});
+                    const t = await r.text();
+                    return {status: r.status, body: t};
+                } catch(e) { return {status: 0, body: '', err: String(e)}; }
+            }""",
+            sec_uid,
         )
 
-        # 过滤掉抖音「推荐流」（带 source= 的是推荐，不是该用户本人作品）
-        own = [c for c in cards if c.get("id") and "source=" not in c["href"]]
-        if not own:
-            # 只看到推荐流、没拿到用户本人作品：宁可跳过本轮，也不误把推荐当新作品推送
-            logger.warning("  [%s] 未解析到用户本人作品（可能作品网格未加载/触发验证），本轮跳过", sec_uid[:12])
+        status = result.get("status", 0)
+        body = result.get("body", "") or ""
+        if status != 200 or not body:
+            logger.warning("  [%s] 作品 API 异常 status=%s body_len=%d", sec_uid[:12], status, len(body))
             return None
 
-        latest = own[0]
+        data = json.loads(body)
+        aw_list = data.get("aweme_list", []) or []
+        if not aw_list:
+            logger.warning("  [%s] 作品列表为空", sec_uid[:12])
+            return None
+
+        latest = aw_list[0]
+        aid = str(latest.get("aweme_id", ""))
+        if not aid:
+            return None
+        # 图文 note 的链接是 /note/{id}，视频是 /video/{id}
+        is_note = bool(latest.get("images"))
+        link_path = "note" if is_note else "video"
         return {
-            "aweme_id": latest["id"],
-            "desc": latest.get("txt", ""),
-            "video_url": f"https://www.douyin.com/video/{latest['id']}",
+            "aweme_id": aid,
+            "desc": latest.get("desc", "") or "",
+            "video_url": f"https://www.douyin.com/{link_path}/{aid}",
+            "is_note": is_note,
         }
     except Exception as e:
         logger.warning("  [%s] 获取作品异常: %s", sec_uid[:12], e)
@@ -199,16 +201,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
 # ==================== 微信推送 ====================
 
 def send_wechat_push(sendkey: str, title: str, desp: str) -> bool:
-    """通过 Server酱 发送微信推送
-
-    Args:
-        sendkey: Server酱 SendKey
-        title: 消息标题
-        desp: 消息内容（Markdown）
-
-    Returns:
-        是否发送成功
-    """
+    """通过 Server酱 发送微信推送"""
     if not sendkey:
         return False
 
@@ -238,7 +231,6 @@ def send_wechat_push(sendkey: str, title: str, desp: str) -> bool:
 
 def main() -> None:
     """主函数"""
-    # 通过环境变量控制是否启用
     if os.environ.get("ENABLE_POST_CHECK", "").lower() != "true":
         logger.info("新作品检测已禁用 (设置 ENABLE_POST_CHECK=true 启用)")
         return
@@ -252,7 +244,7 @@ def main() -> None:
         logger.error("解析 BLIVE_CONFIG 失败: %s", e)
         sendkey = ""
 
-    # 加载作品监控专属的抖音号列表（与直播监控 rooms.json 完全独立）
+    # 加载作品监控专属的抖音号列表
     post_rooms: List[Dict[str, str]] = load_json_file(CONFIG_FILE, [])
     if not post_rooms:
         logger.info("post_rooms.json 为空，没有需要监控新作品的抖音号")
@@ -260,13 +252,11 @@ def main() -> None:
 
     # 加载作品监控状态
     tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
-
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
     changed = False
 
-    logger.info("开始检测 %d 个抖音用户的新作品（独立列表）...", len(post_rooms))
+    logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
 
-    # 启动无头浏览器（整个检测只启动一次，逐账号复用）
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
@@ -297,7 +287,7 @@ def main() -> None:
             key = f"douyin_{rid}"
             t = tracking.get(key, {})
 
-            # 解析 sec_uid（优先用已存值，否则从直播页解析；解析成功即缓存，离线也能复用）
+            # 解析 sec_uid（优先用已存值，否则从直播页解析；解析成功即缓存）
             sec_uid = t.get("sec_uid") or resolve_sec_uid(context, rid)
             if not sec_uid:
                 logger.warning("  [%s] 无法获取 sec_uid，跳过", name)
@@ -323,11 +313,13 @@ def main() -> None:
             # 检测是否有新作品（仅当此前已有基线且发生变化时才推送）
             if prev_id and prev_id != aweme["aweme_id"]:
                 desc = aweme.get("desc", "") or "[无描述]"
-                logger.info("  [%s] 🆕 新作品: %s", name, desc[:40])
+                kind = "图文" if aweme.get("is_note") else "视频"
+                logger.info("  [%s] 🆕 新作品(%s): %s", name, kind, desc[:40])
 
                 title = f"🆕 {name} 发布了新作品"
                 desp = (
                     f"## 🆕 {name} 发布了新作品\n\n"
+                    f"**类型**: {kind}\n\n"
                     f"**描述**: {desc}\n\n"
                     f"👉 [查看作品]({aweme['video_url']})\n\n"
                     f"---\n检测时间: {now_str}"
@@ -340,7 +332,6 @@ def main() -> None:
                     except Exception as e:
                         logger.error("    → 推送异常: %s", e)
 
-            # 更新追踪数据
             t["latest_aweme_id"] = aweme["aweme_id"]
             t["latest_desc"] = aweme.get("desc", "")
             tracking[key] = t
@@ -349,7 +340,6 @@ def main() -> None:
         context.close()
         browser.close()
 
-    # 保存作品监控状态
     if changed:
         save_json_file(TRACKING_FILE, tracking)
 
