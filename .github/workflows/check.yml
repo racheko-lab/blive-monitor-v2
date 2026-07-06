@@ -10,6 +10,11 @@ on:
     paths:
       - rooms.json
 
+# 串行执行，避免并发 run 互相覆盖状态 / 提交冲突导致重复推送
+concurrency:
+  group: live-check
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pages: write
@@ -27,54 +32,33 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 恢复上次状态（跨 run 持久化，不存 Git）
-      - name: Restore state
-        uses: actions/cache/restore@v4
-        id: cache
-        with:
-          path: _state/
-          key: live-state-v2
-
-      - name: Load cached state
-        run: |
-          mkdir -p _state
-          if [ -f _state/state.json ]; then cp _state/state.json .; fi
-          if [ -f _state/tracking.json ]; then cp _state/tracking.json .; fi
-          if [ -f _state/history.json ]; then cp _state/history.json .; fi
-
+      # 运行检测（状态文件由 checkout 恢复，已是上一次提交的最新状态）
       - name: Run check
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: python3 check_status.py
 
+      # 新作品监控（默认关闭，需显式开启 ENABLE_POST_CHECK）
       - name: Check new posts (disabled by default)
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           # ENABLE_POST_CHECK: "true"
         run: python3 check_new_posts.py
 
-      # 保存状态到 cache
-      - name: Save state
-        run: |
-          cp state.json _state/
-          cp tracking.json _state/
-          cp history.json _state/
-
-      - uses: actions/cache/save@v4
-        with:
-          path: _state/
-          key: live-state-v2
-
+      # 状态持久化到 Git —— 唯一真相来源，跨 run 可靠，不再依赖易失效的 actions/cache
       - name: Persist state & keepalive
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 强制跟踪被 .gitignore 忽略的状态文件，缓存 miss 时作可靠后备，杜绝重复推送
-          git add -f state.json tracking.json
+          # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制
+          git add -f state.json tracking.json history.json
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
-          git commit -m "📡 update state [skip ci]" && git push origin HEAD:master || echo "nothing to commit"
+          git commit -m "📡 update state [skip ci]" || true
+          # 拉取远端最新，避免并发/外部推送造成的非快进冲突
+          git pull --rebase origin master 2>/dev/null || true
+          git push origin HEAD:master 2>&1 || echo "push failed (状态将在下一次 run 自动对齐)"
 
       # 构建 Pages 目录（同域名部署；状态已提交 Git 作可靠后备）
       - name: Build Pages
