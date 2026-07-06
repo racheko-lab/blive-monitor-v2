@@ -9,6 +9,7 @@ on:
   push:
     paths:
       - rooms.json
+      - post_rooms.json
 
 # 串行执行，避免并发 run 互相覆盖状态 / 提交冲突导致重复推送
 concurrency:
@@ -57,7 +58,7 @@ jobs:
           pip install playwright==1.58.0
           playwright install --with-deps chromium
 
-      # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬）
+      # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
       - name: Check new posts
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
@@ -70,7 +71,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制
-          git add -f state.json tracking.json history.json
+          git add -f state.json tracking.json history.json post_tracking.json
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
@@ -88,6 +89,8 @@ jobs:
           cp rooms.json _site/
           cp status.json _site/
           cp history.json _site/
+          cp post_rooms.json _site/
+          cp post_tracking.json _site/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
