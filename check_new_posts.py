@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-抖音新作品检测（GitHub Actions 用）
+抖音新作品检测（GitHub Actions 用，独立于直播监控）
 
-实现说明：
-- 抖音作品列表接口（aweme/post）需要 X-Bogus + msToken 签名，纯服务端 urllib 无法获取；
-  用户主页 SSR 又是 JS 反爬墙，服务端裸抓拿不到内容。
-- 因此本脚本改用无头 Chromium（Playwright）加载用户主页，由浏览器原生完成签名/挑战，
-  直接读取渲染后的视频列表，取用户「作品」里最新的一条。
-- sec_uid 由 check_status.py 写入 tracking.json（key: sec_uid），本脚本读取它拼主页 URL。
+设计说明：
+- 本脚本与直播监控完全解耦：直播监控读 rooms.json、写 tracking.json/state.json；
+  本脚本只读 post_rooms.json（独立的抖音号列表），写 post_tracking.json。
+- 抖音作品列表接口需要 X-Bogus + msToken 签名，纯服务端 urllib 无法获取；用户主页
+  又是 JS 反爬墙。因此用无头 Chromium（Playwright）加载用户主页，由浏览器原生完成
+  签名/挑战，读取渲染后的视频列表，取用户「作品」里最新的一条。
+- 每个账号的 sec_uid 在本脚本内自行解析（优先用已存值；否则从直播页主页链接提取），
+  不依赖直播监控的任何产物。
 - 通过 Server酱 推送通知；通过环境变量 ENABLE_POST_CHECK=true 启用。
 """
 
 import json
 import os
+import re
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
@@ -22,10 +25,10 @@ from typing import Dict, List, Optional, Any
 # 北京时间（UTC+8）
 BEIJING_TZ = timezone(timedelta(hours=8))
 
-# 文件路径
+# 文件路径（与本脚本同目录）
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOMS_FILE = os.path.join(REPO_DIR, "rooms.json")
-TRACKING_FILE = os.path.join(REPO_DIR, "tracking.json")
+CONFIG_FILE = os.path.join(REPO_DIR, "post_rooms.json")     # 作品监控的抖音号列表（独立）
+TRACKING_FILE = os.path.join(REPO_DIR, "post_tracking.json")  # 作品监控状态（独立）
 
 # 浏览器配置
 BROWSER_TIMEOUT = 30000       # 页面加载超时（ms）
@@ -72,6 +75,54 @@ def save_json_file(filepath: str, data: Any) -> None:
         logger.error("保存 %s 失败: %s", filepath, e)
 
 
+# ==================== sec_uid 解析 ====================
+
+def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
+    """解析某抖音号的 sec_uid
+
+    优先：entry_id 本身已是 sec_uid（MS4w 开头）则直接用；
+    否则：打开该号的直播页，从主播主页链接 a[href*="/user/"] 提取主人 sec_uid。
+
+    Args:
+        context: Playwright BrowserContext
+        entry_id: post_rooms.json 里的 id（可能是 sec_uid 或直播房号 web_rid）
+
+    Returns:
+        sec_uid 字符串，失败返回 None
+    """
+    if entry_id.startswith("MS4w"):
+        return entry_id
+
+    url = f"https://live.douyin.com/{entry_id}"
+    page = context.new_page()
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
+        page.wait_for_timeout(3000)
+        # 优先：主播主页链接 a[href*="/user/"]（直播中时出现，最可靠）
+        links = page.eval_on_selector_all(
+            'a[href*="/user/"]',
+            "els => els.map(a => a.getAttribute('href') || '').filter(h => h.indexOf('/user/') >= 0)",
+        )
+        for h in links:
+            if "/user/self" in h:
+                continue
+            m = re.search(r"/user/(MS4wLjABAAAA[A-Za-z0-9_\-]+)", h)
+            if m:
+                return m.group(1)
+        # 兜底：从页面 HTML 取第一个 sec_uid（离线房间也能拿到房间主人，RENDER_DATA 中第一个即本人）
+        html = page.content()
+        m = re.search(r"MS4wLjABAAAA[A-Za-z0-9_\-]+", html)
+        if m:
+            return m.group(0)
+        logger.warning("  [%s] 直播页未找到 sec_uid", entry_id)
+        return None
+    except Exception as e:
+        logger.warning("  [%s] 解析 sec_uid 失败: %s", entry_id, e)
+        return None
+    finally:
+        page.close()
+
+
 # ==================== 浏览器抓取 ====================
 
 def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
@@ -88,7 +139,6 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
     page = context.new_page()
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
-        # 等待视频卡片渲染
         try:
             page.wait_for_selector('a[href*="/video/"]', timeout=SELECTOR_TIMEOUT)
         except Exception:
@@ -115,7 +165,6 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
             page.mouse.wheel(0, 1000)
             page.wait_for_timeout(900)
 
-        # 提取视频卡片：id + 描述 + 原始 href
         cards = page.eval_on_selector_all(
             'a[href*="/video/"]',
             """els => els.slice(0, 20).map(a => {
@@ -194,7 +243,7 @@ def main() -> None:
         logger.info("新作品检测已禁用 (设置 ENABLE_POST_CHECK=true 启用)")
         return
 
-    # 加载配置
+    # 加载配置（仅取 SendKey）
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
     try:
         cfg = json.loads(raw_config)
@@ -203,23 +252,21 @@ def main() -> None:
         logger.error("解析 BLIVE_CONFIG 失败: %s", e)
         sendkey = ""
 
-    # 加载房间列表
-    rooms: List[Dict[str, str]] = load_json_file(ROOMS_FILE, [])
-    douyin_rooms = [r for r in rooms if r.get("platform") == "douyin"]
-
-    if not douyin_rooms:
-        logger.info("没有配置抖音房间")
+    # 加载作品监控专属的抖音号列表（与直播监控 rooms.json 完全独立）
+    post_rooms: List[Dict[str, str]] = load_json_file(CONFIG_FILE, [])
+    if not post_rooms:
+        logger.info("post_rooms.json 为空，没有需要监控新作品的抖音号")
         return
 
-    # 加载追踪数据
+    # 加载作品监控状态
     tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
 
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
-    post_changed = False
+    changed = False
 
-    logger.info("开始检测 %d 个抖音用户的新作品...", len(douyin_rooms))
+    logger.info("开始检测 %d 个抖音用户的新作品（独立列表）...", len(post_rooms))
 
-    # 启动无头浏览器（整个检测只启动一次，逐房间复用）
+    # 启动无头浏览器（整个检测只启动一次，逐账号复用）
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
@@ -242,17 +289,22 @@ def main() -> None:
             locale="zh-CN",
         )
 
-        for room in douyin_rooms:
-            web_rid = room["id"]
-            name = room.get("name", web_rid)
-            key = f"douyin_{web_rid}"
+        for entry in post_rooms:
+            rid = entry.get("id", "")
+            name = entry.get("name", rid)
+            if not rid:
+                continue
+            key = f"douyin_{rid}"
             t = tracking.get(key, {})
 
-            # sec_uid 由 check_status.py 写入
-            sec_uid = t.get("sec_uid", "")
+            # 解析 sec_uid（优先用已存值，否则从直播页解析；解析成功即缓存，离线也能复用）
+            sec_uid = t.get("sec_uid") or resolve_sec_uid(context, rid)
             if not sec_uid:
-                logger.info("  [%s] 暂无 sec_uid，等待直播检测...", name)
+                logger.warning("  [%s] 无法获取 sec_uid，跳过", name)
                 continue
+            t["sec_uid"] = sec_uid
+            tracking[key] = t
+            changed = True
 
             # 获取最新作品
             aweme = get_latest_aweme(context, sec_uid)
@@ -268,7 +320,7 @@ def main() -> None:
                 prev_id or "无",
             )
 
-            # 检测是否有新作品
+            # 检测是否有新作品（仅当此前已有基线且发生变化时才推送）
             if prev_id and prev_id != aweme["aweme_id"]:
                 desc = aweme.get("desc", "") or "[无描述]"
                 logger.info("  [%s] 🆕 新作品: %s", name, desc[:40])
@@ -292,13 +344,13 @@ def main() -> None:
             t["latest_aweme_id"] = aweme["aweme_id"]
             t["latest_desc"] = aweme.get("desc", "")
             tracking[key] = t
-            post_changed = True
+            changed = True
 
         context.close()
         browser.close()
 
-    # 保存追踪数据
-    if post_changed:
+    # 保存作品监控状态
+    if changed:
         save_json_file(TRACKING_FILE, tracking)
 
     logger.info("新作品检测完成")
