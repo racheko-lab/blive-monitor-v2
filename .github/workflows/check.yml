@@ -25,7 +25,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # 作品监控总开关：设为 "true" 启用，删除/改否即关闭（脚本与安装步骤都会据此跳过）
+    # 作品监控总开关：设为 "true" 启用；列表（post_rooms.json）为空时整段跳过，不浪费资源
     env:
       ENABLE_POST_CHECK: "true"
     steps:
@@ -42,17 +42,25 @@ jobs:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
         run: python3 check_status.py
 
+      # 判断作品监控列表是否非空（空则不安装/运行浏览器）
+      - name: Check post_rooms list
+        id: postlist
+        if: ${{ env.ENABLE_POST_CHECK == 'true' }}
+        run: |
+          n=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)
+          if [ "$n" != "0" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi
+
       # 缓存 Playwright 浏览器（仅作品监控使用，静态资源，不存在状态陈旧问题）
       - name: Cache Playwright browsers
-        if: ${{ env.ENABLE_POST_CHECK == 'true' }}
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-1.58.0
 
-      # 安装 Playwright + Chromium（仅启用作品监控时需要）
+      # 安装 Playwright + Chromium（仅启用且列表非空时需要）
       - name: Install Playwright
-        if: ${{ env.ENABLE_POST_CHECK == 'true' }}
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install playwright==1.58.0
@@ -60,6 +68,7 @@ jobs:
 
       # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
       - name: Check new posts
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
           ENABLE_POST_CHECK: "true"
@@ -69,7 +78,7 @@ jobs:
       - name: Persist state & keepalive
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.com"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制
           git add -f state.json tracking.json history.json post_tracking.json
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
