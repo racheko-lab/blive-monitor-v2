@@ -130,9 +130,8 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
         # 过滤掉抖音「推荐流」（带 source= 的是推荐，不是该用户本人作品）
         own = [c for c in cards if c.get("id") and "source=" not in c["href"]]
         if not own:
-            own = [c for c in cards if c.get("id")]
-        if not own:
-            logger.warning("  [%s] 没有解析到任何作品", sec_uid[:12])
+            # 只看到推荐流、没拿到用户本人作品：宁可跳过本轮，也不误把推荐当新作品推送
+            logger.warning("  [%s] 未解析到用户本人作品（可能作品网格未加载/触发验证），本轮跳过", sec_uid[:12])
             return None
 
         latest = own[0]
