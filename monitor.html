@@ -369,7 +369,10 @@ function b64decUtf8(b64){
 
 /** GitHub 鉴权头。 */
 function ghHeaders(extra){
-  var h=Object.assign({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'blive-monitor-web','Cache-Control':'no-cache'}, extra||{});
+  /* 注意：不要加 Cache-Control 等“非 CORS 安全头”——它会触发浏览器对 api.github.com 的
+     OPTIONS 预检，而 GitHub 的 access-control-allow-headers 不含 cache-control，
+     导致预检不通过、真实请求被拦截，表现为“无法连接 api.github.com”。 */
+  var h=Object.assign({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'blive-monitor-web'}, extra||{});
   h['Authorization']='Bearer '+getGhToken();
   return h;
 }
