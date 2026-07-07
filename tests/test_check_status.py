@@ -216,3 +216,54 @@ def test_load_config_legacy_sendkey(tmp_path, monkeypatch):
 def test_bjnow_is_naive():
     dt = cs.bjnow()
     assert dt.tzinfo is None
+
+
+def test_bili_status_on_batch_failure():
+    assert cs.bili_status_on_batch_failure("live") == "live"
+    assert cs.bili_status_on_batch_failure("offline") == "offline"
+    assert cs.bili_status_on_batch_failure(None) == "unknown"
+
+
+def test_main_preserves_prev_on_bili_batch_failure(tmp_path, monkeypatch):
+    """B站批量接口整体失败时，沿用上次状态而非误标 error。"""
+    rooms = [{"platform": "bilibili", "id": "123", "name": "测试"}]
+    rooms_file = tmp_path / "rooms.json"
+    rooms_file.write_text(json.dumps(rooms), encoding="utf-8")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"bilibili_123": "live"}), encoding="utf-8")
+
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(rooms_file))
+    monkeypatch.setattr(cs, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(tmp_path / "history.json"))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", lambda ids: (_ for _ in ()).throw(RuntimeError("风控")))
+
+    cs.main()
+
+    new_state = json.loads(state_file.read_text(encoding="utf-8"))
+    assert new_state.get("bilibili_123") == "live"  # 沿用，不误标 error
+
+
+def test_main_detects_live_on_recovery(tmp_path, monkeypatch):
+    """批量失败期间房间为 offline，恢复后真正开播应正常转为 live。"""
+    rooms = [{"platform": "bilibili", "id": "123", "name": "测试"}]
+    rooms_file = tmp_path / "rooms.json"
+    rooms_file.write_text(json.dumps(rooms), encoding="utf-8")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"bilibili_123": "offline"}), encoding="utf-8")
+
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(rooms_file))
+    monkeypatch.setattr(cs, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(tmp_path / "history.json"))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    sample = {"code": 0, "data": {"by_room_ids": {"123": {"live_status": 1, "title": "x", "online": 1}}}}
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", lambda ids: sample["data"]["by_room_ids"])
+
+    cs.main()
+
+    status = json.loads(state_file.read_text(encoding="utf-8"))
+    assert status.get("bilibili_123") == "live"
