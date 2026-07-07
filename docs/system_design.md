@@ -1,7 +1,12 @@
-# blive-monitor · 房间管理前端化（Worker 代理）系统设计
+# blive-monitor · 系统设计
 
 > 架构师：高见远（Bob）　|　基于 PRD（许清楚）+ 现有架构约束
-> 目标：用户无需接触 Git/JSON，即可在前端增删 B站/抖音 监控房间；用「Worker 代理 + 服务端 PAT + 共享口令 x-pass」消除前端裸奔 PAT 风险；基于文件 sha 保证 rooms.json 写回并发安全。
+
+> ⚠️ **架构已演进（2026-07 起）**：本文档初版描述的是「Cloudflare Worker 代理（`api/` 目录）」方案。
+> 该方案因 `*.workers.dev` 在中国大陆常被屏蔽、导致增删超时，已**弃用并从仓库移除**。
+> 当前前端（`monitor.html`）**直接调用 GitHub Contents API** 读写 `rooms.json`，PAT 仅存于浏览器
+> `localStorage`；推送配置通过 libsodium 加密后写入仓库 Secret `BLIVE_CONFIG`。下方「Part A」保留
+> 初版 Worker 设计的完整细节供回溯，「Part C」描述当前真实架构。最新部署步骤见 `DEPLOYMENT.md`。
 
 ---
 
@@ -402,3 +407,123 @@ export function preflight(cors) {
 `assets/rooms-api.js` 暴露 `apiGetRooms() / apiAddRoom({platform,id,name}) / apiRemoveRoom({platform,id})`，统一带 `x-pass` 头、8s 超时、解析 `{code,data,message}`。
 `assets/rooms-ui.js` 负责渲染「＋ 添加监控」表单、给卡片注入「移除」按钮 + 二次确认弹窗、toast、写后调用 `apiGetRooms()` 刷新并触发既有同域 `rooms.json` 轮询重排。
 ```
+
+---
+
+## Part C：当前真实架构（2026-07 起）
+
+> 上文「Part A / Part B」保留初版 Cloudflare Worker 代理方案的完整细节，供回溯与对比。
+> 本段描述**仓库当前实际运行**的架构——Worker（`api/`、`wrangler.toml`）已移除，
+> 前端改为**直连 GitHub Contents API**，推送配置改用 **libsodium 密封盒**写入 Secret。
+
+### C.1 架构模式转变
+
+| 维度 | Part A（已弃用） | Part C（当前） |
+|---|---|---|
+| 中继层 | Cloudflare Worker（BFF 代理） | **无**——前端直连 GitHub |
+| PAT 存放 | Worker Secret，前端永不见 | 浏览器 `localStorage`，用户自填 |
+| 鉴权 | 共享口令 `x-pass` 头 | GitHub PAT 自带 `Authorization` |
+| 跨域 | Worker 显式 CORS | GitHub Contents API 原生允许 Pages 跨域 |
+| 推送配置 | 明文写仓库 `config.json` | libsodium 加密 → Secret `BLIVE_CONFIG` |
+| 增删房间 | 经 Worker 写 `rooms.json` | 前端直连 Contents API 写 `rooms.json` |
+
+**为什么下线 Worker**：`*.workers.dev` 域名在中国大陆常被屏蔽，导致前端增删房间请求超时、体验不可靠；而 GitHub Contents API 走 `api.github.com`，在国内可达性明显更好。去掉一层边缘服务也减少了部署面与运维成本。
+
+### C.2 数据流（用户态）
+
+```
+浏览器 localStorage(PAT) ──┐
+                           ▼
+monitor.html ──GitHub Contents API──> rooms.json   (读/写 监控房间)
+                            │
+                            ▼
+        ┌───────────────────────────────────────────────┐
+        │ GitHub Actions · check.yml（每 5 分钟/手动）    │
+        │  check_status.py   → status.json / history.json │
+        │  check_new_posts.py → post_tracking.json        │
+        │  推送：读取 Secret BLIVE_CONFIG（libsodium 解密）│
+        │       → push_utils.dispatch_push()              │
+        │       → Bark / 企业微信 / Server酱 / PushPlus / Telegram │
+        └───────────────────────────────────────────────┘
+                           │
+                           ▼
+monitor.html 轮询 status.json / history.json / post_tracking.json 渲染
+```
+
+### C.3 前端如何读写 rooms.json
+
+前端 `monitor.html`（及 `monitor-feed.html` / `monitor-hero.html` / `monitor-dashboard.html`）在内存中持有用户填入的 PAT，
+所有仓库文件读写统一走 GitHub Contents API：
+
+- **读**：`GET /repos/{owner}/{repo}/contents/{path}?ref=master`，解码 `content`（base64）→ UTF-8 JSON。
+- **写**：`GET` 取当前 `sha` → `PUT` 带 `sha` + 新 base64 内容；命中 `409`（并发冲突）时自动重试（重取 sha 再提交），保证并发安全。
+- **PAT 作用域**：`repo`（私有仓库）或 `public_repo`（公开仓库）即可，仅在本地浏览器内存/存储中使用，**不上传、不入库**。
+- **降级**：若未配置 PAT，前端仍可只读渲染 `status.json` 等公开产物，仅「添加/移除房间」需要写权限。
+
+### C.4 推送配置 BLIVE_CONFIG（libsodium 密封盒）
+
+明文 PAT 风险高，故推送配置改为**在仓库 Secret 中只存密文**：
+
+1. 部署者用 **libsodium `crypto_box_seal`**（即 sealed box，无需对方公钥之外的任何交互）将 `BLIVE_CONFIG` 明文 JSON 加密。
+2. 密文（`base64` 或 hex）写入仓库 Secret `BLIVE_CONFIG`。
+3. CI 运行时（`check_status.py` / `check_new_posts.py` 经由 `push_utils.load_push_cfg`）用仓库配对的 libsodium 私钥解密，得到：
+
+   ```json
+   {
+     "push": {
+       "type": "bark",            // bark | wecom | serverchan | pushplus | telegram
+       "url": "https://api.day.app/xxxx/",
+       "token": "...",            // telegram: bot token
+       "chat": "...",             // telegram: chat_id
+       "sendkey": "..."           // serverchan 遗留字段，已兼容
+     }
+   }
+   ```
+
+4. `push_utils.dispatch_push(cfg, title, desp)` 依据 `type` 路由到对应 `send_via_*` 实现；
+   `serverchan` 的 `sendkey` 字段做向后兼容（新配置请用 `pushplus`/`serverchan` 各自 `url`/`token`）。
+
+> 前端 `monitor.html` 内的 `libsodium.js` 负责浏览器侧加密，让用户无需 CLI 也能生成 Secret 密文。
+
+### C.5 当前文件清单（相对 Part A 的变化）
+
+```
+blive-monitor/
+├── check_status.py          # 后端：B站/抖音直播状态检测 → status.json / history.json
+├── check_new_posts.py       # 后端：抖音新作品抓取（Playwright headless Chromium）
+├── push_utils.py            # 推送分发（bark/wecom/serverchan/pushplus/telegram）
+├── common.py                # 公共工具（bjnow / JSON 读写 / 默认 UA / 北京时区）
+├── requirements.txt         # playwright（抖音作品抓取运行时依赖）
+├── requirements-dev.txt     # pytest（回归测试）
+├── run.sh                   # 本地一键运行示例（BLIVE_CONFIG 内联）
+├── monitor.html             # 主前端：直连 Contents API 读写 rooms.json + libsodium 加密
+├── monitor-feed.html        # 信息流视图
+├── monitor-hero.html        # 大屏视图
+├── monitor-dashboard.html   # 仪表盘视图
+├── libsodium.js             # 浏览器侧密封盒加密
+├── rooms.json               # 监控房间真相源（前端直写）
+├── state.json / status.json / tracking.json / post_tracking.json / post_rooms.json
+├── tests/                   # 回归测试（pytest）
+│   ├── conftest.py
+│   ├── test_push_utils.py
+│   ├── test_check_status.py
+│   ├── test_check_new_posts.py
+│   └── test_common.py
+├── docs/
+│   ├── system_design.md      # 本文档
+│   ├── class-diagram.mermaid
+│   └── sequence-diagram.mermaid
+├── .github/workflows/check.yml   # check（B站+抖音）/ test（pytest，非阻塞）/ deploy（Pages）
+├── DEPLOYMENT.md            # 最新部署步骤
+└── README.md
+```
+
+> **已移除**（对比 Part A）：`api/`（Worker 源码）、`wrangler.toml`、`.dev.vars.example`、`.dev.vars`。
+> **未采用**（保持零构建）：前端仍为零构建原生 JS，无需打包器。
+
+### C.6 取舍与已知限制
+
+- **PAT 在浏览器存储**：便利但牺牲了「PAT 永不出服务端」的安全边界；当前定位为**个人/小团队自托管**工具，
+  文档已明确提示用户只授予最小必要作用域、且勿在公共设备保存。多用户场景可考虑回退到 Worker 代理。
+- **Secret 解密依赖私钥**：`BLIVE_CONFIG` 解密所需的 libsodium 私钥由 CI Secret 提供；私钥一旦丢失需重新生成密钥对并更新所有密文。
+- **并发写房间**：依赖 Contents API 的 `sha` + `409` 重试，非强锁；极端并发下最坏情况为一次重试，不影响最终一致。
