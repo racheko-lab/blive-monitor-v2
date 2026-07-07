@@ -59,6 +59,38 @@ Name 填 `BLIVE_CONFIG`，Secret 填上面的 JSON 字符串。
 
 ---
 
+## 二（续）、抖音新作品检测与 `douyin_cookie`
+
+`check_new_posts.py` 负责抖音新作品检测，由 CI 的 `ENABLE_POST_CHECK=true` 开关启用。
+它采用**两层策略 + 优雅降级**，行为取决于是否配置了抖音登录 Cookie：
+
+| 模式 | 是否需要 Cookie | 数据来源 | 推送内容 |
+|---|---|---|---|
+| **精确模式**（推荐） | ✅ 需要 `douyin_cookie` | 拦截浏览器自身签名的 `aweme/post` 接口，返回真实作品列表（含发布时间 / 描述） | 「🆕 X 发布了新作品」并链接到**具体作品** |
+| **推测模式**（兜底） | ❌ 不需要 | 读取 `user/profile/other` 的 `aweme_count`（**未登录也可达**） | 「🔔 X 可能发布了新作品」并链接到**用户主页**，提示自行确认 |
+
+> **为什么精确检测必须依赖登录 Cookie？**
+> 抖音作品列表接口（`aweme/v1/web/aweme/post/`）现在强制要求 X-Bogus / a_bogus 签名
+> + WebID / 登录态，无 Cookie 的请求会被风控返回空列表；而无登录态时用户主页 DOM
+> 几乎全是推荐流，**无法可靠区分用户自身作品与他者推荐视频**，据此推送会大量误报。
+> 故精确检测必须注入登录态——脚本拦截浏览器「自己发出、已带签名」的请求，
+> 无需逆向算法。未配置 Cookie 时自动退化为「作品数推测」，至少不会漏得毫无动静。
+
+### 如何获取并配置 `douyin_cookie`
+
+1. 用**已登录抖音**的桌面浏览器打开目标用户主页 `https://www.douyin.com/user/{sec_uid}`。
+2. 打开 DevTools → Network，刷新页面，点任意一个 `douyin.com` 请求，
+   复制 **Request Headers** 里的 `Cookie` 整串（含 `sessionid`、`sid_tt`、`ttwid`、`passport_csrf_token` 等关键字段）。
+3. 二选一配置（CI 里建议用 Secret，避免明文入源码）：
+   - **环境变量 `DOUYIN_COOKIE`**（推荐）：值填整串 Cookie；
+   - 或写入 `BLIVE_CONFIG`：`{"push": {...}, "douyin_cookie": "<整串 Cookie>"}`。
+4. 重新触发 CI 即生效；配置成功后日志会打印「已注入抖音登录 Cookie（N 条）」。
+
+> ⚠️ **安全提醒**：Cookie 等同账号会话。仅用于自用监控，切勿泄露；若怀疑泄露，
+> 到抖音 App「设置 → 账号与安全 → 登录设备管理」踢出对应设备（或重新登录使旧 Cookie 失效）。
+
+---
+
 ## 三、前置条件（开发 / 重新部署前端）
 
 - 已安装 [Node.js](https://nodejs.org/)（≥ 18）
