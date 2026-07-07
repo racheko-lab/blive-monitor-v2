@@ -112,16 +112,23 @@ def send_via_bark(base: str, title: str, desp: str, group: str = "") -> bool:
 
 
 def send_via_telegram(token: str, chat: str, title: str, desp: str) -> bool:
-    """Telegram Bot 推送（无限）"""
+    """Telegram Bot 推送（无限）
+
+    使用 POST + JSON：原实现把整条消息塞进 GET 查询字符串，长文本（带 Markdown/
+    链接）极易超出 URL 长度上限或遭遇编码问题而失败；POST 更稳，且 Telegram 会自动
+    把纯文本里的裸 URL 识别为可点击链接。
+    """
     if not token or not chat:
         return False
     text = f"{title}\n\n{desp}"
-    url = (
-        f"https://api.telegram.org/bot{token}/sendMessage"
-        f"?chat_id={urllib.parse.quote(chat)}&text={urllib.parse.quote(text)}"
-    )
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat, "text": text}
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     try:
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(
+            url, data=data,
+            headers={"Content-Type": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read())
         return result.get("ok") is True
