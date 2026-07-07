@@ -4,52 +4,54 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b0b12">
-<title>直播 & 新作监控</title>
+<title>监控 · 标签切换</title>
 <style>
 :root{
-  --bg:#0b0b12; --bg2:#0e0e16; --card:#15151f; --card2:#1b1b27; --line:rgba(255,255,255,.07);
-  --text:#ECECF1; --text2:#9a9aae; --text3:#66667a;
-  --bili:#fb7299; --bili-soft:rgba(251,114,153,.14);
-  --dy:#22d3ee; --dy-soft:rgba(34,211,238,.13);
-  --live:#ff4757; --green:#2ed573; --yellow:#ffa502; --blue:#3742fa;
-  --radius:16px; --shadow:0 8px 24px rgba(0,0,0,.38);
+  --bg:#0b0b12;--card:#15151f;--card2:#1b1b27;--line:rgba(255,255,255,.07);
+  --text:#ECECF1;--text2:#9a9aae;--text3:#66667a;
+  --bili:#fb7299;--bili-soft:rgba(251,114,153,.14);
+  --dy:#22d3ee;--dy-soft:rgba(34,211,238,.13);
+  --live:#ff4757;--green:#2ed573;--yellow:#ffa502;
+  --radius:16px;--shadow:0 8px 24px rgba(0,0,0,.38);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 80% -10%,rgba(251,114,153,.10),transparent),var(--bg);color:var(--text);min-height:100dvh;padding:0 0 84px;-webkit-font-smoothing:antialiased}
-/* ===== Header ===== */
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:rgba(11,11,18,.72);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:11px}
-.logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 4px 14px rgba(251,114,153,.35)}
-.title{font-size:16px;font-weight:800;letter-spacing:.3px}
-.sub{font-size:11px;color:var(--text3);margin-top:1px}
-.status-pill{display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:12px;font-weight:700}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 80% -10%,rgba(251,114,153,.10),transparent),var(--bg);color:var(--text);min-height:100dvh;padding-bottom:84px;-webkit-font-smoothing:antialiased}
+/* topbar */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(11,11,18,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 4px 14px rgba(251,114,153,.35)}
+.title{font-size:15px;font-weight:800}
+.sub{font-size:10px;color:var(--text3)}
+.topright{display:flex;align-items:center;gap:10px}
+.refresh{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;cursor:pointer;display:grid;place-items:center}
+.refresh:active{transform:scale(.94)}
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11px;font-weight:700}
 .status-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:.3s}
 .status-pill .dot.on{background:var(--live);box-shadow:0 0 0 4px rgba(255,71,87,.22);animation:pulse 1.6s infinite}
 .status-pill .dot.err{background:var(--yellow)}
 .status-pill .dot.ok{background:var(--green)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,71,87,.4)}70%{box-shadow:0 0 0 7px rgba(255,71,87,0)}100%{box-shadow:0 0 0 0 rgba(255,71,87,0)}}
-/* ===== Layout ===== */
-.content{padding:16px 16px 0;max-width:760px;margin:0 auto}
-.overview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 12px;text-align:center;box-shadow:var(--shadow)}
-.stat .num{font-size:22px;font-weight:800;line-height:1}
-.stat .lbl{font-size:11px;color:var(--text2);margin-top:5px}
-.stat.live .num{color:var(--live)} .stat.rooms .num{color:var(--bili)} .stat.posts .num{color:var(--dy)}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:16px;box-shadow:var(--shadow)}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+/* overview strip */
+.overview{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px 4px;max-width:760px;margin:0 auto}
+.ostat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.ostat .n{font-size:18px;font-weight:800;line-height:1}
+.ostat .l{font-size:10px;color:var(--text2);margin-top:4px}
+.ostat.live .n{color:var(--live)}.ostat.rooms .n{color:var(--bili)}.ostat.posts .n{color:var(--dy)}
+/* views */
+.view{max-width:760px;margin:0 auto;padding:12px 16px 0;display:none}
+.view.active{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 12px}
 .panel-head h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px}
-.count{font-size:11px;color:var(--text2);background:var(--card2);padding:3px 10px;border-radius:999px}
-/* chips */
 .chips{display:flex;gap:6px}
-.chip{padding:6px 13px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2);border:1px solid var(--line);background:transparent;transition:.2s}
+.chip{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2);border:1px solid var(--line);background:transparent;transition:.2s}
 .chip.active{background:var(--bili);color:#fff;border-color:transparent}
-/* ===== Room card ===== */
-.room{background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:10px}
-.room:last-child{margin-bottom:0}
+/* room card */
+.room{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow)}
 .room-top{display:flex;align-items:center;gap:8px}
 .pf{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
-.pf.bili{background:var(--bili-soft);color:var(--bili)} .pf.dy{background:var(--dy-soft);color:var(--dy)}
+.pf.bili{background:var(--bili-soft);color:var(--bili)}.pf.dy{background:var(--dy-soft);color:var(--dy)}
 .name{font-size:15px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .status{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .s-live{background:rgba(255,71,87,.15);color:var(--live);display:flex;align-items:center;gap:5px}
@@ -59,38 +61,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .s-error{background:rgba(255,71,87,.12);color:#ff8088}
 .room-title{font-size:13px;color:var(--text);margin-top:9px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .room-meta{font-size:11px;color:var(--text3);margin-top:7px}
-.act{display:inline-block;margin-top:10px;padding:7px 15px;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none;background:var(--live);color:#fff;transition:.2s}
-.act:hover{filter:brightness(1.08)}
+.act{display:inline-block;margin-top:10px;padding:7px 15px;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none;background:var(--live);color:#fff}
 .act.dy{background:linear-gradient(135deg,var(--dy),#0ea5b7);color:#04222a}
-.empty{text-align:center;padding:34px 16px;color:var(--text3);font-size:13px}
-/* ===== Post card ===== */
-.post{display:flex;gap:12px;background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:10px}
-.post:last-child{margin-bottom:0}
+/* post card */
+.post{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow)}
 .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:18px;font-weight:800;color:#04222a;background:linear-gradient(135deg,var(--dy),#7af0ff)}
 .post-main{flex:1;min-width:0}
 .post-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .post-top .name{font-size:14px;flex:0 1 auto}
 .type{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
-.type.note{background:var(--dy-soft);color:var(--dy)} .type.video{background:rgba(255,71,87,.14);color:#ff7a86}
+.type.note{background:var(--dy-soft);color:var(--dy)}.type.video{background:rgba(255,71,87,.14);color:#ff7a86}
 .post-desc{font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .post-foot{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
 .time{font-size:11px;color:var(--text3)}
-/* ===== Log timeline ===== */
-.logbox{max-height:300px;overflow-y:auto;margin-top:4px}
-.log-item{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+/* log */
+.logbox{max-height:none}
+.log-item{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
 .log-item:last-child{border-bottom:none}
 .log-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
-.log-dot.bili{background:var(--bili)} .log-dot.dy{background:var(--dy)} .log-dot.live{background:var(--live)} .log-dot.off{background:var(--text3)}
+.log-dot.bili{background:var(--bili)}.log-dot.dy{background:var(--dy)}.log-dot.live{background:var(--live)}.log-dot.off{background:var(--text3)}
 .log-time{color:var(--text3);font-variant-numeric:tabular-nums;flex-shrink:0}
 .log-txt{color:var(--text2);flex:1;min-width:0}
 .log-txt b{color:var(--text);font-weight:700}
 .chg{color:var(--yellow);font-weight:800}
 .push-tag{font-size:9px;padding:1px 5px;border-radius:6px;font-weight:800;margin-left:5px}
-.pt-ok{background:rgba(46,213,115,.16);color:var(--green)} .pt-fail{background:rgba(255,71,87,.16);color:var(--live)} .pt-skip{background:rgba(255,255,255,.08);color:var(--text2)}
-/* ===== Footer ===== */
-.footer{position:fixed;bottom:0;left:0;right:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(11,11,18,.8);backdrop-filter:blur(18px);border-top:1px solid var(--line)}
-.btn-refresh{width:100%;padding:13px;border-radius:13px;border:none;font-size:14px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 6px 18px rgba(251,114,153,.3);cursor:pointer;transition:.2s}
-.btn-refresh:active{transform:scale(.985)}
+.pt-ok{background:rgba(46,213,115,.16);color:var(--green)}.pt-fail{background:rgba(255,71,87,.16);color:var(--live)}.pt-skip{background:rgba(255,255,255,.08);color:var(--text2)}
+.empty{text-align:center;padding:40px 16px;color:var(--text3);font-size:13px}
+/* bottom tabs */
+.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;background:rgba(11,11,18,.9);backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:none;background:transparent;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;border-radius:12px;transition:.2s}
+.tab .ic{font-size:18px}
+.tab.active{color:var(--bili)}
+.tab.active .ic{transform:translateY(-1px)}
 </style>
 </head>
 <body>
@@ -98,23 +100,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 <header class="topbar">
   <div class="brand">
     <div class="logo">📡</div>
-    <div>
-      <div class="title">直播 &amp; 新作监控</div>
-      <div class="sub" id="stime">--:--:--</div>
-    </div>
+    <div><div class="title">直播 &amp; 新作监控</div><div class="sub" id="stime">--:--:--</div></div>
   </div>
-  <div class="status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+  <div class="topright">
+    <button class="refresh" onclick="ld()" title="刷新">↻</button>
+    <div class="status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+  </div>
 </header>
 
-<div class="content">
+<div class="overview">
+  <div class="ostat live"><div class="n" id="statLive">0</div><div class="l">直播中</div></div>
+  <div class="ostat rooms"><div class="n" id="statRooms">0</div><div class="l">监控房间</div></div>
+  <div class="ostat posts"><div class="n" id="statPosts">0</div><div class="l">新作品号</div></div>
+</div>
 
-  <div class="overview">
-    <div class="stat live"><div class="num" id="statLive">0</div><div class="lbl">直播中</div></div>
-    <div class="stat rooms"><div class="num" id="statRooms">0</div><div class="lbl">监控房间</div></div>
-    <div class="stat posts"><div class="num" id="statPosts">0</div><div class="lbl">新作品号</div></div>
-  </div>
-
-  <section class="panel">
+<main>
+  <section class="view active" id="view-live">
     <div class="panel-head">
       <h2>📺 直播监控</h2>
       <div class="chips">
@@ -123,71 +124,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
         <button class="chip" onclick="fil('douyin')">抖音</button>
       </div>
     </div>
-    <div id="list"><div class="empty">🔄 加载中…</div></div>
+    <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
   </section>
 
-  <section class="panel" id="postsSection">
-    <div class="panel-head">
-      <h2>🎬 抖音新作品</h2>
-      <span class="count" id="postsCount"></span>
-    </div>
-    <div id="douyinPostsBody"></div>
+  <section class="view" id="view-posts">
+    <div class="panel-head"><h2>🎬 抖音新作品</h2><span class="count" id="postsCount" style="font-size:11px;color:var(--text2)"></span></div>
+    <div id="postsBody"></div>
   </section>
 
-  <section class="panel">
-    <details>
-      <summary class="panel-head" style="cursor:pointer;list-style:none">
-        <h2>📋 监控日志</h2>
-        <span class="count" id="logcnt">(0)</span>
-      </summary>
-      <div id="logbox" class="logbox"></div>
-    </details>
+  <section class="view" id="view-log">
+    <div class="panel-head"><h2>📋 监控日志</h2></div>
+    <div id="logBody" class="logbox"></div>
   </section>
+</main>
 
-</div>
-
-<div class="footer">
-  <button class="btn-refresh" onclick="ld()">🔄 刷新</button>
-</div>
+<nav class="tabbar">
+  <button class="tab active" onclick="show('live')"><span class="ic">📺</span>直播</button>
+  <button class="tab" onclick="show('posts')"><span class="ic">🎬</span>新作</button>
+  <button class="tab" onclick="show('log')"><span class="ic">📋</span>日志</button>
+</nav>
 
 <script>
-var stat=null, rooms=[], hist=[], postRooms=[], postTrack={}, fl='all';
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
 
-function fil(f){ fl=f;
-  var cs=document.querySelectorAll('.chip');
-  cs[0].className='chip'+(f==='all'?' active':'');
-  cs[1].className='chip'+(f==='bilibili'?' active':'');
-  cs[2].className='chip'+(f==='douyin'?' active':'');
-  ren();
+function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
+
+function show(t){
+  var views={'live':'view-live','posts':'view-posts','log':'view-log'};
+  Object.keys(views).forEach(function(k){document.getElementById(views[k]).classList.toggle('active',k===t);});
+  var tabs=document.querySelectorAll('.tab');
+  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log'][i]===t);});
 }
 
-function ago(ts){
-  if(!ts)return '';
-  var d=Date.now()-ts*1000, m=Math.floor(d/60000);
-  if(m<1)return '刚刚'; if(m<60)return m+'分钟前';
-  var h=Math.floor(m/60); if(h<24)return h+'小时前';
-  var day=Math.floor(h/24); if(day<30)return day+'天前';
-  var mo=Math.floor(day/30); if(mo<12)return mo+'个月前';
-  return Math.floor(mo/12)+'年前';
-}
+function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
 
-function ren(){
-  var lb=document.getElementById('list');
+function renderLive(){
+  var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
-  if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili'});
-  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin'});
+  if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
+  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
   if(!rs.length){lb.innerHTML='<div class="empty">该平台暂无房间</div>';return;}
-
   var up=(stat&&stat.updated)||'等待数据';
-  var h='<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:11px">更新于 '+up+'</div>';
+  var h='<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:11px">更新于 '+e(up)+'</div>';
   for(var i=0;i<rs.length;i++){
-    var r=rs[i], s=null;
-    if(stat&&stat.rooms){
-      for(var j=0;j<stat.rooms.length;j++){
-        if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}
-      }
-    }
+    var r=rs[i],s=null;
+    if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
     var st=s?s.status:'offline';
     var sc={live:'s-live',replay:'s-replay',offline:'s-offline',error:'s-error'}[st]||'s-offline';
     var stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
@@ -198,89 +181,22 @@ function ren(){
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
     if(s&&s.area)meta.push(e(s.area));
-    if(s&&s.last_live)meta.push('上次 '+s.last_live.substring(5,16));
+    if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
     var title=s&&s.title?('<div class="room-title">'+e(s.title)+'</div>'):'';
     var act=(s&&st==='live')?'<a class="act" href="'+u+'" target="_blank">进入直播间 →</a>':'';
-    h+='<div class="room">'+
-      '<div class="room-top"><span class="pf '+pl+'">'+pln+'</span>'+
-      '<span class="name">'+e(s?s.name:r.name)+'</span>'+
-      '<span class="status '+sc+'">'+sp+stxt+'</span></div>'+
-      title+
-      (meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+
-      act+'</div>';
+    h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span></div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
   }
   lb.innerHTML=h;
 }
 
-function renlog(log){
-  var lb=document.getElementById('logbox');
-  if(!log||!log.length){lb.innerHTML='<div class="empty">暂无日志</div>';document.getElementById('logcnt').textContent='(0)';return;}
-  document.getElementById('logcnt').textContent='('+log.length+')';
-  var pm={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
-  var dotc={live:'live',replay:'',offline:'off',error:'off'};
-  var h='';
-  for(var i=log.length-1;i>=Math.max(0,log.length-50);i--){
-    var l=log[i];
-    var cls=l.platform==='bilibili'?'bili':'dy';
-    if(l.status==='live')cls='live'; else if(l.status!=='offline')cls='dy';
-    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
-    var chg=l.changed?' <span class="chg">[变化]</span>':'';
-    var pt=pm[l.push]||'';
-    h+='<div class="log-item"><span class="log-dot '+(dotc[l.status]||'off')+'"></span>'+
-      '<span class="log-time">'+l.time.substring(11,16)+'</span>'+
-      '<span class="log-txt">'+stIcon+' <b>'+e(l.name)+'</b>'+chg+pt+(l.title?' · '+e(l.title):'')+'</span></div>';
-  }
-  lb.innerHTML=h||'<div class="empty">暂无日志</div>';
-  lb.scrollTop=0;
-}
-
-function ld(){
-  var bt=document.querySelector('.btn-refresh');bt.textContent='⏳ 刷新中…';
-  var t=Date.now();
-  Promise.all([
-    fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
-    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
-  ]).then(function(v){
-    if(v[0])stat=v[0];
-    if(v[1])rooms=v[1];
-    if(v[2])hist=v[2];
-    if(v[3])postRooms=v[3];
-    if(v[4])postTrack=v[4];
-    var n=new Date();
-    document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN',{hour12:false});
-    var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
-    var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
-    var dcls=liveCount>0?'on':(hasErr?'err':'ok');
-    var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
-    document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
-    document.getElementById('statLive').textContent=liveCount;
-    document.getElementById('statRooms').textContent=rooms.length;
-    document.getElementById('statPosts').textContent=postRooms.length;
-    ren();
-    renlog(hist);
-    updateDouyinPostsModule();
-    bt.textContent='🔄 刷新';
-  }).catch(function(){
-    document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
-    bt.textContent='🔄 刷新';
-    if(!rooms.length)document.getElementById('list').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
-  });
-}
-
-function updateDouyinPostsModule(){
-  var sec=document.getElementById('postsSection');
-  var body=document.getElementById('douyinPostsBody');
+function renderPosts(){
+  var body=document.getElementById('postsBody');
   var cnt=document.getElementById('postsCount');
-  if(!sec||!body)return;
-  if(!postRooms||!postRooms.length){sec.style.display='none';return;}
-  sec.style.display='block';
-  cnt.textContent='共 '+postRooms.length+' 个';
+  if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
+  if(cnt)cnt.textContent='共 '+postRooms.length+' 个';
   var h='';
   for(var i=0;i<postRooms.length;i++){
-    var r=postRooms[i], id=r.id;
+    var r=postRooms[i],id=r.id;
     var tt=postTrack['douyin_'+id]||{};
     var name=tt.nickname||r.name||id;
     var sec_id=tt.sec_uid||'';
@@ -293,22 +209,59 @@ function updateDouyinPostsModule(){
     var ini=name?name.charAt(0):'🎬';
     var inner;
     if(aid){
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span>'+
-        '<span class="pf dy">抖音</span>'+
-        (type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+'</div>'+
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+'</div>'+
         '<div class="post-desc">'+e(desc||'(无描述)')+'</div>'+
-        '<div class="post-foot"><span class="time">'+time+'</span>'+
-        '<a class="act dy" href="'+link+'" target="_blank">查看作品 →</a></div>';
+        '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">查看作品 →</a></div>';
     }else{
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span></div>'+
-        '<div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span></div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
     }
     h+='<div class="post"><div class="avatar">'+e(ini)+'</div><div class="post-main">'+inner+'</div></div>';
   }
   body.innerHTML=h;
 }
 
-function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function renderLog(){
+  var lb=document.getElementById('logBody');
+  if(!hist||!hist.length){lb.innerHTML='<div class="empty">暂无日志</div>';return;}
+  var pm={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
+  var h='';
+  for(var i=hist.length-1;i>=Math.max(0,hist.length-80);i--){
+    var l=hist[i];
+    var cls=l.platform==='bilibili'?'bili':'dy';
+    if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
+    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
+    var chg=l.changed?' <span class="chg">[变化]</span>':'';
+    var pt=pm[l.push]||'';
+    h+='<div class="log-item"><span class="log-dot '+cls+'"></span><span class="log-time">'+e(l.time).substring(11,16)+'</span><span class="log-txt">'+stIcon+' <b>'+e(l.name)+'</b>'+chg+pt+(l.title?' · '+e(l.title):'')+'</span></div>';
+  }
+  lb.innerHTML=h||'<div class="empty">暂无日志</div>';
+}
+
+function ld(){
+  var t=Date.now();
+  Promise.all([
+    fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
+    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
+  ]).then(function(v){
+    if(v[0])stat=v[0];if(v[1])rooms=v[1];if(v[2])hist=v[2];if(v[3])postRooms=v[3];if(v[4])postTrack=v[4];
+    var n=new Date();document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN',{hour12:false});
+    var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
+    var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
+    var dcls=liveCount>0?'on':(hasErr?'err':'ok');
+    var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
+    document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
+    document.getElementById('statLive').textContent=liveCount;
+    document.getElementById('statRooms').textContent=rooms.length;
+    document.getElementById('statPosts').textContent=postRooms.length;
+    renderLive();renderPosts();renderLog();
+  }).catch(function(){
+    document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
+    if(!rooms.length)document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
+  });
+}
 document.addEventListener('DOMContentLoaded',ld);
 </script>
 </body>
