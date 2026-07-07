@@ -99,6 +99,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .addwrap{margin:0 2px 12px}
 .addbtn{width:100%;padding:11px;border-radius:12px;border:1px dashed var(--line);background:transparent;color:var(--bili);font-size:13px;font-weight:800;cursor:pointer;transition:.2s}
 .addbtn:hover{border-color:var(--bili);background:var(--bili-soft)}
+.addbtn.solid:hover{border-color:var(--line);background:var(--card2)}
 .addform{display:none;gap:8px;margin-top:8px;flex-wrap:wrap;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px}
 .ainput{flex:1;min-width:88px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
 .ainput:focus{outline:none;border-color:var(--bili)}
@@ -133,7 +134,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   <div class="ostat posts"><div class="n" id="statPosts">0</div><div class="l">新作品号</div></div>
 </div>
 
-<div id="apiStatus" style="display:none"></div>
+<!-- apiStatus 已移至「配置」标签页连接与检测卡片内 -->
 
 <main>
   <section class="view active" id="view-live">
@@ -147,8 +148,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     </div>
     <div id="addWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
-      <button class="addbtn" style="background:#262b36;color:#9aa4b2" onclick="checkApi()">🔌 检测 API</button>
-      <button class="addbtn" style="background:#262b36;color:#9aa4b2" onclick="openTokenSettings()">⚙️ 设置 Token</button>
       <div class="addform" id="addForm" style="display:none">
         <select id="addPlatform" class="ainput">
           <option value="bilibili">B站</option>
@@ -165,6 +164,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 
   <section class="view" id="view-posts">
     <div class="panel-head"><h2>🎬 抖音新作品</h2><span class="count" id="postsCount" style="font-size:11px;color:var(--text2)"></span></div>
+    <div id="postAddWrap" class="addwrap" style="display:none">
+      <button class="addbtn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
+      <div class="addform" id="postAddForm" style="display:none">
+        <input id="postAddId" class="ainput" placeholder="抖音号 ID / sec_uid（必填）" autocomplete="off">
+        <input id="postAddName" class="ainput" placeholder="备注名（可选）" autocomplete="off">
+        <button class="addok" onclick="submitPostAdd()">添加</button>
+        <button class="addcancel" onclick="togglePostAddForm(false)">取消</button>
+      </div>
+    </div>
     <div id="postsBody"></div>
   </section>
 
@@ -172,32 +180,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     <div class="panel-head"><h2>📋 监控日志</h2></div>
     <div id="logBody" class="logbox"></div>
   </section>
+
+  <section class="view" id="view-config">
+    <div class="panel-head"><h2>⚙️ 配置</h2></div>
+
+    <div class="room" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔑 GitHub Token</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+        用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库
+        <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br>
+        <span style="color:var(--yellow)">⚠️ 当前页面已内置一个“全量权限”默认 Token 以便开箱即用；它暴露在公开源码中，
+        建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span>
+      </div>
+      <input id="tokenInput" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off"
+        style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px;margin-bottom:10px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="saveToken()" style="padding:8px 14px;border-radius:9px;border:none;background:var(--bili);color:#fff;cursor:pointer;font-weight:800">保存</button>
+        <button onclick="clearToken()" style="padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);cursor:pointer">清除</button>
+      </div>
+    </div>
+
+    <div class="room" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔌 连接与检测</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+        检测浏览器能否直连 api.github.com（中国大陆一般可直连）。
+      </div>
+      <button class="addbtn solid" style="background:var(--card2);color:var(--text);border:1px solid var(--line)" onclick="checkApi()">🔌 检测 GitHub API 连接</button>
+      <div id="apiStatus" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <div class="room" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">▶️ 手动触发</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+        立即让监控脚本跑一次（新增/移除房间或抖音号后会自动触发；此处可手动补触发）。
+      </div>
+      <button class="addbtn solid" style="background:var(--card2);color:var(--text);border:1px solid var(--line)" onclick="triggerMonitor().then(function(){toast('已触发检测',true);}).catch(function(e){toast('触发失败：'+(e&&e.message||''),false);})">▶️ 立即触发一次监控</button>
+    </div>
+  </section>
 </main>
 
 <nav class="tabbar">
   <button class="tab active" onclick="show('live')"><span class="ic">📺</span>直播</button>
   <button class="tab" onclick="show('posts')"><span class="ic">🎬</span>新作</button>
   <button class="tab" onclick="show('log')"><span class="ic">📋</span>日志</button>
+  <button class="tab" onclick="show('config')"><span class="ic">⚙️</span>配置</button>
 </nav>
 
-<!-- Token 设置弹层（仅存于本机 localStorage，不进入仓库源码） -->
-<div id="tokenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:center;justify-content:center">
-  <div style="width:min(92vw,420px);background:#161a21;border:1px solid #2a2f3a;border-radius:14px;padding:18px 18px 16px">
-    <div style="font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:6px">⚙️ 设置 GitHub Token</div>
-    <div style="font-size:12px;color:#9aa4b2;line-height:1.6;margin-bottom:10px">
-      用于前端直接写回 rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库
-      <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br>
-      <span style="color:#f0883e">⚠️ 当前页面已内置一个“全量权限”默认 Token 以便开箱即用；它暴露在公开源码中，
-      建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span>
-    </div>
-    <input id="tokenInput" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off"
-      style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2f3a;background:#0d1117;color:#e6edf3;font-size:13px;margin-bottom:10px">
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button onclick="closeTokenSettings()" style="padding:8px 14px;border-radius:9px;border:1px solid #2a2f3a;background:#21262d;color:#9aa4b2;cursor:pointer">取消</button>
-      <button onclick="saveToken()" style="padding:8px 14px;border-radius:9px;border:none;background:#2f81f7;color:#fff;cursor:pointer">保存</button>
-    </div>
-  </div>
-</div>
+<!-- Token 设置弹层已移除：相关 UI 内联到「配置」标签页（view-config） -->
 
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
@@ -229,10 +258,10 @@ function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
 
 function show(t){
-  var views={'live':'view-live','posts':'view-posts','log':'view-log'};
-  Object.keys(views).forEach(function(k){document.getElementById(views[k]).classList.toggle('active',k===t);});
+  var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config'};
+  Object.keys(views).forEach(function(k){var el=document.getElementById(views[k]); if(el) el.classList.toggle('active',k===t);});
   var tabs=document.querySelectorAll('.tab');
-  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log'][i]===t);});
+  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config'][i]===t);});
 }
 
 function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
@@ -300,13 +329,15 @@ function renderPosts(){
     var desc=tt.latest_desc||'';
     var time=ago(tt.latest_ct);
     var ini=name?name.charAt(0):'🎬';
+    var rmArg=JSON.stringify({id:r.id});
+    var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'';
     var inner;
     if(aid){
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+'</div>'+
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+rmbtn+'</div>'+
         '<div class="post-desc">'+e(desc||'(无描述)')+'</div>'+
         '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">查看作品 →</a></div>';
     }else{
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span></div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+rmbtn+'</div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
     }
     h+='<div class="post"><div class="avatar">'+e(ini)+'</div><div class="post-main">'+inner+'</div></div>';
   }
@@ -500,6 +531,67 @@ function apiRemoveRoom(o){
   });
 }
 
+/* ===== 新作品（抖音号）监控：前端直连 GitHub API 增删 ===== */
+/** 读取最新监控抖音号列表（直连 GitHub）。 */
+function apiGetPostRooms(){
+  return ghGetFile('post_rooms.json').then(function(f){ return f.rooms; });
+}
+/** 新增监控抖音号（重复时抛错提示已监控）。 */
+function apiAddPostRoom(o){
+  var key=String(o.id);
+  return ghWriteWithRetry('post_rooms.json', function(rs){
+    if(rs.some(function(r){return String(r.id)===key;})) throw new Error('该抖音号已在监控列表');
+    return {rooms:rs.concat([{id:String(o.id), name:o.name||String(o.id)}]), changed:true};
+  });
+}
+/** 移除监控抖音号（不在列表时抛错）。 */
+function apiRemovePostRoom(o){
+  var key=String(o.id);
+  return ghWriteWithRetry('post_rooms.json', function(rs){
+    var next=rs.filter(function(r){return String(r.id)!==key;});
+    if(next.length===rs.length) throw new Error('该抖音号不在监控列表');
+    return {rooms:next, changed:true};
+  });
+}
+/** 同步顶部「新作品号」统计数。 */
+function updateStatPosts(){ var el=document.getElementById('statPosts'); if(el) el.textContent = postRooms.length; }
+/** 切换「添加抖音号」表单显隐。 */
+function togglePostAddForm(force){
+  var f=document.getElementById('postAddForm');
+  if(!f) return;
+  var show=(force===undefined)?(f.style.display!=='flex'&&f.style.display!=='block'):force;
+  f.style.display=show?'flex':'none';
+  if(!show){ var a=document.getElementById('postAddId'); var b=document.getElementById('postAddName'); if(a)a.value=''; if(b)b.value=''; }
+}
+/** 提交添加抖音号表单（乐观更新：直接用写回结果刷新，无需刷新页面）。 */
+function submitPostAdd(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var id=document.getElementById('postAddId').value.trim();
+  var name=document.getElementById('postAddName').value.trim();
+  if(!id){ toast('抖音号 ID 必填', false); return; }
+  apiAddPostRoom({id:id, name:name})
+    .then(function(res){
+      postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
+      togglePostAddForm(false);
+      toast('已添加抖音号，正在获取新作…', true);
+      triggerMonitor().catch(function(){});
+    })
+    .catch(function(err){ toast(err && err.message ? err.message : '添加失败', false); });
+}
+/** 移除抖音号（带二次确认，乐观更新）。 */
+function removePostRoom(arg){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var id=String(arg.id);
+  var disp=id;
+  for(var i=0;i<postRooms.length;i++){
+    if(String(postRooms[i].id)===id){ disp=postRooms[i].name||id; break; }
+  }
+  if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  apiRemovePostRoom({id:id})
+    .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
+    .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
+}
+
 /** 同步顶部「监控房间」统计数。 */
 function updateStatRooms(){ document.getElementById('statRooms').textContent = rooms.length; }
 
@@ -527,7 +619,7 @@ function toggleAddForm(force){
 
 /** 提交添加监控表单。 */
 function submitAdd(){
-  if(!getGhToken()){ toast('请先点「⚙️ 设置 Token」配置 Token', false); openTokenSettings(); return; }
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
   var platform=document.getElementById('addPlatform').value;
   var id=document.getElementById('addId').value.trim();
   var name=document.getElementById('addName').value.trim();
@@ -551,7 +643,7 @@ function submitAdd(){
 
 /** 移除房间（带二次确认）。 */
 function removeRoom(arg){
-  if(!getGhToken()){ toast('请先点「⚙️ 设置 Token」配置 Token', false); openTokenSettings(); return; }
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
   var platform=arg.platform, id=String(arg.id);
   var disp=id;
   for(var i=0;i<rooms.length;i++){
@@ -617,16 +709,11 @@ function ld(){
 }
 /* ===== Token 设置（仅存本机 localStorage） ===== */
 function openTokenSettings(){
-  var m=document.getElementById('tokenModal');
+  show('config');
   var inp=document.getElementById('tokenInput');
-  if(m)m.style.display='flex';
-  if(inp)inp.value=getGhToken();
-  if(inp)setTimeout(function(){inp.focus();},50);
+  if(inp){ inp.value=getGhToken(); setTimeout(function(){inp.focus();},50); }
 }
-function closeTokenSettings(){
-  var m=document.getElementById('tokenModal');
-  if(m)m.style.display='none';
-}
+function closeTokenSettings(){ /* 弹层已移除，Token 设置内联到「配置」标签页 */ }
 function saveToken(){
   var inp=document.getElementById('tokenInput');
   if(!inp)return;
@@ -639,13 +726,27 @@ function saveToken(){
   // 重新评估写操作可用性并刷新连通性检测。
   var _aw=document.getElementById('addWrap');
   if(_aw)_aw.style.display = getGhToken() ? 'block' : 'none';
+  var _paw=document.getElementById('postAddWrap');
+  if(_paw)_paw.style.display = getGhToken() ? 'block' : 'none';
   checkApi();
   toast(v?'已保存 Token':'已清除 Token', true);
+}
+function clearToken(){
+  var inp=document.getElementById('tokenInput');
+  if(inp) inp.value='';
+  try{ localStorage.removeItem('blive_gh_token'); }catch(e){}
+  var _aw=document.getElementById('addWrap');
+  if(_aw)_aw.style.display = getGhToken() ? 'block' : 'none';
+  var _paw=document.getElementById('postAddWrap');
+  if(_paw)_paw.style.display = getGhToken() ? 'block' : 'none';
+  toast('已清除 Token', true);
 }
 
 /* 写操作 UI 常驻显示；未配置 Token 时提交会提示先设置 */
 var _aw=document.getElementById('addWrap');
 if(_aw)_aw.style.display='block';
+var _paw=document.getElementById('postAddWrap');
+if(_paw)_paw.style.display='block';
 // 页面加载即检测 GitHub API 是否可达，并提示是否需要配置 Token。
 checkApi();
 document.addEventListener('DOMContentLoaded',ld);
