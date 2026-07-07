@@ -1,65 +1,5 @@
 [
   {
-    "time": "2026-07-07 12:05:19",
-    "name": "Lil金智秀",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "你好呀",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 12:05:19",
-    "name": "王兮然🦦.",
-    "platform": "douyin",
-    "status": "live",
-    "title": "好物分享",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 12:10:24",
-    "name": "峰哥亡命天涯",
-    "platform": "bilibili",
-    "status": "offline",
-    "title": "be一会儿",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 12:10:24",
-    "name": "小猪装机（只做性价比 谁坑人谁是🐶）",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "100元帮粉丝装机无偿写配置避坑只做性价比899—8000",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 12:10:24",
-    "name": "樱桃哥🍒（外卖技巧分享）",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "赶紧收工回家",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 12:10:24",
-    "name": "27～",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "正在直播",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
     "time": "2026-07-07 12:10:24",
     "name": "闭嘴嘴",
     "platform": "douyin",
@@ -1998,5 +1938,65 @@
     "changed": false,
     "prev": null,
     "push": null
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "峰哥亡命天涯",
+    "platform": "bilibili",
+    "status": "offline",
+    "title": "be一会儿",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "小猪装机（只做性价比 谁坑人谁是🐶）",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "100元帮粉丝装机无偿写配置避坑只做性价比899—8000",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "樱桃哥🍒（外卖技巧分享）",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "赶紧收工回家",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "27～",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "正在直播",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "鑫璐の装机日记（橱窗联系客服写配下单）",
+    "platform": "douyin",
+    "status": "live",
+    "title": "第一次直播有点点不好意思！！！",
+    "changed": false,
+    "prev": null,
+    "push": "pushed_fail"
+  },
+  {
+    "time": "2026-07-07 14:12:55",
+    "name": "小罗的装机日记diy",
+    "platform": "douyin",
+    "status": "live",
+    "title": "新人主播开播第一天",
+    "changed": false,
+    "prev": null,
+    "push": "pushed_fail"
   }
 ]
