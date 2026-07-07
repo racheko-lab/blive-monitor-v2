@@ -179,11 +179,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
 
 /* ===== 房间管理前端化（Worker 代理）配置 ===== */
-/* 部署后改为你的 Cloudflare Worker URL，例如 https://blive-monitor-api.xxx.workers.dev
-   留空则隐藏「添加 / 移除」控件，保持原有只读监控能力。 */
-var API_BASE="";
+/* Cloudflare Worker 地址（已部署） */
+var API_BASE="https://blive-monitor-api.racheko.workers.dev";
 /* 与 wrangler.toml 中 [vars].PASSPHRASE 保持一致 */
-var API_PASS="change-me-shared-passphrase";
+var API_PASS="7bFqdW8G7Ht9KTXX9NFmm5H";
 /* 仅当配置了 Worker 地址才启用写操作 UI */
 var hasApi=!!API_BASE;
 
