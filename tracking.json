@@ -2,7 +2,8 @@
   "bilibili_22230707": {
     "last_live": "2026-07-01 21:11:11",
     "live_start": "2026-07-07 19:55:18",
-    "last_duration": "129h9min"
+    "last_duration": "129h9min",
+    "live_duration": "5min"
   },
   "douyin_wsyzxz6688": {
     "last_live": "",
@@ -94,12 +95,12 @@
     "last_live": "",
     "live_start": "2026-07-07 18:57:43",
     "sec_uid": "MS4wLjABAAAAhYJJlPr74rN_1hCKGf-MLie8wxxC6CD3RZ6sAJ76toztr1Pe7ifeDtEq-S6KfOPl",
-    "live_duration": "57min"
+    "live_duration": "1h2min"
   },
   "douyin_xxs_longxia": {
     "last_live": "",
     "live_start": "2026-07-07 19:09:01",
     "sec_uid": "MS4wLjABAAAAyCzbVxSAhjIwDOSBQTM3nlislb9BaQYPoM0dApz4wmSbhpNL3NhOepCXdOfqvxYb",
-    "live_duration": "46min"
+    "live_duration": "51min"
   }
 }
