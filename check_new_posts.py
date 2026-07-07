@@ -334,11 +334,19 @@ def main() -> None:
 
             t["latest_aweme_id"] = aweme["aweme_id"]
             t["latest_desc"] = aweme.get("desc", "")
+            t["latest_type"] = "图文" if aweme.get("is_note") else "视频"
+            t["latest_url"] = aweme.get("video_url", "")
             tracking[key] = t
             changed = True
 
         context.close()
         browser.close()
+
+    # 清理已不在监控列表中的账号状态（避免历史残留）
+    cur_keys = {f"douyin_{e.get('id', '')}" for e in post_rooms if e.get("id")}
+    for k in [k for k in list(tracking.keys()) if k.startswith("douyin_") and k not in cur_keys]:
+        del tracking[k]
+        changed = True
 
     if changed:
         save_json_file(TRACKING_FILE, tracking)
