@@ -1,7 +1,0 @@
-{
-  "name": "blive-monitor-api",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Cloudflare Worker room-management proxy (ESM). package.json type:module enables Node ESM resolution for tests."
-}
