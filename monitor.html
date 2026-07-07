@@ -216,6 +216,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
       </div>
       <button class="addbtn solid" style="background:var(--card2);color:var(--text);border:1px solid var(--line)" onclick="triggerMonitor().then(function(){toast('已触发检测',true);}).catch(function(e){toast('触发失败：'+(e&&e.message||''),false);})">▶️ 立即触发一次监控</button>
     </div>
+
+    <div class="room" style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔔 推送渠道</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+        选择开播 / 新作品通知的推送方式。保存时配置会以加密方式写入仓库的
+        <b>Actions Secret（BLIVE_CONFIG）</b>，不会出现在公开源码里（方糖每日限额 5 条，推荐 Bark / 企业微信 / PushPlus 不限量）。
+      </div>
+      <select id="pushChannel" class="ainput" onchange="onPushChannelChange()" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px;margin-bottom:10px">
+        <option value="bark">Bark（iPhone 通知，无限）</option>
+        <option value="serverchan">Server酱 / 方糖（个人微信，5 条/天）</option>
+        <option value="wecom">企业微信群机器人（无限）</option>
+        <option value="pushplus">PushPlus（个人微信，额度高）</option>
+        <option value="telegram">Telegram Bot（无限）</option>
+      </select>
+      <div id="pushFields"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="savePushConfig()" style="padding:8px 14px;border-radius:9px;border:none;background:var(--bili);color:#fff;cursor:pointer;font-weight:800">保存推送配置</button>
+        <button onclick="copyPushJson()" style="padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);cursor:pointer">复制 JSON</button>
+      </div>
+      <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+    </div>
   </section>
 </main>
 
@@ -227,6 +248,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 </nav>
 
 <!-- Token 设置弹层已移除：相关 UI 内联到「配置」标签页（view-config） -->
+
+<!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
+<script src="libsodium.js"></script>
 
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
@@ -741,6 +765,76 @@ function clearToken(){
   if(_paw)_paw.style.display = getGhToken() ? 'block' : 'none';
   toast('已清除 Token', true);
 }
+
+/* ===== 推送渠道配置（下拉 + 加密写入 Actions Secret） ===== */
+var PUSH_FIELDS={
+  bark:[{id:'url',label:'Bark 地址',ph:'https://api.day.app/你的KEY',req:true},{id:'group',label:'分组名（可选，App 内归类）',ph:'blive'}],
+  serverchan:[{id:'sendkey',label:'Server酱 SendKey',ph:'SCTxxxxxxxx',req:true}],
+  wecom:[{id:'webhook',label:'企业微信机器人 Webhook',ph:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx',req:true}],
+  pushplus:[{id:'token',label:'PushPlus Token',ph:'token',req:true},{id:'topic',label:'Topic（可选）',ph:''}],
+  telegram:[{id:'token',label:'Bot Token',ph:'123456:ABC-DEF',req:true},{id:'chat',label:'Chat ID',ph:'-100123456',req:true}]
+};
+function onPushChannelChange(){
+  var ch=document.getElementById('pushChannel').value;
+  var box=document.getElementById('pushFields');
+  box.innerHTML='';
+  (PUSH_FIELDS[ch]||[]).forEach(function(f){
+    var lab=document.createElement('div');
+    lab.style.cssText='font-size:12px;color:var(--text2);margin:8px 0 4px';
+    lab.textContent=f.label+(f.req?' *':'');
+    var inp=document.createElement('input');
+    inp.id='pf_'+f.id; inp.placeholder=f.ph||'';
+    inp.style.cssText='width:100%;box-sizing:border-box;padding:9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px';
+    box.appendChild(lab); box.appendChild(inp);
+  });
+}
+function buildPushConfig(){
+  var ch=document.getElementById('pushChannel').value;
+  var cfg={type:ch};
+  var ok=true;
+  (PUSH_FIELDS[ch]||[]).forEach(function(f){
+    var v=(document.getElementById('pf_'+f.id).value||'').trim();
+    if(f.req && !v) ok=false;
+    if(v) cfg[f.id]=v;
+  });
+  if(!ok){ toast('请填写必填项（带 *）',false); return null; }
+  return {push:cfg};
+}
+function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
+function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function ghBase(){return GH_API.split('/contents')[0];}
+async function savePushConfig(){
+  var cfg=buildPushConfig(); if(!cfg)return;
+  var json=JSON.stringify(cfg);
+  var tok=getGhToken();
+  if(!tok){ toast('请先到「配置」页设置 Token',false); show('config'); return; }
+  var st=document.getElementById('pushStatus');
+  st.style.display='block';
+  try{
+    var base=ghBase();
+    var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
+    if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
+    var pk=await pkResp.json();
+    await sodium.ready;
+    var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
+    var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
+    if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
+    st.style.color='var(--green,#2ecc71)';
+    st.innerHTML='✅ 推送配置已加密写入仓库 Secret（BLIVE_CONFIG），<b>下次监控运行即生效</b>。';
+    toast('推送配置已保存',true);
+  }catch(e){
+    st.style.color='var(--yellow)';
+    st.innerHTML='⚠️ 自动写入失败：'+(e&&e.message||e)+'。<br>请复制下面 JSON，手动到 GitHub → Settings → Secrets → Actions → 新建/更新 <b>BLIVE_CONFIG</b>：<br><textarea readonly style="width:100%;height:74px;margin-top:6px;box-sizing:border-box">'+escapeHtml(json)+'</textarea>';
+  }
+}
+function copyPushJson(){
+  var cfg=buildPushConfig(); if(!cfg)return;
+  var json=JSON.stringify(cfg);
+  if(navigator.clipboard) navigator.clipboard.writeText(json).then(function(){toast('已复制 JSON',true);},function(){toast('复制失败，请手动选择',false);});
+  else toast(json,true);
+}
+onPushChannelChange();
 
 /* 写操作 UI 常驻显示；未配置 Token 时提交会提示先设置 */
 var _aw=document.getElementById('addWrap');
