@@ -1,75 +1,5 @@
 [
   {
-    "time": "2026-07-07 16:00:19",
-    "name": "峰哥亡命天涯",
-    "platform": "bilibili",
-    "status": "offline",
-    "title": "be一会儿",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:00:19",
-    "name": "小猪装机（只做性价比 谁坑人谁是🐶）",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "100元帮粉丝装机无偿写配置避坑只做性价比899—8000",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:00:19",
-    "name": "27～",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "正在直播",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:00:19",
-    "name": "樱桃哥🍒（外卖技巧分享）",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "赶紧收工回家",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:00:19",
-    "name": "Yifei",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "想你了",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:06:44",
-    "name": "峰哥亡命天涯",
-    "platform": "bilibili",
-    "status": "offline",
-    "title": "be一会儿",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
-    "time": "2026-07-07 16:06:44",
-    "name": "小猪装机（只做性价比 谁坑人谁是🐶）",
-    "platform": "douyin",
-    "status": "offline",
-    "title": "100元帮粉丝装机无偿写配置避坑只做性价比899—8000",
-    "changed": false,
-    "prev": null,
-    "push": null
-  },
-  {
     "time": "2026-07-07 16:06:44",
     "name": "27～",
     "platform": "douyin",
@@ -1998,5 +1928,75 @@
     "changed": false,
     "prev": null,
     "push": "pushed_fail"
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "峰哥亡命天涯",
+    "platform": "bilibili",
+    "status": "offline",
+    "title": "峰雨PK谁更嗨",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "小猪装机（只做性价比 谁坑人谁是🐶）",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "100元帮粉丝装机无偿写配置避坑只做性价比899—8000",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "27～",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "正在直播",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "樱桃哥🍒（外卖技巧分享）",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "赶紧收工回家",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "Yifei",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "想你了",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "披萨解说",
+    "platform": "douyin",
+    "status": "offline",
+    "title": "实况Theshy新英雄上单？",
+    "changed": false,
+    "prev": null,
+    "push": null
+  },
+  {
+    "time": "2026-07-07 19:00:35",
+    "name": "灰萌萌",
+    "platform": "douyin",
+    "status": "live",
+    "title": "表面乖乖实则",
+    "changed": false,
+    "prev": null,
+    "push": null
   }
 ]
