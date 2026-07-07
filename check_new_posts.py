@@ -190,6 +190,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
             "desc": latest.get("desc", "") or "",
             "video_url": f"https://www.douyin.com/{link_path}/{aid}",
             "is_note": is_note,
+            "nickname": (latest.get("author") or {}).get("nickname", "") or "",
         }
     except Exception as e:
         logger.warning("  [%s] 获取作品异常: %s", sec_uid[:12], e)
@@ -336,6 +337,7 @@ def main() -> None:
             t["latest_desc"] = aweme.get("desc", "")
             t["latest_type"] = "图文" if aweme.get("is_note") else "视频"
             t["latest_url"] = aweme.get("video_url", "")
+            t["nickname"] = aweme.get("nickname", "") or t.get("nickname", "")
             tracking[key] = t
             changed = True
 
