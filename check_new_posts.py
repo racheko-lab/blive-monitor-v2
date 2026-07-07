@@ -18,13 +18,12 @@ import json
 import os
 import re
 import logging
-from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 
-# ==================== 常量配置 ====================
+# 公共工具（时间/JSON 读写），避免与 check_status.py 重复定义
+from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
 
-# 北京时间（UTC+8）
-BEIJING_TZ = timezone(timedelta(hours=8))
+# ==================== 常量配置 ====================
 
 # 文件路径（与本脚本同目录）
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -69,33 +68,28 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== 工具函数 ====================
+# bjnow / load_json_file / save_json_file 见 common.py（与 check_status.py 共用）
 
-def bjnow() -> datetime:
-    """获取当前北京时间"""
-    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
+# ==================== 新作品基线判定（纯函数，便于单测） ====================
 
+def should_notify_new_post(
+    prev_id: str, prev_ct: int, new_id: str, new_ct: int
+) -> bool:
+    """是否应就「新作品」推送通知。
 
-def load_json_file(filepath: str, default: Any = None) -> Any:
-    """安全加载 JSON 文件"""
-    if default is None:
-        default = {}
-    if not os.path.exists(filepath):
-        return default
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.warning("加载 %s 失败: %s", filepath, e)
-        return default
+    仅在「接口返回的作品确实比本地基线更新」时视为新作品，规避抖音接口 feed 延迟
+    导致把旧作品当新作品反复推送；接口返回的作品更旧时静默保留已有基线。
+    """
+    is_newer = (new_ct > prev_ct) if prev_ct else True
+    return bool(prev_id) and prev_id != new_id and is_newer
 
 
-def save_json_file(filepath: str, data: Any) -> None:
-    """安全保存 JSON 文件"""
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except IOError as e:
-        logger.error("保存 %s 失败: %s", filepath, e)
+def should_update_baseline(prev_ct: int, new_ct: int) -> bool:
+    """是否用接口结果覆盖本地基线。
+
+    仅当接口返回的作品不比已知基线更旧时才更新，避免接口延迟导致显示回退到旧作品。
+    """
+    return (not prev_ct) or (new_ct >= prev_ct)
 
 
 # ==================== sec_uid 解析 ====================
@@ -316,8 +310,7 @@ def main() -> None:
             # 仅当接口返回的作品"确实比基线更新"时才视为新作品并推送。
             # 否则（接口返回的反而更旧，即抖音接口尚未收录我们已知的更新作品，
             # 属 feed 延迟）只静默保留已有基线，不误推送、也不回退显示。
-            is_newer = (new_ct > prev_ct) if prev_ct else True
-            if prev_id and prev_id != aweme["aweme_id"] and is_newer:
+            if should_notify_new_post(prev_id, prev_ct, aweme["aweme_id"], new_ct):
                 desc = aweme.get("desc", "") or "[无描述]"
                 kind = "图文" if aweme.get("is_note") else "视频"
                 logger.info("  [%s] 🆕 新作品(%s): %s", name, kind, desc[:40])
@@ -340,7 +333,7 @@ def main() -> None:
 
             # 只有在"本次拿到的工作不比基线更旧"时才用接口结果覆盖基线，
             # 避免抖音接口延迟导致显示回退到旧作品（例如已知最新图文尚未被接口收录）。
-            if not prev_ct or new_ct >= prev_ct:
+            if should_update_baseline(prev_ct, new_ct):
                 t["latest_aweme_id"] = aweme["aweme_id"]
                 t["latest_desc"] = aweme.get("desc", "")
                 t["latest_type"] = "图文" if aweme.get("is_note") else "视频"
