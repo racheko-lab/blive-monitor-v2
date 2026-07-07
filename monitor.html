@@ -147,6 +147,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     <div id="addWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
       <button class="addbtn" style="background:#262b36;color:#9aa4b2" onclick="checkApi()">🔌 检测 API</button>
+      <button class="addbtn" style="background:#262b36;color:#9aa4b2" onclick="openTokenSettings()">⚙️ 设置 Token</button>
       <div class="addform" id="addForm" style="display:none">
         <select id="addPlatform" class="ainput">
           <option value="bilibili">B站</option>
@@ -178,16 +179,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   <button class="tab" onclick="show('log')"><span class="ic">📋</span>日志</button>
 </nav>
 
+<!-- Token 设置弹层（仅存于本机 localStorage，不进入仓库源码） -->
+<div id="tokenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;align-items:center;justify-content:center">
+  <div style="width:min(92vw,420px);background:#161a21;border:1px solid #2a2f3a;border-radius:14px;padding:18px 18px 16px">
+    <div style="font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:6px">⚙️ 设置 GitHub Token</div>
+    <div style="font-size:12px;color:#9aa4b2;line-height:1.6;margin-bottom:10px">
+      用于前端直接写回 rooms.json（无需后端）。请使用<b>细粒度 Token</b>，仅授权本仓库
+      <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br>
+      Token 仅保存在你本机浏览器，不会上传或被写入仓库源码。
+    </div>
+    <input id="tokenInput" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2f3a;background:#0d1117;color:#e6edf3;font-size:13px;margin-bottom:10px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeTokenSettings()" style="padding:8px 14px;border-radius:9px;border:1px solid #2a2f3a;background:#21262d;color:#9aa4b2;cursor:pointer">取消</button>
+      <button onclick="saveToken()" style="padding:8px 14px;border-radius:9px;border:none;background:#2f81f7;color:#fff;cursor:pointer">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
 
-/* ===== 房间管理前端化（Worker 代理）配置 ===== */
-/* Cloudflare Worker 地址（已部署） */
-var API_BASE="https://blive-monitor-api.racheko.workers.dev";
-/* 与 wrangler.toml 中 [vars].PASSPHRASE 保持一致 */
-var API_PASS="7bFqdW8G7Ht9KTXX9NFmm5H";
-/* 仅当配置了 Worker 地址才启用写操作 UI */
-var hasApi=!!API_BASE;
+/* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
+/* 仓库与分支（与监控脚本一致） */
+var GH_REPO="racheko-lab/blive-monitor";
+var GH_BRANCH="master";
+/* GitHub REST API 直接写回 rooms.json；Token 由用户在页面设置并仅存于本机 localStorage。 */
+var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
+/* 读取本机保存的 GitHub Token（细粒度、仅限本仓库 Contents:Read&Write） */
+function getGhToken(){
+  try{ return (localStorage.getItem('blive_gh_token')||'').trim(); }catch(e){ return ''; }
+}
+/* 仅当本机已配置 Token 才启用写操作 UI */
+var hasApi=!!getGhToken();
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
@@ -306,85 +330,150 @@ function toast(msg, ok){
 }
 
 /**
- * 统一请求封装：带 x-pass 头与 8s 超时，解析 {code,data,message}。
- * @param {string} path - Worker 相对路径（如 /rooms）。
- * @param {Object} opts - fetch 选项。
- * @returns {Promise<Object>} 解析后的响应数据（code 为 0 时）。
+ * 前端直连 GitHub Contents API：读取 / 改写 rooms.json。
+ * 与已下线的 Cloudflare Worker 逻辑完全一致（GET → 改 → 带 sha PUT，遇 409 重试），
+ * 区别是请求直接从浏览器发往 api.github.com（已验证支持 CORS，中国大陆可直连）。
+ * Token 仅存于本机 localStorage，不进入仓库源码。
  */
-function apiFetch(path, opts){
+
+/** UTF-8 安全 base64 编解码（中文 name 不丢失）。 */
+function b64encUtf8(str){
+  var bytes=new TextEncoder().encode(str);
+  var bin='';
+  for(var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64decUtf8(b64){
+  var bin=atob(b64);
+  var bytes=Uint8Array.from(bin,function(c){return c.charCodeAt(0);});
+  return new TextDecoder().decode(bytes);
+}
+
+/** GitHub 鉴权头。 */
+function ghHeaders(extra){
+  var h=Object.assign({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'blive-monitor-web'}, extra||{});
+  h['Authorization']='Bearer '+getGhToken();
+  return h;
+}
+
+/** 统一 fetch 封装：12s 超时 + 友好错误。 */
+function ghFetch(url, opts){
   var ctrl=new AbortController();
-  // 12s：Worker 自身 GitHub 写回约 1~2s 即返回；留足余量以区分「真超时」与「被网络屏蔽」。
   var timer=setTimeout(function(){ctrl.abort();}, 12000);
-  return fetch(API_BASE+path, Object.assign({}, opts, {signal:ctrl.signal}))
+  return fetch(url, Object.assign({}, opts, {signal:ctrl.signal}))
     .then(function(r){
       clearTimeout(timer);
       return r.json().then(function(data){
-        if(r.ok && data && data.code===0) return data;
-        var msg=(data && data.message) ? data.message : ('HTTP '+r.status);
-        throw new Error(msg);
-      });
+        return {ok:r.ok, status:r.status, data:data};
+      }).catch(function(){ return {ok:r.ok, status:r.status, data:null}; });
     })
     .catch(function(err){
       clearTimeout(timer);
-      if(err && err.name==='AbortError') throw new Error('请求超时：API 服务 12 秒内无响应，极可能是 workers.dev 被你的网络屏蔽（中国大陆常见）');
-      if(err instanceof TypeError) throw new Error('网络错误：无法连接 API，请检查网络/代理或 API_BASE 是否正确');
+      if(err && err.name==='AbortError') throw new Error('请求超时：GitHub API 12 秒内无响应（检查网络/代理）');
+      if(err instanceof TypeError) throw new Error('网络错误：无法连接 api.github.com（请检查网络/代理）');
       throw err;
     });
 }
 
-/**
- * 诊断：检测 API 主机是否可从浏览器访问。
- * 向 /rooms 发一次「无 x-pass」的 GET：只要收到任何响应（含 401）即代表主机可达；
- * 若超时/网络错误，则基本可判定 workers.dev 被网络屏蔽。
- * @returns {Promise<boolean>} 是否可达。
- */
+/** 读取 rooms.json → {rooms, sha}。 */
+function ghGetFile(path){
+  return ghFetch(GH_API+'/'+path+'?ref='+GH_BRANCH, {method:'GET', headers:ghHeaders()})
+    .then(function(res){
+      if(res.status===404) return {rooms:[], sha:null};
+      if(!res.ok) throw new Error('读取失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
+      var content=res.data&&res.data.content?res.data.content.replace(/\s/g,''):'';
+      var rooms=content?JSON.parse(b64decUtf8(content)):[];
+      return {rooms:rooms, sha:res.data&&res.data.sha?res.data.sha:null};
+    });
+}
+
+/** 带 sha 写回 rooms.json（sha 为空表示新建）。 */
+function ghPutFile(path, rooms, sha){
+  var body={
+    message:'chore(rooms): update monitored rooms via blive-monitor web',
+    content:b64encUtf8(JSON.stringify(rooms,null,2)),
+    branch:GH_BRANCH
+  };
+  if(sha) body.sha=sha;
+  return ghFetch(GH_API+'/'+path, {
+    method:'PUT',
+    headers:ghHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify(body)
+  }).then(function(res){
+    if(res.status===409||res.status===404) throw {conflict:true};
+    if(!res.ok) throw new Error('写入失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
+    return (res.data&&res.data.content&&res.data.content.sha)||null;
+  });
+}
+
+/** 读-改-写（基于 sha 的并发安全，遇 409 重试 ≤2 次）。 */
+function ghWriteWithRetry(path, mutate){
+  var attempt=0;
+  function run(){
+    return ghGetFile(path).then(function(file){
+      var res=mutate(file.rooms);
+      if(!res.changed) return Object.assign({}, res, {sha:file.sha});
+      return ghPutFile(path, res.rooms, file.sha).then(function(newSha){
+        return Object.assign({}, res, {changed:true, sha:newSha});
+      }).catch(function(e){
+        if(e&&e.conflict&&attempt<2){ attempt++; return run(); }
+        throw e;
+      });
+    });
+  }
+  return run();
+}
+
+/** 诊断：检测 api.github.com 是否可从浏览器访问。 */
 function checkApi(){
   var el=document.getElementById('apiStatus');
-  if(!el || !hasApi) return Promise.resolve(false);
+  if(!el) return Promise.resolve(false);
   el.style.display='block';
   el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#1b1f27;color:#9aa4b2;border:1px solid #2a2f3a';
-  el.innerHTML='🔄 正在检测 API 连接…';
+  el.innerHTML='🔄 正在检测 GitHub API 连接…';
   var ctrl=new AbortController();
-  var timer=setTimeout(function(){ctrl.abort();}, 7000);
-  return fetch(API_BASE+'/rooms', {method:'GET', signal:ctrl.signal})
-    .then(function(){ clearTimeout(timer); return true; })   // 任意响应（含 401）即代表可达
+  var timer=setTimeout(function(){ctrl.abort();}, 8000);
+  // 无 Token 也能收到 401，只要有响应即代表主机可达。
+  return fetch(GH_API+'/rooms.json?ref='+GH_BRANCH, {method:'GET', signal:ctrl.signal})
+    .then(function(){ clearTimeout(timer); return true; })
     .catch(function(){ clearTimeout(timer); return false; })
     .then(function(ok){
       if(ok){
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
-        el.innerHTML='✅ API 可连接：<b>'+API_BASE+'</b>';
+        el.innerHTML= getGhToken()
+          ? '✅ GitHub API 可连接，已配置 Token，可正常增删监控。'
+          : '✅ GitHub API 可连接，但还未配置 Token。<b>点「⚙️ 设置 Token」填入仅限本仓库的细粒度 Token</b> 后即可增删监控。';
       }else{
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#2a1416;color:#f85149;border:1px solid #5a2329';
-        el.innerHTML='⚠️ <b>API 不可达</b>：<b>'+API_BASE+'</b> 无法连接，很可能是 <b>workers.dev 被你的网络屏蔽</b>（中国大陆常见）。<br>解决办法：把 Worker 绑定到自有域名的子域（如 api.你的域名.com），绕过 workers.dev。点上方「🔌 检测 API」可重试。';
+        el.innerHTML='⚠️ <b>无法连接 api.github.com</b>：你的网络可能访问不了 GitHub。可尝试代理，或改用其他可直连的方案。点「🔌 检测 API」可重试。';
       }
       return ok;
     });
 }
 
-/** GET /rooms：读取最新监控房间列表。 */
+/** 读取最新监控房间列表（直连 GitHub）。 */
 function apiGetRooms(){
-  return apiFetch('/rooms', {method:'GET', headers:{'x-pass':API_PASS}})
-    .then(function(d){ return (d.data && d.data.rooms) ? d.data.rooms : []; });
+  return ghGetFile('rooms.json').then(function(f){ return f.rooms; });
 }
 
-/** POST /rooms action=add：新增监控房间（重复时抛错提示已监控）。 */
+/** 新增监控房间（重复时抛错提示已监控）。 */
 function apiAddRoom(o){
-  return apiFetch('/rooms', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-pass':API_PASS},
-    body:JSON.stringify({action:'add', platform:o.platform, id:String(o.id), name:o.name||undefined})
-  }).then(function(d){
-    if(d.data && d.data.duplicate){ throw new Error('该房间已在监控列表'); }
-    return d;
+  var key=o.platform+'|'+String(o.id);
+  return ghWriteWithRetry('rooms.json', function(rs){
+    if(rs.some(function(r){return r.platform+'|'+String(r.id)===key;})){
+      throw new Error('该房间已在监控列表');
+    }
+    return {rooms:rs.concat([{platform:o.platform, id:String(o.id), name:o.name||String(o.id)}]), changed:true};
   });
 }
 
-/** POST /rooms action=remove：移除监控房间。 */
+/** 移除监控房间（不在列表时抛错）。 */
 function apiRemoveRoom(o){
-  return apiFetch('/rooms', {
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-pass':API_PASS},
-    body:JSON.stringify({action:'remove', platform:o.platform, id:String(o.id)})
+  var key=o.platform+'|'+String(o.id);
+  return ghWriteWithRetry('rooms.json', function(rs){
+    var next=rs.filter(function(r){return r.platform+'|'+String(r.id)!==key;});
+    if(next.length===rs.length) throw new Error('该房间不在监控列表');
+    return {rooms:next, changed:true};
   });
 }
 
@@ -402,7 +491,7 @@ function toggleAddForm(force){
 
 /** 提交添加监控表单。 */
 function submitAdd(){
-  if(!hasApi) return;
+  if(!getGhToken()){ toast('请先点「⚙️ 设置 Token」配置 Token', false); openTokenSettings(); return; }
   var platform=document.getElementById('addPlatform').value;
   var id=document.getElementById('addId').value.trim();
   var name=document.getElementById('addName').value.trim();
@@ -420,7 +509,7 @@ function submitAdd(){
 
 /** 移除房间（带二次确认）。 */
 function removeRoom(arg){
-  if(!hasApi) return;
+  if(!getGhToken()){ toast('请先点「⚙️ 设置 Token」配置 Token', false); openTokenSettings(); return; }
   var platform=arg.platform, id=String(arg.id);
   var disp=id;
   for(var i=0;i<rooms.length;i++){
@@ -461,13 +550,39 @@ function ld(){
     if(!rooms.length)document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
   });
 }
-/* 启用 / 隐藏写操作 UI：仅在配置了 Worker 地址时显示 */
-if(hasApi){
-  var _aw=document.getElementById('addWrap');
-  if(_aw)_aw.style.display='block';
-  // 页面加载即检测 API 主机是否可达，提前暴露 workers.dev 被屏蔽的问题。
-  checkApi();
+/* ===== Token 设置（仅存本机 localStorage） ===== */
+function openTokenSettings(){
+  var m=document.getElementById('tokenModal');
+  var inp=document.getElementById('tokenInput');
+  if(m)m.style.display='flex';
+  if(inp)inp.value=getGhToken();
+  if(inp)setTimeout(function(){inp.focus();},50);
 }
+function closeTokenSettings(){
+  var m=document.getElementById('tokenModal');
+  if(m)m.style.display='none';
+}
+function saveToken(){
+  var inp=document.getElementById('tokenInput');
+  if(!inp)return;
+  var v=inp.value.trim();
+  try{
+    if(v) localStorage.setItem('blive_gh_token', v);
+    else localStorage.removeItem('blive_gh_token');
+  }catch(e){}
+  closeTokenSettings();
+  // 重新评估写操作可用性并刷新连通性检测。
+  var _aw=document.getElementById('addWrap');
+  if(_aw)_aw.style.display = getGhToken() ? 'block' : 'none';
+  checkApi();
+  toast(v?'已保存 Token':'已清除 Token', true);
+}
+
+/* 写操作 UI 常驻显示；未配置 Token 时提交会提示先设置 */
+var _aw=document.getElementById('addWrap');
+if(_aw)_aw.style.display='block';
+// 页面加载即检测 GitHub API 是否可达，并提示是否需要配置 Token。
+checkApi();
 document.addEventListener('DOMContentLoaded',ld);
 </script>
 </body>
