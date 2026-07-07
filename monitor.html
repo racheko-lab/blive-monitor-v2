@@ -51,14 +51,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 <div id="list"><div class="empty">🔄 加载中...</div></div>
 
-<!-- 抖音作品模块 - 占位（抖音作品API需签名认证，暂不可用） -->
+<!-- 抖音新作品模块 - 真实数据（来源 post_rooms.json + post_tracking.json） -->
 <div id="douyinPosts" style="background:var(--card);border-radius:14px;padding:14px;margin-top:12px;display:none">
-  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px">🎬 抖音最新作品</div>
-  <div style="font-size:12px;color:var(--text2)">
-    ⚠️ 暂无法获取（抖音作品API需签名认证，技术门槛较高）
-    <br><br>
-    <span style="font-size:11px;color:#666">直播监控功能正常使用中</span>
-  </div>
+  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">🎬 抖音新作品监控</div>
+  <div id="douyinPostsBody"></div>
 </div>
 
 <details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
@@ -72,7 +68,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 
 <script>
-var stat=null, rooms=[], hist=[], fl='all';
+var stat=null, rooms=[], hist=[], postRooms=[], postTrack={}, fl='all';
 
 function fil(f){ fl=f;
   var ts=document.querySelectorAll('.tab');
@@ -145,11 +141,15 @@ function ld(){
   Promise.all([
     fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
     fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})
+    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
+    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
   ]).then(function(v){
     if(v[0])stat=v[0];
     if(v[1])rooms=v[1];
     if(v[2])hist=v[2];
+    if(v[3])postRooms=v[3];
+    if(v[4])postTrack=v[4];
     var n=new Date();
     document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN');
     var live=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='live'}):false;
@@ -168,12 +168,40 @@ function ld(){
   });
 }
 
-// 抖音作品模块 - 占位显示（抖音作品API需签名认证，暂不可用）
+// 抖音新作品模块 - 渲染 post_rooms.json + post_tracking.json 的真实数据
 function updateDouyinPostsModule(){
-  if(!stat||!stat.rooms)return;
-  // 检测是否有抖音房间
-  var hasDouyin = stat.rooms.some(function(r){return r.platform==='douyin'});
-  document.getElementById('douyinPosts').style.display=hasDouyin?'block':'none';
+  var box=document.getElementById('douyinPosts');
+  var body=document.getElementById('douyinPostsBody');
+  if(!box||!body)return;
+  if(!postRooms||!postRooms.length){ // 没有监控新作品的抖音号 → 隐藏模块
+    box.style.display='none';
+    return;
+  }
+  box.style.display='block';
+  var h='';
+  for(var i=0;i<postRooms.length;i++){
+    var r=postRooms[i];
+    var id=r.id;
+    var name=r.name||id;
+    var t=postTrack['douyin_'+id]||{};
+    var sec=t.sec_uid||'';
+    var aid=t.latest_aweme_id||'';
+    // 优先用脚本持久化的直接作品链接；缺失时回退到个人主页（最新作品置顶）
+    var link=t.latest_url||(sec?'https://www.douyin.com/user/'+sec:'https://www.douyin.com/');
+    var type=t.latest_type||'';   // 图文 / 视频
+    var desc=t.latest_desc||'';
+    var typeBadge=type?'<span class="badge b-wait">'+type+'</span>':'';
+    var content;
+    if(aid){
+      content='<div class="info" style="margin-top:4px">'+e(desc||'(无描述)')+'</div>'+
+        typeBadge+
+        '<a class="btn-go" href="'+link+'" target="_blank" style="background:var(--blue)">👉 查看作品</a>';
+    }else{
+      content='<div class="info" style="margin-top:4px">⌛ 等待首次抓取…</div>';
+    }
+    h+='<div class="card offline" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-size:15px;font-weight:700">'+e(name)+'</span><span class="tag tag-dy">抖音</span></div>'+content+'</div>';
+  }
+  body.innerHTML=h;
 }
 
 function e(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
