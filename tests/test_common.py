@@ -32,3 +32,21 @@ def test_beijing_tz_offset():
 
 def test_default_user_agent():
     assert "Chrome" in common.DEFAULT_USER_AGENT
+
+
+def test_save_json_file_atomic_no_tmp_leftover(tmp_path):
+    """原子写：最终文件内容正确，且不应留下 .tmp 残留文件。"""
+    f = tmp_path / "status.json"
+    common.save_json_file(str(f), {"rooms": [{"id": 1}]})
+    assert json.loads(f.read_text(encoding="utf-8")) == {"rooms": [{"id": 1}]}
+    assert not (tmp_path / "status.json.tmp").exists()
+
+
+def test_save_json_file_overwrites_atomically(tmp_path):
+    """覆盖写也能正确更新内容（os.replace 原子替换）。"""
+    f = tmp_path / "status.json"
+    common.save_json_file(str(f), {"v": 1})
+    common.save_json_file(str(f), {"v": 2})
+    assert json.loads(f.read_text(encoding="utf-8")) == {"v": 2}
+    assert not (tmp_path / "status.json.tmp").exists()
+
