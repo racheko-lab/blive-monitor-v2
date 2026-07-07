@@ -87,10 +87,11 @@
     "live_start": ""
   },
   "douyin_dy571881": {
-    "last_live": "",
-    "live_start": "2026-07-07 21:35:22",
+    "last_live": "2026-07-07 21:35:22",
+    "live_start": "",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "live_duration": "1h59min"
+    "live_duration": "1h59min",
+    "last_duration": "2h5min"
   },
   "douyin_26341732116": {
     "last_live": "",
