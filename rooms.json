@@ -33,5 +33,10 @@
     "platform": "douyin",
     "id": "XX.9.9999",
     "name": "XX.9.9999"
+  },
+  {
+    "platform": "bilibili",
+    "id": "__e2e_test__",
+    "name": "__e2e_test__"
   }
 ]
