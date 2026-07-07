@@ -201,6 +201,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
+/* build 2026-07-07: 添加/删除采用乐观更新（直接采用写回结果，不二次 GET），无需刷新页面即可生效 */
 
 /* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
 /* 仓库与分支（与监控脚本一致） */
