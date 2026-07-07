@@ -541,7 +541,9 @@ function ld(){
   var t=Date.now();
   Promise.all([
     fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    /* 房间列表改从 GitHub API 实时读取（已鉴权），避免 Pages 静态文件最长 ~5 分钟的滞后导致增删“复活” */
+    (getGhToken() ? apiGetRooms().catch(function(){ return null; })
+      : fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})),
     fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
     fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
     fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
