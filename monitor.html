@@ -182,8 +182,8 @@ function updateDouyinPostsModule(){
   for(var i=0;i<postRooms.length;i++){
     var r=postRooms[i];
     var id=r.id;
-    var name=t.nickname||r.name||id;
     var t=postTrack['douyin_'+id]||{};
+    var name=t.nickname||r.name||id;
     var sec=t.sec_uid||'';
     var aid=t.latest_aweme_id||'';
     // 优先用脚本持久化的直接作品链接；缺失时回退到个人主页（最新作品置顶）
