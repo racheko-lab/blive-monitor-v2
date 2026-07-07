@@ -411,6 +411,14 @@ def should_push(prev_status: Optional[str], curr_status: str) -> bool:
     return False
 
 
+def bili_status_on_batch_failure(prev_status: Optional[str]) -> str:
+    """B站批量接口整体失败时，沿用上次已知状态；首次检测则记为 unknown。
+
+    避免把整批房间误标为 error（既污染历史，又因 error→live 不推送而漏报恢复开播）。
+    """
+    return prev_status or "unknown"
+
+
 def format_push_title(name: str, result: Dict[str, Any]) -> str:
     """格式化推送标题"""
     if result["status"] == "live":
@@ -511,6 +519,7 @@ def main() -> None:
     bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
     bili_data: Dict[str, Dict[str, Any]] = {}
 
+    bili_batch_failed = False
     if bili_rooms:
         try:
             bili_ids = [r["id"] for r, _ in bili_rooms]
@@ -518,6 +527,7 @@ def main() -> None:
             logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_data))
         except Exception as e:
             logger.error("B站批量查询失败: %s", e)
+            bili_batch_failed = True
 
     # Step 2: 逐个检测所有房间
     for room in rooms:
@@ -532,18 +542,30 @@ def main() -> None:
             if platform == "bilibili":
                 d = bili_data.get(str(rid))
                 if not d:
-                    raise Exception(f"批量接口未返回房间 {rid} 的数据")
-
-                status_code = d.get("live_status", 0)
-                result = {
-                    "status": BILIBILI_STATUS_MAP.get(status_code, "unknown"),
-                    "title": d.get("title", ""),
-                    "online": d.get("online", 0),
-                    "area": (
-                        f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
-                        or ""
-                    ),
-                }
+                    if bili_batch_failed:
+                        # 批量接口整体失败：沿用上次已知状态，不误标为 error
+                        # （避免污染历史；且 error→live 不推送会漏报恢复开播）
+                        prev = prev_state.get(key)
+                        logger.warning("[%s] B站批量查询失败，沿用上次状态: %s", name, prev)
+                        result = {
+                            "status": bili_status_on_batch_failure(prev),
+                            "title": "",
+                            "online": 0,
+                            "area": "",
+                        }
+                    else:
+                        raise Exception(f"批量接口未返回房间 {rid} 的数据")
+                else:
+                    status_code = d.get("live_status", 0)
+                    result = {
+                        "status": BILIBILI_STATUS_MAP.get(status_code, "unknown"),
+                        "title": d.get("title", ""),
+                        "online": d.get("online", 0),
+                        "area": (
+                            f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
+                            or ""
+                        ),
+                    }
             else:  # douyin
                 result = fetch_douyin(rid)
 
