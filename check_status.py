@@ -505,6 +505,14 @@ def main() -> None:
     prev_state: Dict[str, str] = load_json_file(STATE_FILE, {})
     tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
 
+    # 加载上一次写入 status.json 的完整房间信息，用于在 B站批量接口整体失败时
+    # 继承 title/online/area，避免看板在故障期间把房间信息清空。
+    prev_status_full: Dict[str, Dict[str, Any]] = {}
+    _prev_doc = load_json_file(STATUS_FILE, {})
+    for _it in _prev_doc.get("rooms", []) or []:
+        _pk = f"{_it.get('platform', 'bilibili')}_{_it.get('id', '')}"
+        prev_status_full[_pk] = _it
+
     new_state: Dict[str, str] = {}
     status_list: List[Dict[str, Any]] = []
     log_entries: List[Dict[str, Any]] = []
@@ -546,12 +554,13 @@ def main() -> None:
                         # 批量接口整体失败：沿用上次已知状态，不误标为 error
                         # （避免污染历史；且 error→live 不推送会漏报恢复开播）
                         prev = prev_state.get(key)
+                        prev_full = prev_status_full.get(key, {})
                         logger.warning("[%s] B站批量查询失败，沿用上次状态: %s", name, prev)
                         result = {
                             "status": bili_status_on_batch_failure(prev),
-                            "title": "",
-                            "online": 0,
-                            "area": "",
+                            "title": prev_full.get("title", ""),
+                            "online": prev_full.get("online", 0),
+                            "area": prev_full.get("area", ""),
                         }
                     else:
                         raise Exception(f"批量接口未返回房间 {rid} 的数据")
