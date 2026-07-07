@@ -4,12 +4,12 @@
 # ============================================================
 #  使用方法:
 #    1. 配置 rooms.json 文件（推荐）
-#    2. 设置环境变量（可选，用于微信推送）:
-#       export BLIVE_CONFIG='{"sendkey": "SCTxxxxxxxxxxxxxx"}'
+#    2. 设置环境变量（可选，用于多渠道推送 Bark/Server酱/企业微信/PushPlus/Telegram）:
+#       export BLIVE_CONFIG='{"push": {"type": "bark", "url": "https://api.day.app/你的KEY"}}'
 #    3. 运行: ./run.sh
 #
 #  或者一行搞定:
-#    BLIVE_CONFIG='{"sendkey": "SCTxxx"}' ./run.sh
+#    BLIVE_CONFIG='{"push": {"type": "bark", "url": "https://api.day.app/你的KEY"}}' ./run.sh
 # ============================================================
 set -euo pipefail
 
@@ -73,9 +73,9 @@ case "$CMD" in
         echo "  loop / watch   持续监控（每60秒）"
         echo "  help           显示帮助信息"
         echo ""
-        echo "环境变量:"
-        echo "  BLIVE_CONFIG   JSON格式配置，如: '{\"sendkey\": \"SCTxxx\"}'"
-        echo "  ENABLE_POST_CHECK=true  启用作品检测"
+    echo "环境变量:"
+    echo "  BLIVE_CONFIG   JSON格式推送配置，如: '{\"push\": {\"type\": \"bark\", \"url\": \"https://api.day.app/你的KEY\"}}'"
+    echo "  ENABLE_POST_CHECK=true  启用作品检测"
         ;;
     *)
         echo "未知命令: $CMD"
