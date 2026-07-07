@@ -2,8 +2,7 @@ name = "blive-monitor-api"
 main = "api/worker.js"
 compatibility_date = "2024-09-23"
 
-# 部署前在 Cloudflare 控制台获取并填入你的 account_id
-# account_id = "你的 Cloudflare 账户 ID"
+account_id = "5bf057a6e716e8215bed3cb8a681d258"
 
 [vars]
 # 监控仓库坐标（racheko-lab/blive-monitor）
@@ -12,7 +11,7 @@ GH_REPO = "racheko-lab/blive-monitor"
 BRANCH = "master"
 # 共享口令：明文存放于此（本就暴露于前端 JS，仅防随手乱改）
 # 必须与前端 monitor.html 顶部的 API_PASS 保持一致
-PASSPHRASE = "change-me-shared-passphrase"
+PASSPHRASE = "7bFqdW8G7Ht9KTXX9NFmm5H"
 # 允许跨域的源（GitHub Pages 站点地址）
 ALLOWED_ORIGIN = "https://racheko-lab.github.io"
 
