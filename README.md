@@ -198,7 +198,7 @@ blive-monitor/
 
 1. **GitHub Actions schedule 不稳定**：GitHub 的定时触发器可能会延迟或跳过执行，建议配合外部定时服务（如 cron-job.org）使用
 2. **抖音直播数据稳定性**：抖音直播状态通过页面 HTML 提取，平台改版可能导致失效
-3. **抖音新作品检测**：抖音作品 API 需要签名认证（X-Bogus/msToken 等），技术门槛较高，目前默认禁用
+3. **抖音新作品检测**：抖音作品 API 需要签名认证（X-Bogus/msToken + WebID/登录态），无登录态的请求会被风控返回空列表。脚本采用两层策略——**配置 `douyin_cookie`（登录态）后可精确检测并链接到具体作品**；未配置时退化为「作品数推测」（读取 `user/profile/other` 的 `aweme_count`，未登录亦可），作品数增加时才提示，避免误报。详见 `DEPLOYMENT.md` 的「抖音新作品检测与 douyin_cookie」一节。
 4. **状态持久化**：状态文件每次运行提交到 Git 作为可靠后备（跨 run 不丢），并保持每 5 分钟一次持续保活（防 60 天自动停用 schedule）
 
 ### 安全提示
