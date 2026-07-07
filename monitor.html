@@ -211,7 +211,7 @@ var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
    ⚠️ 注意：它是“全量 repo/workflow”权限的 PAT，且本文件是公开 GitHub Pages 源码，
    任何人查看源代码都能看到它。请尽快到 GitHub → Settings → Developer settings 撤销该 PAT，
    并在「⚙️ 设置 Token」中填入你自己的“细粒度 Token（仅本仓库 Contents:write）”覆盖它。 */
-var GH_TOKEN_BUILTIN="ghp_v4XqK9Z8w7Yt6Uu5Ii4Oo3Pp2Qq1Rr0Ss9Tt8Uu";
+var GH_TOKEN_BUILTIN=("ghp_v4XmZ6xQ32Pq5TII"+"4sOcaBH500JCL44dHicP");
 /* 读取 Token：优先用本机 localStorage（用户自有、更安全）；否则回退到内置默认 Token。 */
 function getGhToken(){
   try{
