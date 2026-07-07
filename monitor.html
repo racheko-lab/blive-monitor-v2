@@ -11,56 +11,79 @@
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding:0 0 70px}
 .topbar{position:sticky;top:0;z-index:10;background:rgba(10,10,15,.92);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #222}
 .topbar h1{font-size:17px;font-weight:700;color:var(--accent)}
+.tb-left{display:flex;flex-direction:column;gap:3px}
+.tb-time{font-size:10px;color:var(--text2)}
 .content{padding:12px 16px}
-.tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border-radius:14px;padding:4px}
-.tab{flex:1;text-align:center;padding:8px 0;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:transparent}
+.block{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-title{font-size:14px;font-weight:700;color:var(--text)}
+.sec-count{font-size:11px;color:var(--text2);background:rgba(255,255,255,.06);padding:2px 9px;border-radius:10px}
+.tabs{display:flex;gap:6px}
+.tab{padding:5px 12px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);border:none;background:rgba(255,255,255,.06)}
 .tab.active{background:var(--accent);color:#fff}
-.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:10px;border-left:3px solid #333;transition:border-color .3s}
-.card.live{border-left-color:var(--live)}.card.replay{border-left-color:var(--yellow)}.card.offline{border-left-color:#444}.card.error{border-left-color:var(--blue)}
+.card{background:#0f0f18;border-radius:12px;padding:12px;margin-bottom:10px;border-left:3px solid #333}
+.card.live{border-left-color:var(--live)}.card.replay{border-left-color:var(--yellow)}.card.offline{border-left-color:#444}.card.error{border-left-color:var(--blue)}.card.post{border-left-color:var(--blue)}
 .tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;margin-left:8px}
 .tag-bili{background:rgba(251,114,153,.15);color:var(--accent)}.tag-dy{background:rgba(24,144,255,.15);color:var(--blue)}
 .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:8px}
 .b-live{background:rgba(255,77,79,.15);color:var(--live)}.b-replay{background:rgba(250,173,20,.15);color:var(--yellow)}.b-offline{background:rgba(102,102,102,.15);color:#888}.b-wait{background:rgba(24,144,255,.15);color:var(--blue)}.b-error{background:rgba(255,77,79,.1);color:#ff8888}
-.info{font-size:12px;color:var(--text2);margin-top:6px}
+.info{font-size:12px;color:var(--text2);margin-top:6px;line-height:1.5}
 .btn-go{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;background:var(--live);color:#fff;text-decoration:none;display:inline-block;margin-top:8px}
+.btn-go.dy{background:var(--blue)}
 .footer{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,15,.94);backdrop-filter:blur(12px);border-top:1px solid #222;padding:10px 16px 12px;display:flex;gap:8px}
 .footer button{flex:1;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer}
-.btn-p{background:var(--accent);color:#fff}.btn-s{background:transparent;border:1px solid #444;color:var(--text)}.btn-g{background:var(--green);color:#fff}
+.btn-p{background:var(--accent);color:#fff}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
 .d-ok{background:var(--green)}.d-warn{background:var(--yellow)}.d-live{background:var(--live)}.d-err{background:var(--blue)}
-.empty{text-align:center;padding:50px 20px;color:var(--text2)}
+.empty{text-align:center;padding:30px 20px;color:var(--text2);font-size:13px}
 .push-tag{font-size:9px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:600}
 .pt-ok{background:rgba(82,196,26,.15);color:var(--green)}.pt-fail{background:rgba(255,77,79,.15);color:var(--live)}.pt-skip{background:rgba(102,102,102,.15);color:#888}
+.logbox{max-height:320px;overflow-y:auto;margin-top:6px;font-size:11px;font-family:monospace;line-height:1.8}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <h1>📡 直播监控</h1>
-  <div style="font-size:11px;color:var(--text2)">
-    <span id="sdot"><span class="dot d-warn"></span>加载中</span>
-    <span id="stime" style="margin-left:8px;font-size:10px"></span>
+  <div class="tb-left">
+    <h1>📡 直播监控</h1>
+    <div id="sdot"><span class="dot d-warn"></span>加载中</div>
   </div>
+  <div id="stime" class="tb-time"></div>
 </div>
 
 <div class="content">
-<div class="tabs">
-  <button class="tab active" onclick="fil('all')">全部</button>
-  <button class="tab" onclick="fil('bilibili')">B站</button>
-  <button class="tab" onclick="fil('douyin')">抖音</button>
-</div>
-<div id="list"><div class="empty">🔄 加载中...</div></div>
 
-<!-- 抖音新作品模块 - 真实数据（来源 post_rooms.json + post_tracking.json） -->
-<div id="douyinPosts" style="background:var(--card);border-radius:14px;padding:14px;margin-top:12px;display:none">
-  <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">🎬 抖音新作品监控</div>
-  <div id="douyinPostsBody"></div>
-</div>
+  <!-- 区块一：直播监控 -->
+  <section class="block">
+    <div class="sec-head">
+      <span class="sec-title">📺 直播监控</span>
+      <div class="tabs">
+        <button class="tab active" onclick="fil('all')">全部</button>
+        <button class="tab" onclick="fil('bilibili')">B站</button>
+        <button class="tab" onclick="fil('douyin')">抖音</button>
+      </div>
+    </div>
+    <div id="list"><div class="empty">🔄 加载中...</div></div>
+  </section>
 
-<details style="margin-top:12px;background:var(--card);border-radius:14px;padding:14px">
-  <summary style="font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);list-style:none">📋 监控日志 <span id="logcnt" style="font-size:11px">(0)</span></summary>
-  <div id="logbox" style="max-height:350px;overflow-y:auto;margin-top:8px;font-size:11px;font-family:monospace;line-height:1.8"></div>
-</details>
+  <!-- 区块二：抖音新作品监控 -->
+  <section class="block" id="postsSection">
+    <div class="sec-head">
+      <span class="sec-title">🎬 抖音新作品监控</span>
+      <span class="sec-count" id="postsCount"></span>
+    </div>
+    <div id="douyinPostsBody"></div>
+  </section>
+
+  <!-- 区块三：监控日志 -->
+  <details class="block" id="logBlock">
+    <summary class="sec-head" style="cursor:pointer;list-style:none">
+      <span class="sec-title">📋 监控日志</span>
+      <span class="sec-count" id="logcnt">(0)</span>
+    </summary>
+    <div id="logbox" class="logbox"></div>
+  </details>
+
 </div>
 
 <div class="footer">
@@ -152,10 +175,10 @@ function ld(){
     if(v[4])postTrack=v[4];
     var n=new Date();
     document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN');
-    var live=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='live'}):false;
+    var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
     var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
-    var dotCls=live?'d-live':(hasErr?'d-err':'d-ok');
-    var dotTxt=live?'有直播':(hasErr?'有异常':'已更新');
+    var dotCls=liveCount>0?'d-live':(hasErr?'d-err':'d-ok');
+    var dotTxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
     document.getElementById('sdot').innerHTML='<span class="dot '+dotCls+'"></span>'+dotTxt;
     ren();
     renlog(hist);
@@ -170,36 +193,38 @@ function ld(){
 
 // 抖音新作品模块 - 渲染 post_rooms.json + post_tracking.json 的真实数据
 function updateDouyinPostsModule(){
-  var box=document.getElementById('douyinPosts');
+  var sec=document.getElementById('postsSection');
   var body=document.getElementById('douyinPostsBody');
-  if(!box||!body)return;
-  if(!postRooms||!postRooms.length){ // 没有监控新作品的抖音号 → 隐藏模块
-    box.style.display='none';
+  var cnt=document.getElementById('postsCount');
+  if(!sec||!body)return;
+  if(!postRooms||!postRooms.length){ // 没有监控新作品的抖音号 → 隐藏整个区块
+    sec.style.display='none';
     return;
   }
-  box.style.display='block';
+  sec.style.display='block';
+  cnt.textContent='监控 '+postRooms.length+' 个';
   var h='';
   for(var i=0;i<postRooms.length;i++){
     var r=postRooms[i];
     var id=r.id;
-    var t=postTrack['douyin_'+id]||{};
-    var name=t.nickname||r.name||id;
-    var sec=t.sec_uid||'';
-    var aid=t.latest_aweme_id||'';
+    var tt=postTrack['douyin_'+id]||{};
+    var name=tt.nickname||r.name||id;
+    var sec_id=tt.sec_uid||'';
+    var aid=tt.latest_aweme_id||'';
     // 优先用脚本持久化的直接作品链接；缺失时回退到个人主页（最新作品置顶）
-    var link=t.latest_url||(sec?'https://www.douyin.com/user/'+sec:'https://www.douyin.com/');
-    var type=t.latest_type||'';   // 图文 / 视频
-    var desc=t.latest_desc||'';
+    var link=tt.latest_url||(sec_id?'https://www.douyin.com/user/'+sec_id:'https://www.douyin.com/');
+    var type=tt.latest_type||'';   // 图文 / 视频
+    var desc=tt.latest_desc||'';
     var typeBadge=type?'<span class="badge b-wait">'+type+'</span>':'';
     var content;
     if(aid){
-      content='<div class="info" style="margin-top:4px">'+e(desc||'(无描述)')+'</div>'+
+      content='<div class="info">'+e(desc||'(无描述)')+'</div>'+
         typeBadge+
-        '<a class="btn-go" href="'+link+'" target="_blank" style="background:var(--blue)">👉 查看作品</a>';
+        '<a class="btn-go dy" href="'+link+'" target="_blank">👉 查看作品</a>';
     }else{
-      content='<div class="info" style="margin-top:4px">⌛ 等待首次抓取…</div>';
+      content='<div class="info">⌛ 等待首次抓取…</div>';
     }
-    h+='<div class="card offline" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-size:15px;font-weight:700">'+e(name)+'</span><span class="tag tag-dy">抖音</span></div>'+content+'</div>';
+    h+='<div class="card post" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start"><span style="font-size:15px;font-weight:700">'+e(name)+'</span><span class="tag tag-dy">抖音</span></div>'+content+'</div>';
   }
   body.innerHTML=h;
 }
