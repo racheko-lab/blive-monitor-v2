@@ -1,11 +1,11 @@
-# 📡 B站/抖音直播监控 + 微信推送
+# 📡 B站/抖音直播监控 + 多渠道推送
 
-一个轻量级的直播状态监控工具，支持 B站 和 抖音 平台，开播时自动通过微信推送通知。
+一个轻量级的直播状态监控工具，支持 B站 和 抖音 平台，开播 / 新作品时自动通过多渠道（Bark / Server酱 / 企业微信 / PushPlus / Telegram）推送通知。
 
 ## ✨ 功能特性
 
 - 🎬 **多平台支持**：同时监控 B站 和 抖音 直播间
-- 🔔 **微信推送**：开播时通过 Server酱 推送微信通知
+- 🔔 **多渠道推送**：开播 / 新作品时通过 Bark / Server酱 / 企业微信 / PushPlus / Telegram 推送通知
 - 📊 **直播时长统计**：记录开播时长、上次开播时间
 - 📝 **历史日志**：保留最近 200 条状态变更记录
 - 🔄 **合并推送**：多个主播同时开播时合并为一条通知
@@ -40,14 +40,21 @@
   - 抖音：直播间 web_rid（URL 中的字符串，如 `https://live.douyin.com/83134194400`）
 - `name`: 主播名称（用于显示和推送通知）
 
-### 2. 配置微信推送（可选）
+### 2. 配置推送渠道（可选）
 
-1. 前往 [Server酱](https://sct.ftqq.com/) 注册并获取 SendKey
-2. 设置环境变量：
+开播 / 新作品通知支持多渠道，通过环境变量 `BLIVE_CONFIG`（JSON）配置：
 
 ```bash
-export BLIVE_CONFIG='{"sendkey": "SCTxxxxxxxxxxxxxx"}'
+# Bark（iPhone，推荐）
+export BLIVE_CONFIG='{"push": {"type": "bark", "url": "https://api.day.app/你的KEY", "group": "blive"}}'
+
+# 或 企业微信群机器人（免费无限，推荐）
+export BLIVE_CONFIG='{"push": {"type": "wecom", "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx"}}'
+
+# 或 Server酱 / PushPlus / Telegram（详见下方「BLIVE_CONFIG 配置项」）
 ```
+
+> 也可在监控页「⚙️ 配置 → 🔔 推送渠道」里用页面直接配置：前端会用 libsodium 把配置加密后写入仓库 Secret，密钥不进公开源码。
 
 ### 3. 本地运行
 
@@ -74,7 +81,7 @@ export BLIVE_CONFIG='{"sendkey": "SCTxxxxxxxxxxxxxx"}'
 1. Fork 本仓库
 2. 在仓库 Settings → Secrets and variables → Actions 中添加 Secret：
    - Name: `BLIVE_CONFIG`
-   - Value: `{"sendkey": "SCTxxxxxxxxxxxxxx"}`（不需要推送可留空 `{}`）
+   - Value: `{"push": {"type": "bark", "url": "https://api.day.app/你的KEY"}}`（不需要推送可留空 `{}`；也支持 wecom / serverchan / pushplus / telegram）
 3. 启用 GitHub Pages：Settings → Pages → Source 选择 `GitHub Actions`
 4. 工作流会自动每 5 分钟检测一次，并更新监控页面
 
@@ -146,16 +153,26 @@ blive-monitor/
 
 | 变量名 | 说明 | 示例 |
 |--------|------|------|
-| `BLIVE_CONFIG` | JSON 格式配置 | `{"sendkey": "SCTxxx"}` |
+| `BLIVE_CONFIG` | JSON 格式推送配置 | `{"push": {"type": "bark", "url": "..."}}` |
 | `ENABLE_POST_CHECK` | 是否启用新作品检测 | `true` / `false` |
 
 ### BLIVE_CONFIG 配置项
 
+`BLIVE_CONFIG` 为 JSON 字符串，通过 `"push"` 段选择渠道：
+
 ```json
-{
-  "sendkey": "SCTxxxxxxxxxxxxxx"  // Server酱 SendKey，用于微信推送
-}
+{"push": {"type": "bark", "url": "https://api.day.app/你的KEY", "group": "blive"}}
 ```
+
+| `type` | 渠道 | 关键字段 |
+|---|---|---|
+| `bark` | Bark（iPhone，无限） | `url`、`group`(可选) |
+| `wecom` | 企业微信群机器人（无限） | `webhook` |
+| `serverchan` | Server酱（个人微信，5 条/天） | `sendkey` |
+| `pushplus` | PushPlus（个人微信） | `token`、`topic`(可选) |
+| `telegram` | Telegram（无限） | `token`、`chat` |
+
+旧式 `{"sendkey": "SCTxxx"}` 仍兼容，自动按 `serverchan` 处理。
 
 ## 📱 监控页面
 
@@ -171,7 +188,7 @@ blive-monitor/
 - **后端**: Python 3（仅使用标准库，无需额外依赖）
 - **前端**: 原生 HTML + JavaScript
 - **部署**: GitHub Actions / Netlify / Cloudflare Workers
-- **推送**: Server酱（微信推送）
+- **推送**: 多渠道（Bark / Server酱 / 企业微信 / PushPlus / Telegram）
 
 ## 📝 注意事项
 
@@ -180,11 +197,11 @@ blive-monitor/
 1. **GitHub Actions schedule 不稳定**：GitHub 的定时触发器可能会延迟或跳过执行，建议配合外部定时服务（如 cron-job.org）使用
 2. **抖音直播数据稳定性**：抖音直播状态通过页面 HTML 提取，平台改版可能导致失效
 3. **抖音新作品检测**：抖音作品 API 需要签名认证（X-Bogus/msToken 等），技术门槛较高，目前默认禁用
-4. **状态持久化**：GitHub Actions 使用 Cache 保存状态，可能偶尔丢失
+4. **状态持久化**：状态文件每次运行提交到 Git 作为可靠后备（跨 run 不丢），并保持每 5 分钟一次持续保活（防 60 天自动停用 schedule）
 
 ### 安全提示
 
-1. **SendKey 保密**：Server酱的 SendKey 相当于推送密码，请勿公开或提交到代码仓库
+1. **推送密钥保密**：Bark Key / Server酱 SendKey / 企业微信 webhook / PushPlus token / Telegram token 均相当于推送密码，请勿公开或提交到代码仓库
 2. **GitHub Token 权限**：创建 Personal Access Token 时只勾选必要的权限（`repo` 即可）
 3. **定期轮换密钥**：建议定期更换 SendKey 和 GitHub Token，降低泄露风险
 
@@ -193,6 +210,20 @@ blive-monitor/
 1. **检测频率**：建议 5 分钟一次，过于频繁可能被平台限流
 2. **监控房间数量**：建议控制在 10 个以内，避免单次检测时间过长
 3. **异常处理**：如果检测失败，系统会自动重试，无需手动干预
+
+## 🧪 本地开发 / 测试
+
+```bash
+pip install -r requirements-dev.txt     # 安装 pytest
+python -m pytest -q                      # 回归测试（push_utils / check_status / check_new_posts / common）
+
+# 本地跑一次检测
+./run.sh once        # 仅直播状态
+./run.sh posts       # 仅抖音新作品（需 ENABLE_POST_CHECK=true）
+./run.sh all         # 两者都跑
+```
+
+后端 Python 仅依赖标准库；抖音新作品检测另需 `playwright`（见 `requirements.txt`）。
 
 ## 🤝 贡献
 
