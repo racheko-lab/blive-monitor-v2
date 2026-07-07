@@ -178,7 +178,9 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
             logger.warning("  [%s] 作品列表为空", sec_uid[:12])
             return None
 
-        latest = aw_list[0]
+        # 置顶(is_top)作品被抖音排在列表最前，但不是"最新"。
+        # 按发布时间(create_time)取真正最新的一条，避免永远检测不到新作品。
+        latest = max(aw_list, key=lambda x: int(x.get("create_time", 0) or 0))
         aid = str(latest.get("aweme_id", ""))
         if not aid:
             return None
