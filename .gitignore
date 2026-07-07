@@ -51,3 +51,6 @@ Thumbs.db
 
 # 日志
 *.log
+
+# 原子写临时文件（common.save_json_file 产生，勿提交）
+*.json.tmp
