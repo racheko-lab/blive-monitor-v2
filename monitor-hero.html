@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<title>监控 · 英雄区+网格</title>
+<style>
+:root{
+  --bg:#0b0b12;--card:#15151f;--card2:#1b1b27;--line:rgba(255,255,255,.07);
+  --text:#ECECF1;--text2:#9a9aae;--text3:#66667a;
+  --bili:#fb7299;--bili-soft:rgba(251,114,153,.14);
+  --dy:#22d3ee;--dy-soft:rgba(34,211,238,.13);
+  --live:#ff4757;--green:#2ed573;--yellow:#ffa502;
+  --radius:16px;--shadow:0 8px 24px rgba(0,0,0,.38);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 80% -10%,rgba(251,114,153,.10),transparent),var(--bg);color:var(--text);min-height:100dvh;padding:0 0 30px;-webkit-font-smoothing:antialiased}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:rgba(11,11,18,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 4px 14px rgba(251,114,153,.35)}
+.title{font-size:16px;font-weight:800}
+.sub{font-size:11px;color:var(--text3)}
+.topright{display:flex;align-items:center;gap:10px}
+.refresh{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;cursor:pointer;display:grid;place-items:center}
+.refresh:active{transform:scale(.94)}
+.status-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:12px;font-weight:700}
+.status-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:.3s}
+.status-pill .dot.on{background:var(--live);box-shadow:0 0 0 4px rgba(255,71,87,.22);animation:pulse 1.6s infinite}
+.status-pill .dot.err{background:var(--yellow)}
+.status-pill .dot.ok{background:var(--green)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,71,87,.4)}70%{box-shadow:0 0 0 7px rgba(255,71,87,0)}100%{box-shadow:0 0 0 0 rgba(255,71,87,0)}}
+.overview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:900px;margin:16px auto 0;padding:0 18px}
+.ostat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center;box-shadow:var(--shadow)}
+.ostat .n{font-size:22px;font-weight:800;line-height:1}
+.ostat .l{font-size:11px;color:var(--text2);margin-top:5px}
+.ostat.live .n{color:var(--live)}.ostat.rooms .n{color:var(--bili)}.ostat.posts .n{color:var(--dy)}
+.wrap{max-width:900px;margin:0 auto;padding:0 18px}
+/* hero */
+.hero{margin:18px 0 0}
+.hero-empty{background:linear-gradient(135deg,rgba(255,255,255,.05),var(--card));border:1px dashed var(--line);border-radius:18px;padding:34px;text-align:center;color:var(--text3)}
+.hero-card{position:relative;overflow:hidden;border-radius:18px;padding:20px;margin-bottom:12px;background:linear-gradient(135deg,rgba(255,71,87,.22),rgba(251,114,153,.10));border:1px solid rgba(255,71,87,.3);box-shadow:var(--shadow)}
+.hero-card::after{content:'';position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(255,71,87,.35),transparent 70%)}
+.hero-top{display:flex;align-items:center;gap:8px;position:relative;z-index:1}
+.hero-live{font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--live);color:#fff;display:inline-flex;align-items:center;gap:6px}
+.hero-live .pulse{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse 1.6s infinite}
+.pf{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
+.pf.bili{background:var(--bili-soft);color:var(--bili)}.pf.dy{background:var(--dy-soft);color:var(--dy)}
+.hero-name{font-size:20px;font-weight:800;margin-top:12px;position:relative;z-index:1}
+.hero-title{font-size:14px;color:var(--text);margin-top:6px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;position:relative;z-index:1}
+.hero-meta{font-size:12px;color:var(--text2);margin-top:10px;position:relative;z-index:1}
+.hero-act{display:inline-block;margin-top:14px;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:800;text-decoration:none;background:#fff;color:var(--live);position:relative;z-index:1}
+/* section */
+.sec{margin-top:22px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.panel-head h2{font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px}
+.count{font-size:11px;color:var(--text2);background:var(--card2);padding:3px 10px;border-radius:999px}
+/* posts grid */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.post{display:flex;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:var(--shadow)}
+.avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:18px;font-weight:800;color:#04222a;background:linear-gradient(135deg,var(--dy),#7af0ff)}
+.post-main{flex:1;min-width:0}
+.post-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.post-top .name{font-size:14px;font-weight:800;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.type{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
+.type.note{background:var(--dy-soft);color:var(--dy)}.type.video{background:rgba(255,71,87,.14);color:#ff7a86}
+.post-desc{font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post-foot{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:8px}
+.time{font-size:11px;color:var(--text3);white-space:nowrap}
+.act{display:inline-block;padding:6px 12px;border-radius:9px;font-size:11px;font-weight:800;text-decoration:none;background:linear-gradient(135deg,var(--dy),#0ea5b7);color:#04222a;white-space:nowrap}
+/* log */
+.logbox{max-height:320px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.log-item{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}
+.log-item:last-child{border-bottom:none}
+.log-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.log-dot.bili{background:var(--bili)}.log-dot.dy{background:var(--dy)}.log-dot.live{background:var(--live)}.log-dot.off{background:var(--text3)}
+.log-time{color:var(--text3);font-variant-numeric:tabular-nums;flex-shrink:0}
+.log-txt{color:var(--text2);flex:1;min-width:0}
+.log-txt b{color:var(--text);font-weight:700}
+.chg{color:var(--yellow);font-weight:800}
+.push-tag{font-size:9px;padding:1px 5px;border-radius:6px;font-weight:800;margin-left:5px}
+.pt-ok{background:rgba(46,213,115,.16);color:var(--green)}.pt-fail{background:rgba(255,71,87,.16);color:var(--live)}.pt-skip{background:rgba(255,255,255,.08);color:var(--text2)}
+.empty{text-align:center;padding:30px 16px;color:var(--text3);font-size:13px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">📡</div>
+    <div><div class="title">直播 &amp; 新作监控</div><div class="sub" id="stime">--:--:--</div></div>
+  </div>
+  <div class="topright">
+    <button class="refresh" onclick="ld()" title="刷新">↻</button>
+    <div class="status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+  </div>
+</header>
+
+<div class="overview">
+  <div class="ostat live"><div class="n" id="statLive">0</div><div class="l">直播中</div></div>
+  <div class="ostat rooms"><div class="n" id="statRooms">0</div><div class="l">监控房间</div></div>
+  <div class="ostat posts"><div class="n" id="statPosts">0</div><div class="l">新作品号</div></div>
+</div>
+
+<div class="wrap">
+  <section class="hero" id="heroBody"></section>
+
+  <section class="sec">
+    <div class="panel-head"><h2>🎬 抖音新作品</h2><span class="count" id="postsCount"></span></div>
+    <div class="grid" id="postsBody"></div>
+  </section>
+
+  <section class="sec">
+    <details>
+      <summary class="panel-head" style="cursor:pointer;list-style:none"><h2>📋 监控日志</h2><span class="count" id="logcnt"></span></summary>
+      <div id="logBody" class="logbox"></div>
+    </details>
+  </section>
+</div>
+
+<script>
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={};
+function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
+
+function renderLive(){}
+function renderPosts(){}
+function renderLog(){}
+
+function renderHero(){
+  var hb=document.getElementById('heroBody');
+  var lives=[];
+  if(stat&&stat.rooms)stat.rooms.forEach(function(s){if(s.status==='live')lives.push(s);});
+  if(!lives.length){hb.innerHTML='<div class="hero-empty">😴 当前没有直播间在播<br><span style="font-size:12px">有主播开播时会在这里置顶提醒</span></div>';return;}
+  var h='';
+  lives.forEach(function(s){
+    var meta=[];
+    if(s.online)meta.push('人气 '+e(s.online));
+    if(s.area)meta.push(e(s.area));
+    var u=s.platform==='bilibili'?'https://live.bilibili.com/'+s.id:'https://live.douyin.com/'+s.id;
+    h+='<div class="hero-card"><div class="hero-top"><span class="hero-live"><span class="pulse"></span>直播中</span>'+
+       '<span class="pf '+(s.platform==='bilibili'?'bili':'dy')+'">'+(s.platform==='bilibili'?'B站':'抖音')+'</span></div>'+
+       '<div class="hero-name">'+e(s.name)+'</div>'+
+       (s.title?'<div class="hero-title">'+e(s.title)+'</div>':'')+
+       (meta.length?'<div class="hero-meta">'+meta.join(' · ')+'</div>':'')+
+       '<a class="hero-act" href="'+u+'" target="_blank">进入直播间 →</a></div>';
+  });
+  hb.innerHTML=h;
+}
+
+function renderPostsGrid(){
+  var body=document.getElementById('postsBody');
+  var cnt=document.getElementById('postsCount');
+  if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
+  if(cnt)cnt.textContent='共 '+postRooms.length+' 个';
+  var h='';
+  for(var i=0;i<postRooms.length;i++){
+    var r=postRooms[i],id=r.id;
+    var tt=postTrack['douyin_'+id]||{};
+    var name=tt.nickname||r.name||id;
+    var aid=tt.latest_aweme_id||'';
+    var link=tt.latest_url||'https://www.douyin.com/';
+    var isNote=tt.latest_type==='图文';
+    var type=tt.latest_type||'';
+    var desc=tt.latest_desc||'';
+    var time=ago(tt.latest_ct);
+    var ini=name?name.charAt(0):'🎬';
+    var inner;
+    if(aid){
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+'</div>'+
+        '<div class="post-desc">'+e(desc||'(无描述)')+'</div>'+
+        '<div class="post-foot"><span class="time">'+time+'</span><a class="act" href="'+link+'" target="_blank">查看 →</a></div>';
+    }else{
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span></div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
+    }
+    h+='<div class="post"><div class="avatar">'+e(ini)+'</div><div class="post-main">'+inner+'</div></div>';
+  }
+  body.innerHTML=h;
+}
+
+function renderLogBox(){
+  var lb=document.getElementById('logBody');
+  if(!lb)return;
+  if(!hist||!hist.length){lb.innerHTML='<div class="empty">暂无日志</div>';if(document.getElementById('logcnt'))document.getElementById('logcnt').textContent='';return;}
+  if(document.getElementById('logcnt'))document.getElementById('logcnt').textContent='('+hist.length+')';
+  var pm={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
+  var h='';
+  for(var i=hist.length-1;i>=Math.max(0,hist.length-60);i--){
+    var l=hist[i];
+    var cls=l.platform==='bilibili'?'bili':'dy';
+    if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
+    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
+    var chg=l.changed?' <span class="chg">[变化]</span>':'';
+    var pt=pm[l.push]||'';
+    h+='<div class="log-item"><span class="log-dot '+cls+'"></span><span class="log-time">'+e(l.time).substring(11,16)+'</span><span class="log-txt">'+stIcon+' <b>'+e(l.name)+'</b>'+chg+pt+(l.title?' · '+e(l.title):'')+'</span></div>';
+  }
+  lb.innerHTML=h||'<div class="empty">暂无日志</div>';
+}
+
+function ld(){
+  var t=Date.now();
+  Promise.all([
+    fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
+    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
+  ]).then(function(v){
+    if(v[0])stat=v[0];if(v[1])rooms=v[1];if(v[2])hist=v[2];if(v[3])postRooms=v[3];if(v[4])postTrack=v[4];
+    var n=new Date();document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN',{hour12:false});
+    var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
+    var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
+    var dcls=liveCount>0?'on':(hasErr?'err':'ok');
+    var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
+    document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
+    document.getElementById('statLive').textContent=liveCount;
+    document.getElementById('statRooms').textContent=rooms.length;
+    document.getElementById('statPosts').textContent=postRooms.length;
+    renderHero();renderPostsGrid();renderLogBox();
+  }).catch(function(){
+    document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
+    document.getElementById('heroBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
+  });
+}
+document.addEventListener('DOMContentLoaded',ld);
+</script>
+</body>
+</html>
