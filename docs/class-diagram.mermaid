@@ -1,0 +1,48 @@
+classDiagram
+    class Room {
+        +String platform
+        +String id
+        +String name
+    }
+    class ApiResponse~T~ {
+        +Number code
+        +T data
+        +String message
+    }
+    class FileResult {
+        +Room[] rooms
+        +String sha
+    }
+    class WriteResult {
+        +Room[] rooms
+        +Boolean changed
+        +String sha
+    }
+    class GithubContentsClient {
+        -Object env
+        +getFile(path) Promise~FileResult~
+        +putFile(path, rooms, sha) Promise~String~
+        +writeWithRetry(path, mutate) Promise~WriteResult~
+    }
+    class AuthGuard {
+        +verifyPass(request, env) Response|null
+        +corsHeaders(env) Object
+        +preflight(cors) Response
+    }
+    class RoomValidator {
+        +validateInput(body) ValidationResult
+        +key(room) String
+        +dedupe(rooms) Room[]
+    }
+    class RoomsHandler {
+        +handle(request, env, cors) Promise~Response~
+        -handleGet(env, cors) Promise~Response~
+        -handlePost(request, env, cors) Promise~Response~
+    }
+    GithubContentsClient ..> Room : reads / writes
+    GithubContentsClient ..> FileResult : returns
+    GithubContentsClient ..> WriteResult : returns
+    RoomsHandler ..> GithubContentsClient : uses
+    RoomsHandler ..> AuthGuard : uses
+    RoomsHandler ..> RoomValidator : uses
+    RoomsHandler ..> ApiResponse : produces
