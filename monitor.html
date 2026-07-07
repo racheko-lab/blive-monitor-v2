@@ -132,6 +132,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   <div class="ostat posts"><div class="n" id="statPosts">0</div><div class="l">新作品号</div></div>
 </div>
 
+<div id="apiStatus" style="display:none"></div>
+
 <main>
   <section class="view active" id="view-live">
     <div class="panel-head">
@@ -144,6 +146,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     </div>
     <div id="addWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
+      <button class="addbtn" style="background:#262b36;color:#9aa4b2" onclick="checkApi()">🔌 检测 API</button>
       <div class="addform" id="addForm" style="display:none">
         <select id="addPlatform" class="ainput">
           <option value="bilibili">B站</option>
@@ -310,7 +313,8 @@ function toast(msg, ok){
  */
 function apiFetch(path, opts){
   var ctrl=new AbortController();
-  var timer=setTimeout(function(){ctrl.abort();}, 8000);
+  // 12s：Worker 自身 GitHub 写回约 1~2s 即返回；留足余量以区分「真超时」与「被网络屏蔽」。
+  var timer=setTimeout(function(){ctrl.abort();}, 12000);
   return fetch(API_BASE+path, Object.assign({}, opts, {signal:ctrl.signal}))
     .then(function(r){
       clearTimeout(timer);
@@ -322,9 +326,38 @@ function apiFetch(path, opts){
     })
     .catch(function(err){
       clearTimeout(timer);
-      if(err && err.name==='AbortError') throw new Error('请求超时，请稍后重试');
-      if(err instanceof TypeError) throw new Error('网络错误，请检查 API_BASE 与网络');
+      if(err && err.name==='AbortError') throw new Error('请求超时：API 服务 12 秒内无响应，极可能是 workers.dev 被你的网络屏蔽（中国大陆常见）');
+      if(err instanceof TypeError) throw new Error('网络错误：无法连接 API，请检查网络/代理或 API_BASE 是否正确');
       throw err;
+    });
+}
+
+/**
+ * 诊断：检测 API 主机是否可从浏览器访问。
+ * 向 /rooms 发一次「无 x-pass」的 GET：只要收到任何响应（含 401）即代表主机可达；
+ * 若超时/网络错误，则基本可判定 workers.dev 被网络屏蔽。
+ * @returns {Promise<boolean>} 是否可达。
+ */
+function checkApi(){
+  var el=document.getElementById('apiStatus');
+  if(!el || !hasApi) return Promise.resolve(false);
+  el.style.display='block';
+  el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#1b1f27;color:#9aa4b2;border:1px solid #2a2f3a';
+  el.innerHTML='🔄 正在检测 API 连接…';
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();}, 7000);
+  return fetch(API_BASE+'/rooms', {method:'GET', signal:ctrl.signal})
+    .then(function(){ clearTimeout(timer); return true; })   // 任意响应（含 401）即代表可达
+    .catch(function(){ clearTimeout(timer); return false; })
+    .then(function(ok){
+      if(ok){
+        el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
+        el.innerHTML='✅ API 可连接：<b>'+API_BASE+'</b>';
+      }else{
+        el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#2a1416;color:#f85149;border:1px solid #5a2329';
+        el.innerHTML='⚠️ <b>API 不可达</b>：<b>'+API_BASE+'</b> 无法连接，很可能是 <b>workers.dev 被你的网络屏蔽</b>（中国大陆常见）。<br>解决办法：把 Worker 绑定到自有域名的子域（如 api.你的域名.com），绕过 workers.dev。点上方「🔌 检测 API」可重试。';
+      }
+      return ok;
     });
 }
 
@@ -432,6 +465,8 @@ function ld(){
 if(hasApi){
   var _aw=document.getElementById('addWrap');
   if(_aw)_aw.style.display='block';
+  // 页面加载即检测 API 主机是否可达，提前暴露 workers.dev 被屏蔽的问题。
+  checkApi();
 }
 document.addEventListener('DOMContentLoaded',ld);
 </script>
