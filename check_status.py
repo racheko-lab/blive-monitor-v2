@@ -16,16 +16,15 @@ import time
 import logging
 import urllib.request
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 
+# 公共工具（时间/JSON 读写），避免与 check_new_posts.py 重复定义
+from common import bjnow, load_json_file, save_json_file, DEFAULT_USER_AGENT, BEIJING_TZ
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
 from push_utils import dispatch_push, load_push_cfg
 
 # ==================== 常量配置 ====================
-
-# 北京时间（UTC+8）
-BEIJING_TZ = timezone(timedelta(hours=8))
 
 # 文件路径
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,12 +37,7 @@ ROOMS_FILE = os.path.join(REPO_DIR, "rooms.json")
 # 历史日志保留条数
 HISTORY_MAX_ENTRIES = 200
 
-# HTTP 请求默认配置
-DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/125.0.0.0 Safari/537.36"
-)
+# HTTP 请求默认配置（DEFAULT_USER_AGENT 定义在 common.py，两脚本共用）
 DEFAULT_TIMEOUT = 10
 DEFAULT_RETRIES = 2
 
@@ -69,34 +63,7 @@ logger = logging.getLogger(__name__)
 
 
 # ==================== 工具函数 ====================
-
-def bjnow() -> datetime:
-    """获取当前北京时间"""
-    return datetime.now(BEIJING_TZ).replace(tzinfo=None)
-
-
-def load_json_file(filepath: str, default: Any = None) -> Any:
-    """安全加载 JSON 文件"""
-    if default is None:
-        default = {}
-    if not os.path.exists(filepath):
-        return default
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
-        logger.warning("加载 %s 失败: %s", filepath, e)
-        return default
-
-
-def save_json_file(filepath: str, data: Any) -> None:
-    """安全保存 JSON 文件"""
-    try:
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except IOError as e:
-        logger.error("保存 %s 失败: %s", filepath, e)
-
+# bjnow / load_json_file / save_json_file 见 common.py（与 check_new_posts.py 共用）
 
 # ==================== 配置加载 ====================
 
