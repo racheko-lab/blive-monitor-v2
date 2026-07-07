@@ -45,9 +45,22 @@ def load_json_file(filepath: str, default: Optional[Any] = None) -> Any:
 
 
 def save_json_file(filepath: str, data: Any) -> None:
-    """安全保存 JSON 文件。"""
+    """原子保存 JSON 文件：先写同目录临时文件，再 os.replace 覆盖。
+
+    避免运行中（CI 超时/被 kill）中断时留下半成品 JSON，导致前端读到损坏的 status.json。
+    os.replace 在 POSIX/Windows 均为原子操作，且不会被工作流 `git add` 列表误提交。
+    """
+    tmp = f"{filepath}.tmp"
     try:
-        with open(filepath, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, filepath)
     except IOError as e:
         logger.error("保存 %s 失败: %s", filepath, e)
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
