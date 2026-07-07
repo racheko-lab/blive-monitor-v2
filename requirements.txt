@@ -1,5 +1,7 @@
-# blive-monitor 依赖
-# 本项目目前只使用 Python 标准库，无需额外安装依赖
-# 保留此文件以便未来扩展
-
-# Python 版本要求: Python 3.8+
+# blive-monitor 运行时依赖
+#
+# 直播状态检测（check_status.py）仅使用 Python 标准库，无需额外依赖。
+# 抖音新作品检测（check_new_posts.py）需要无头 Chromium，故安装 playwright。
+#
+# Python 版本要求: 3.8+
+playwright==1.58.0
