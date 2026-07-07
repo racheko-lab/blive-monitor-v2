@@ -150,6 +150,13 @@ function renderLive(){
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
+  var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
+  if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
+  rs.sort(function(a,b){
+    var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+    var ra=_rm.hasOwnProperty(ka)?_rm[ka]:2, rb=_rm.hasOwnProperty(kb)?_rm[kb]:2;
+    return ra-rb;
+  });
   if(!rs.length){lb.innerHTML='<div class="empty">该平台暂无房间</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
   var h='<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:11px">更新于 '+e(up)+'</div>';
