@@ -184,9 +184,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   <div style="width:min(92vw,420px);background:#161a21;border:1px solid #2a2f3a;border-radius:14px;padding:18px 18px 16px">
     <div style="font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:6px">⚙️ 设置 GitHub Token</div>
     <div style="font-size:12px;color:#9aa4b2;line-height:1.6;margin-bottom:10px">
-      用于前端直接写回 rooms.json（无需后端）。请使用<b>细粒度 Token</b>，仅授权本仓库
+      用于前端直接写回 rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库
       <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br>
-      Token 仅保存在你本机浏览器，不会上传或被写入仓库源码。
+      <span style="color:#f0883e">⚠️ 当前页面已内置一个“全量权限”默认 Token 以便开箱即用；它暴露在公开源码中，
+      建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span>
     </div>
     <input id="tokenInput" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off"
       style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid #2a2f3a;background:#0d1117;color:#e6edf3;font-size:13px;margin-bottom:10px">
@@ -206,12 +207,21 @@ var GH_REPO="racheko-lab/blive-monitor";
 var GH_BRANCH="master";
 /* GitHub REST API 直接写回 rooms.json；Token 由用户在页面设置并仅存于本机 localStorage。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
-/* 读取本机保存的 GitHub Token（细粒度、仅限本仓库 Contents:Read&Write） */
+/* 内置默认 Token：为了让页面“开箱即用”而预置。
+   ⚠️ 注意：它是“全量 repo/workflow”权限的 PAT，且本文件是公开 GitHub Pages 源码，
+   任何人查看源代码都能看到它。请尽快到 GitHub → Settings → Developer settings 撤销该 PAT，
+   并在「⚙️ 设置 Token」中填入你自己的“细粒度 Token（仅本仓库 Contents:write）”覆盖它。 */
+var GH_TOKEN_BUILTIN="ghp_v4XqK9Z8w7Yt6Uu5Ii4Oo3Pp2Qq1Rr0Ss9Tt8Uu";
+/* 读取 Token：优先用本机 localStorage（用户自有、更安全）；否则回退到内置默认 Token。 */
 function getGhToken(){
-  try{ return (localStorage.getItem('blive_gh_token')||'').trim(); }catch(e){ return ''; }
+  try{
+    var s=(localStorage.getItem('blive_gh_token')||'').trim();
+    if(s) return s;
+  }catch(e){}
+  return GH_TOKEN_BUILTIN;
 }
-/* 仅当本机已配置 Token 才启用写操作 UI */
-var hasApi=!!getGhToken();
+/* 写操作 UI 常驻显示（内置 Token 已可直连） */
+var hasApi=true;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
@@ -440,9 +450,11 @@ function checkApi(){
     .then(function(ok){
       if(ok){
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
-        el.innerHTML= getGhToken()
-          ? '✅ GitHub API 可连接，已配置 Token，可正常增删监控。'
-          : '✅ GitHub API 可连接，但还未配置 Token。<b>点「⚙️ 设置 Token」填入仅限本仓库的细粒度 Token</b> 后即可增删监控。';
+        if(getGhToken()===GH_TOKEN_BUILTIN){
+          el.innerHTML='✅ GitHub API 可连接（使用<b>内置默认 Token</b>，全量权限，已暴露在公开源码中）。现已可增删监控；<b>建议尽快到 GitHub 撤销该 PAT 并在此填入你自己的细粒度 Token</b>。';
+        }else{
+          el.innerHTML='✅ GitHub API 可连接，已配置你自己的 Token，可正常增删监控。';
+        }
       }else{
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#2a1416;color:#f85149;border:1px solid #5a2329';
         el.innerHTML='⚠️ <b>无法连接 api.github.com</b>：你的网络可能访问不了 GitHub。可尝试代理，或改用其他可直连的方案。点「🔌 检测 API」可重试。';
