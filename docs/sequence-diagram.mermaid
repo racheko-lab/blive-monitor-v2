@@ -1,0 +1,101 @@
+%% GET /rooms
+sequenceDiagram
+    participant U as 前端(monitor.html)
+    participant W as Worker.fetch
+    participant A as AuthGuard
+    participant G as GithubContentsClient
+    participant GH as GitHub Contents API
+    U->>W: GET /rooms  (Header: x-pass)
+    W->>A: verifyPass(request, env)
+    alt 缺失 / 错误
+        A-->>U: 401 / 403  (不发起 GitHub 调用)
+    else 通过
+        W->>G: getFile("rooms.json")
+        G->>GH: GET /repos/{GH_REPO}/contents/rooms.json?ref={BRANCH}
+        GH-->>G: 200 {content(base64), sha}
+        G-->>W: {rooms, sha}
+        W-->>U: 200 {code:0, data:{rooms, sha}, message:"ok"}
+    end
+
+%% POST /rooms  action=add
+sequenceDiagram
+    participant U as 前端
+    participant W as Worker
+    participant A as AuthGuard
+    participant V as RoomValidator
+    participant G as GithubContentsClient
+    participant GH as GitHub Contents API
+    U->>W: POST /rooms  {action:"add", platform, id, name?}
+    W->>A: verifyPass(request, env)
+    alt 失败
+        A-->>U: 401 / 403
+    else 通过
+        W->>V: validateInput(body)
+        alt 校验失败
+            V-->>U: 400 {code:400, message}
+        else 合法
+            W->>G: writeWithRetry("rooms.json", mutate=addRoom)
+            G->>GH: GET contents
+            GH-->>G: {rooms, sha}
+            G->>G: 同 platform|id 已存在? -> changed=false
+            G->>GH: PUT contents (sha, base64)
+            alt 409 Conflict
+                GH-->>G: 409
+                Note over G: 重新 getFile 后重试(最多 2 次)
+            else 200
+                GH-->>G: {content:{sha:newSha}}
+                G-->>W: {rooms, changed:true, sha:newSha}
+            end
+            W-->>U: 200 {code:0, data:{rooms, added:true}}
+        end
+    end
+
+%% POST /rooms  action=remove
+sequenceDiagram
+    participant U as 前端
+    participant W as Worker
+    participant A as AuthGuard
+    participant V as RoomValidator
+    participant G as GithubContentsClient
+    participant GH as GitHub Contents API
+    U->>W: POST /rooms  {action:"remove", platform, id}
+    W->>A: verifyPass(request, env)
+    alt 失败
+        A-->>U: 401 / 403
+    else 通过
+        W->>V: validateInput(body)
+        alt 校验失败
+            V-->>U: 400 {code:400, message}
+        else 合法
+            W->>G: writeWithRetry("rooms.json", mutate=filterOut)
+            G->>GH: GET contents
+            GH-->>G: {rooms, sha}
+            G->>G: 过滤掉 platform|id -> changed=(数量变化)
+            alt 未找到(changed=false)
+                G-->>W: {rooms, changed:false}
+                W-->>U: 404 {code:404, message:"room not monitored"}
+            else 找到并 PUT
+                G->>GH: PUT contents (sha)
+                GH-->>G: {sha:newSha}
+                G-->>W: {rooms, changed:true, sha:newSha}
+                W-->>U: 200 {code:0, data:{rooms, removed:true}}
+            end
+        end
+    end
+
+%% 409 冲突重试(放大)
+sequenceDiagram
+    participant H as Worker Handler
+    participant G as GithubContentsClient
+    participant GH as GitHub
+    H->>G: writeWithRetry(mutate)
+    G->>GH: GET (取最新 rooms+sha)
+    GH-->>G: rooms_v1, sha1
+    G->>GH: PUT (sha1)
+    GH-->>G: 409 (他人已改)
+    G->>GH: GET (重新取)
+    GH-->>G: rooms_v2, sha2
+    G->>GH: PUT (sha2)
+    GH-->>G: 200 (newSha)
+    G-->>H: {rooms, changed:true, sha:newSha}
+    Note over G: 若重试 2 次仍 409 -> 抛出 Conflict, Handler 返回 409
