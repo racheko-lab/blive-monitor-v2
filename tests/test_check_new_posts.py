@@ -449,3 +449,64 @@ def test_main_applies_cookie_via_env(tmp_path, monkeypatch):
     assert "ctx" in captured
     assert captured["ctx"].cookies, "应已注入 DOUYIN_COOKIE"
     assert captured["ctx"].cookies[0]["value"] == "xyz"
+
+
+# ==================== sec_uid 解析（房主本人，绝不取推荐流） ====================
+
+HOST_HTML = (
+    'var render={"anchor":{"id_str":"3378120049041741",'
+    '"sec_uid":"MS4wLjABAAAASecHost000","nickname":"房主本人"},'
+    '"feed":[{"author":{"sec_uid":"MS4wLjABAAAASecRec999","nickname":"推荐流陌生人"}}]}'
+)
+
+
+def test_extract_host_sec_uid_prefers_anchor_over_recommendation():
+    """整页虽含推荐流陌生人的 MS4w，但只应取房间主人 anchor 的 sec_uid。"""
+    got = cnp.extract_host_sec_uid(HOST_HTML)
+    assert got == "MS4wLjABAAAASecHost000"
+    assert got != "MS4wLjABAAAASecRec999"
+
+
+def test_extract_host_sec_uid_none_when_missing():
+    """页面无 anchor / roomInfo 结构（如未渲染）→ 返回 None，绝不瞎猜。"""
+    assert cnp.extract_host_sec_uid('{"feed":[{"author":{"sec_uid":"MS4wLjABAAAASecRec999"}}]}') is None
+    assert cnp.extract_host_sec_uid("") is None
+
+
+def test_main_poison_guard_skips_wrong_account(tmp_path, monkeypatch):
+    """中毒防护：sec_uid 指向了别的账号（被推荐流污染）→ 跳过、不推送、并清除毒值。"""
+    _install_fake_playwright()
+    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
+                                            "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
+    calls = []
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    # get_latest_aweme 实际打开的是陌生人主页（unique_id 与期望 handle 不符）
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        **_count_aweme(12), "actual_unique_id": "stranger_xyz",
+    })
+
+    cnp.main()
+
+    tracking = json.loads(tf.read_text(encoding="utf-8"))
+    assert calls == []                                    # 不应误推送陌生人的「新作品」
+    assert "sec_uid" not in tracking["douyin_MS4wABC"]     # 毒值被清除，下次重解
+
+
+def test_main_poison_guard_ok_when_handle_matches(tmp_path, monkeypatch):
+    """sec_uid 实际账号与期望 handle 一致 → 正常走检测流程，不误触发防护。"""
+    _install_fake_playwright()
+    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
+                                            "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
+    calls = []
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        **_count_aweme(12), "actual_unique_id": "MS4wABC",
+    })
+
+    cnp.main()
+
+    tracking = json.loads(tf.read_text(encoding="utf-8"))
+    assert len(calls) == 1          # 作品数 10→12 正常推测推送
+    assert "sec_uid" in tracking["douyin_MS4wABC"]  # 未误清
