@@ -182,7 +182,7 @@ function updateDouyinPostsModule(){
   for(var i=0;i<postRooms.length;i++){
     var r=postRooms[i];
     var id=r.id;
-    var name=r.name||id;
+    var name=t.nickname||r.name||id;
     var t=postTrack['douyin_'+id]||{};
     var sec=t.sec_uid||'';
     var aid=t.latest_aweme_id||'';
