@@ -123,7 +123,9 @@ export BLIVE_CONFIG='{"push": {"type": "wecom", "webhook": "https://qyapi.weixin
 
 注意：Netlify 只提供静态页面托管，定时检测仍需配置 GitHub Actions 或其他方式。
 
-### 方案三：Cloudflare Worker 代理
+### 方案三：Cloudflare Worker 代理（已弃用）
+
+> ⚠️ **已弃用**：当前前端（`monitor.html`）已改为**直接调用 GitHub Contents API**，不再需要 Cloudflare Worker 代理（`*.workers.dev` 在中国大陆常被屏蔽、导致增删超时）。`cors-proxy-worker.js` 仅作为遗留参考保留，**新部署请使用「方案一」**。
 
 把 `cors-proxy-worker.js` 的内容粘贴到 Cloudflare Workers，用于解决跨域问题。
 
@@ -135,8 +137,8 @@ blive-monitor/
 ├── check_new_posts.py   # 抖音新作品检测脚本
 ├── monitor.html         # 监控页面
 ├── index.html           # 首页重定向
-├── worker.js            # Cloudflare Worker 触发器
-├── cors-proxy-worker.js # CORS 代理 Worker
+├── worker.js            # Cloudflare Worker 触发器（已弃用/遗留）
+├── cors-proxy-worker.js # CORS 代理 Worker（已弃用/遗留）
 ├── run.sh               # 一键运行脚本
 ├── rooms.json           # 监控房间配置
 ├── status.json          # 当前状态（自动生成）
@@ -187,7 +189,7 @@ blive-monitor/
 
 - **后端**: Python 3（仅使用标准库，无需额外依赖）
 - **前端**: 原生 HTML + JavaScript
-- **部署**: GitHub Actions / Netlify / Cloudflare Workers
+- **部署**: GitHub Actions(Pages) / Netlify / Cloudflare Pages（纯静态托管；Worker 代理已弃用）
 - **推送**: 多渠道（Bark / Server酱 / 企业微信 / PushPlus / Telegram）
 
 ## 📝 注意事项
