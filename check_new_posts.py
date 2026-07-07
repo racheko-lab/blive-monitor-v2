@@ -232,134 +232,8 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, str]]:
 
 
 # ==================== 消息推送（多通道，配置可切换）====================
-# 支持渠道：
-#   serverchan  -> 方糖 Server酱（个人微信，免费 5 条/天）
-#   wecom       -> 企业微信群机器人 Webhook（免费、无每日上限，推荐）
-#   pushplus    -> 推送加 PushPlus（个人微信，免费档额度更高）
-#   bark        -> Bark（iPhone 通知，无限，需 iOS）
-#   telegram    -> Telegram Bot（无限，需 BotFather 申请 token）
-# 配置示例（GitHub Actions 的 BLIVE_CONFIG 环境变量，JSON）：
-#   {"push": {"type": "wecom", "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx"}}
-# 兼容旧配置：仅有 "sendkey" 时自动按 serverchan 处理。
-
-def send_via_serverchan(sendkey: str, title: str, desp: str) -> bool:
-    """通过 Server酱 发送微信推送"""
-    if not sendkey:
-        return False
-    import urllib.request
-    import urllib.parse
-    url = f"https://sctapi.ftqq.com/{sendkey}.send"
-    data = urllib.parse.urlencode({"title": title, "desp": desp[:10000]}).encode("utf-8")
-    try:
-        req = urllib.request.Request(url, data=data,
-                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("code") == 0 or result.get("errno") == 0
-    except Exception as e:
-        logger.error("微信推送失败: %s", e)
-        return False
-
-
-def send_via_wecom(webhook: str, title: str, desp: str) -> bool:
-    """企业微信群机器人 Webhook 推送（免费、无每日上限）"""
-    if not webhook:
-        return False
-    import urllib.request
-    import urllib.parse
-    content = f"{title}\n\n{desp}"[:2000]  # 企业微信文本消息上限 2048 字节
-    payload = json.dumps({"msgtype": "text", "text": {"content": content}}).encode("utf-8")
-    try:
-        req = urllib.request.Request(webhook, data=payload,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("errcode") == 0
-    except Exception as e:
-        logger.error("企业微信推送失败: %s", e)
-        return False
-
-
-def send_via_pushplus(token: str, title: str, desp: str, topic: str = "") -> bool:
-    """推送加 PushPlus（个人微信，免费档额度高于方糖）"""
-    if not token:
-        return False
-    import urllib.request
-    import urllib.parse
-    data = urllib.parse.urlencode({
-        "token": token, "title": title, "content": desp[:20000],
-        "template": "markdown", "topic": topic or "",
-    }).encode("utf-8")
-    try:
-        req = urllib.request.Request("https://www.pushplus.plus/send", data=data,
-                                     headers={"Content-Type": "application/x-www-form-urlencoded"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("code") == 200
-    except Exception as e:
-        logger.error("PushPlus 推送失败: %s", e)
-        return False
-
-
-def send_via_bark(base: str, title: str, desp: str) -> bool:
-    """Bark 推送（iPhone 通知，无限；base 形如 https://api.day.app/KEY 或自建地址）"""
-    if not base:
-        return False
-    import urllib.request
-    import urllib.parse
-    url = f"{base.rstrip('/')}/{urllib.parse.quote(title)}/{urllib.parse.quote(desp)}"
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("code") == 200
-    except Exception as e:
-        logger.error("Bark 推送失败: %s", e)
-        return False
-
-
-def send_via_telegram(token: str, chat: str, title: str, desp: str) -> bool:
-    """Telegram Bot 推送（无限）"""
-    if not token or not chat:
-        return False
-    import urllib.request
-    import urllib.parse
-    text = f"{title}\n\n{desp}"
-    url = (f"https://api.telegram.org/bot{token}/sendMessage"
-           f"?chat_id={urllib.parse.quote(chat)}&text={urllib.parse.quote(text)}")
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("ok") is True
-    except Exception as e:
-        logger.error("Telegram 推送失败: %s", e)
-        return False
-
-
-def dispatch_push(push_cfg: Dict[str, Any], title: str, desp: str) -> bool:
-    """按配置分发推送；返回是否成功"""
-    ptype = (push_cfg.get("type") or "").lower()
-    try:
-        if ptype in ("serverchan", "ftqq"):
-            return send_via_serverchan(push_cfg.get("sendkey") or push_cfg.get("key", ""), title, desp)
-        if ptype == "wecom":
-            return send_via_wecom(push_cfg.get("webhook", ""), title, desp)
-        if ptype == "pushplus":
-            return send_via_pushplus(push_cfg.get("token", ""), title, desp,
-                                     push_cfg.get("topic", ""))
-        if ptype == "bark":
-            return send_via_bark(push_cfg.get("url") or push_cfg.get("base", ""), title, desp)
-        if ptype == "telegram":
-            return send_via_telegram(push_cfg.get("token", ""),
-                                     push_cfg.get("chat") or push_cfg.get("chat_id", ""),
-                                     title, desp)
-        logger.warning("未知推送渠道: %s（跳过推送）", ptype)
-        return False
-    except Exception as e:
-        logger.error("推送分发异常: %s", e)
-        return False
-
+# 推送实现见 push_utils.py（直播监控与新作品监控共用），在此直接复用。
+from push_utils import dispatch_push, load_push_cfg
 
 # ==================== 主逻辑 ====================
 
@@ -369,18 +243,9 @@ def main() -> None:
         logger.info("新作品检测已禁用 (设置 ENABLE_POST_CHECK=true 启用)")
         return
 
-    # 加载配置（推送渠道）
+    # 加载配置（推送渠道）：优先 BLIVE_CONFIG 环境变量，兼容旧 sendkey 写法
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
-    try:
-        cfg = json.loads(raw_config)
-    except json.JSONDecodeError as e:
-        logger.error("解析 BLIVE_CONFIG 失败: %s", e)
-        cfg = {}
-
-    # 兼容旧配置：仅有 sendkey 时按 serverchan 处理；否则用 push 配置
-    push_cfg = cfg.get("push") or {}
-    if not push_cfg and cfg.get("sendkey"):
-        push_cfg = {"type": "serverchan", "sendkey": cfg["sendkey"]}
+    push_cfg = load_push_cfg(raw_config)
 
     # 加载作品监控专属的抖音号列表
     post_rooms: List[Dict[str, str]] = load_json_file(CONFIG_FILE, [])
