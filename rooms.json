@@ -28,5 +28,10 @@
     "platform": "douyin",
     "id": "33784926918",
     "name": "33784926918"
+  },
+  {
+    "platform": "douyin",
+    "id": "vmtest_1783405249355",
+    "name": "VM自动测试"
   }
 ]
