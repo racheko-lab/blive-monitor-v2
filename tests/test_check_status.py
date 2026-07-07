@@ -246,6 +246,43 @@ def test_main_preserves_prev_on_bili_batch_failure(tmp_path, monkeypatch):
     assert new_state.get("bilibili_123") == "live"  # 沿用，不误标 error
 
 
+def test_main_inherits_prev_fields_on_bili_batch_failure(tmp_path, monkeypatch):
+    """B站批量接口整体失败时，沿用上次房间信息（title/online/area）而非清空看板。"""
+    rooms = [{"platform": "bilibili", "id": "123", "name": "测试"}]
+    rooms_file = tmp_path / "rooms.json"
+    rooms_file.write_text(json.dumps(rooms), encoding="utf-8")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"bilibili_123": "live"}), encoding="utf-8")
+    status_file = tmp_path / "status.json"
+    status_file.write_text(
+        json.dumps({
+            "updated": "2026-07-08 00:00:00",
+            "rooms": [{
+                "platform": "bilibili", "id": "123", "name": "测试",
+                "status": "live", "title": "旧标题", "online": 42, "area": "电子竞技",
+            }],
+        }),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(rooms_file))
+    monkeypatch.setattr(cs, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(tmp_path / "history.json"))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(status_file))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", lambda ids: (_ for _ in ()).throw(RuntimeError("风控")))
+
+    cs.main()
+
+    new_status = json.loads(status_file.read_text(encoding="utf-8"))
+    room = next(r for r in new_status["rooms"] if r["id"] == "123")
+    assert room["status"] == "live"
+    assert room["title"] == "旧标题"
+    assert room["online"] == 42
+    assert room["area"] == "电子竞技"
+
+
 def test_main_detects_live_on_recovery(tmp_path, monkeypatch):
     """批量失败期间房间为 offline，恢复后真正开播应正常转为 live。"""
     rooms = [{"platform": "bilibili", "id": "123", "name": "测试"}]
