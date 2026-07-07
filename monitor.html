@@ -93,6 +93,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .tab .ic{font-size:18px}
 .tab.active{color:var(--bili)}
 .tab.active .ic{transform:translateY(-1px)}
+/* ===== 房间管理前端化（Worker 代理）样式 ===== */
+/* 添加监控区 */
+.addwrap{margin:0 2px 12px}
+.addbtn{width:100%;padding:11px;border-radius:12px;border:1px dashed var(--line);background:transparent;color:var(--bili);font-size:13px;font-weight:800;cursor:pointer;transition:.2s}
+.addbtn:hover{border-color:var(--bili);background:var(--bili-soft)}
+.addform{display:none;gap:8px;margin-top:8px;flex-wrap:wrap;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.ainput{flex:1;min-width:88px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
+.ainput:focus{outline:none;border-color:var(--bili)}
+.addok{padding:9px 16px;border-radius:9px;border:none;background:var(--bili);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
+.addcancel{padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer}
+/* 卡片移除按钮 */
+.rmbtn{margin-left:8px;width:24px;height:24px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text3);font-size:12px;cursor:pointer;flex-shrink:0;transition:.2s}
+.rmbtn:hover{color:#fff;background:var(--live);border-color:var(--live)}
+/* 轻量 toast */
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);z-index:50;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;color:#fff;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;max-width:80vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:rgba(46,213,115,.95)}
+.toast.err{background:rgba(255,71,87,.95)}
 </style>
 </head>
 <body>
@@ -124,6 +142,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
         <button class="chip" onclick="fil('douyin')">抖音</button>
       </div>
     </div>
+    <div id="addWrap" class="addwrap" style="display:none">
+      <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
+      <div class="addform" id="addForm" style="display:none">
+        <select id="addPlatform" class="ainput">
+          <option value="bilibili">B站</option>
+          <option value="douyin">抖音</option>
+        </select>
+        <input id="addId" class="ainput" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
+        <input id="addName" class="ainput" placeholder="名称（可选）" autocomplete="off">
+        <button class="addok" onclick="submitAdd()">添加</button>
+        <button class="addcancel" onclick="toggleAddForm(false)">取消</button>
+      </div>
+    </div>
     <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
   </section>
 
@@ -146,6 +177,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
+
+/* ===== 房间管理前端化（Worker 代理）配置 ===== */
+/* 部署后改为你的 Cloudflare Worker URL，例如 https://blive-monitor-api.xxx.workers.dev
+   留空则隐藏「添加 / 移除」控件，保持原有只读监控能力。 */
+var API_BASE="";
+/* 与 wrangler.toml 中 [vars].PASSPHRASE 保持一致 */
+var API_PASS="change-me-shared-passphrase";
+/* 仅当配置了 Worker 地址才启用写操作 UI */
+var hasApi=!!API_BASE;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
@@ -191,7 +231,9 @@ function renderLive(){
     if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
     var title=s&&s.title?('<div class="room-title">'+e(s.title)+'</div>'):'';
     var act=(s&&st==='live')?'<a class="act" href="'+u+'" target="_blank">进入直播间 →</a>':'';
-    h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span></div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
+    var rmArg=JSON.stringify({platform:r.platform,id:r.id});
+    var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
+    h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span>'+rmbtn+'</div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
   }
   lb.innerHTML=h;
 }
@@ -244,6 +286,124 @@ function renderLog(){
   lb.innerHTML=h||'<div class="empty">暂无日志</div>';
 }
 
+/* ===================== 房间管理：Worker 代理 API ===================== */
+
+/**
+ * 轻量 toast 提示。
+ * @param {string} msg - 提示文案。
+ * @param {boolean} ok - true 绿色成功 / false 红色失败。
+ */
+var _toastTimer=null;
+function toast(msg, ok){
+  var t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent=msg;
+  t.className='toast '+(ok?'ok':'err')+' show';
+  if(_toastTimer)clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(function(){ t.className='toast '+(ok?'ok':'err'); }, 2500);
+}
+
+/**
+ * 统一请求封装：带 x-pass 头与 8s 超时，解析 {code,data,message}。
+ * @param {string} path - Worker 相对路径（如 /rooms）。
+ * @param {Object} opts - fetch 选项。
+ * @returns {Promise<Object>} 解析后的响应数据（code 为 0 时）。
+ */
+function apiFetch(path, opts){
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();}, 8000);
+  return fetch(API_BASE+path, Object.assign({}, opts, {signal:ctrl.signal}))
+    .then(function(r){
+      clearTimeout(timer);
+      return r.json().then(function(data){
+        if(r.ok && data && data.code===0) return data;
+        var msg=(data && data.message) ? data.message : ('HTTP '+r.status);
+        throw new Error(msg);
+      });
+    })
+    .catch(function(err){
+      clearTimeout(timer);
+      if(err && err.name==='AbortError') throw new Error('请求超时，请稍后重试');
+      if(err instanceof TypeError) throw new Error('网络错误，请检查 API_BASE 与网络');
+      throw err;
+    });
+}
+
+/** GET /rooms：读取最新监控房间列表。 */
+function apiGetRooms(){
+  return apiFetch('/rooms', {method:'GET', headers:{'x-pass':API_PASS}})
+    .then(function(d){ return (d.data && d.data.rooms) ? d.data.rooms : []; });
+}
+
+/** POST /rooms action=add：新增监控房间（重复时抛错提示已监控）。 */
+function apiAddRoom(o){
+  return apiFetch('/rooms', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-pass':API_PASS},
+    body:JSON.stringify({action:'add', platform:o.platform, id:String(o.id), name:o.name||undefined})
+  }).then(function(d){
+    if(d.data && d.data.duplicate){ throw new Error('该房间已在监控列表'); }
+    return d;
+  });
+}
+
+/** POST /rooms action=remove：移除监控房间。 */
+function apiRemoveRoom(o){
+  return apiFetch('/rooms', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-pass':API_PASS},
+    body:JSON.stringify({action:'remove', platform:o.platform, id:String(o.id)})
+  });
+}
+
+/** 同步顶部「监控房间」统计数。 */
+function updateStatRooms(){ document.getElementById('statRooms').textContent = rooms.length; }
+
+/** 切换「添加监控」表单显隐。 */
+function toggleAddForm(force){
+  var f=document.getElementById('addForm');
+  if(!f) return;
+  var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
+  f.style.display = show ? 'flex' : 'none';
+  if(!show){ document.getElementById('addId').value=''; document.getElementById('addName').value=''; }
+}
+
+/** 提交添加监控表单。 */
+function submitAdd(){
+  if(!hasApi) return;
+  var platform=document.getElementById('addPlatform').value;
+  var id=document.getElementById('addId').value.trim();
+  var name=document.getElementById('addName').value.trim();
+  if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
+  if(!id){ toast('房间 ID 必填', false); return; }
+  apiAddRoom({platform:platform, id:id, name:name})
+    .then(function(){ return apiGetRooms(); })
+    .then(function(list){
+      rooms=list; renderLive(); updateStatRooms();
+      toggleAddForm(false);
+      toast('已添加监控', true);
+    })
+    .catch(function(err){ toast(err && err.message ? err.message : '添加失败', false); });
+}
+
+/** 移除房间（带二次确认）。 */
+function removeRoom(arg){
+  if(!hasApi) return;
+  var platform=arg.platform, id=String(arg.id);
+  var disp=id;
+  for(var i=0;i<rooms.length;i++){
+    if(rooms[i].platform===platform && String(rooms[i].id)===id){ disp=rooms[i].name||id; break; }
+  }
+  if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  apiRemoveRoom({platform:platform, id:id})
+    .then(function(){ return apiGetRooms(); })
+    .then(function(list){
+      rooms=list; renderLive(); updateStatRooms();
+      toast('已移除「'+disp+'」', true);
+    })
+    .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
+}
+
 function ld(){
   var t=Date.now();
   Promise.all([
@@ -268,6 +428,11 @@ function ld(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
     if(!rooms.length)document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
   });
+}
+/* 启用 / 隐藏写操作 UI：仅在配置了 Worker 地址时显示 */
+if(hasApi){
+  var _aw=document.getElementById('addWrap');
+  if(_aw)_aw.style.display='block';
 }
 document.addEventListener('DOMContentLoaded',ld);
 </script>
