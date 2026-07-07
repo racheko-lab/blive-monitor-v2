@@ -33,10 +33,5 @@
     "platform": "douyin",
     "id": "XX.9.9999",
     "name": "XX.9.9999"
-  },
-  {
-    "platform": "douyin",
-    "id": "__qa_smoke__",
-    "name": "__qa_smoke_中文名__"
   }
 ]
