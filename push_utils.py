@@ -88,15 +88,21 @@ def send_via_pushplus(token: str, title: str, desp: str, topic: str = "") -> boo
 def send_via_bark(base: str, title: str, desp: str, group: str = "") -> bool:
     """Bark 推送（iPhone 通知，无限；base 形如 https://api.day.app/KEY 或自建地址）
 
-    group: 可选，Bark 分组名（在 App 里折叠/归类通知，对应 ?group= 参数）
+    group: 可选，Bark 分组名（在 App 里折叠/归类通知）。
+    使用 POST + JSON：标题含 emoji / 正文含 Markdown 与链接时，GET 路径方式偶发 404，
+    POST 更稳定。
     """
     if not base:
         return False
-    url = f"{base.rstrip('/')}/{urllib.parse.quote(title)}/{urllib.parse.quote(desp)}"
+    payload = {"title": title, "body": desp}
     if group:
-        url += f"?group={urllib.parse.quote(group)}"
+        payload["group"] = group
     try:
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(
+            base.rstrip("/"),
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read())
         return result.get("code") == 200
