@@ -5,7 +5,7 @@ B站/抖音直播状态检测（GitHub Actions 用）
 功能说明：
 - B站: 官方 API 批量查询
 - 抖音: 页面 SSR 数据提取（多种策略兜底）
-- 状态变化时通过 Server酱 推送微信通知
+- 状态变化时通过多通道推送（Bark / Server酱 / 企业微信 / PushPlus / Telegram）
 - 更新 status.json / state.json / history.json / tracking.json
 """
 
@@ -18,6 +18,9 @@ import urllib.request
 import urllib.parse
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Tuple, Any
+
+# 多通道推送（与 check_new_posts.py 共用 push_utils.py）
+from push_utils import dispatch_push, load_push_cfg
 
 # ==================== 常量配置 ====================
 
@@ -108,16 +111,12 @@ def load_config() -> Dict[str, Any]:
         except (json.JSONDecodeError, IOError) as e:
             logger.error("加载 rooms.json 失败: %s", e)
 
-    # 从环境变量加载配置
+    # 推送配置：多通道（serverchan/wecom/pushplus/bark/telegram），兼容旧 sendkey
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
-    try:
-        cfg = json.loads(raw_config)
-    except json.JSONDecodeError as e:
-        logger.error("解析 BLIVE_CONFIG 失败: %s", e)
-        cfg = {}
+    push_cfg = load_push_cfg(raw_config)
 
     return {
-        "sendkey": cfg.get("sendkey", ""),
+        "push_cfg": push_cfg,
         "rooms": rooms,
     }
 
@@ -420,39 +419,6 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
 
 # ==================== 微信推送 ====================
 
-def send_wechat_push(sendkey: str, title: str, desp: str) -> bool:
-    """通过 Server酱 发送微信推送
-
-    Args:
-        sendkey: Server酱 SendKey
-        title: 消息标题
-        desp: 消息内容（Markdown）
-
-    Returns:
-        是否发送成功
-    """
-    if not sendkey:
-        return False
-
-    url = f"https://sctapi.ftqq.com/{sendkey}.send"
-    data = urllib.parse.urlencode(
-        {"title": title, "desp": desp[:10000]}
-    ).encode("utf-8")
-
-    try:
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-        return result.get("code") == 0 or result.get("errno") == 0
-    except Exception as e:
-        logger.error("微信推送失败: %s", e)
-        return False
-
-
 def should_push(prev_status: Optional[str], curr_status: str) -> bool:
     """判断是否需要推送通知
 
@@ -554,7 +520,7 @@ def main() -> None:
     """主函数"""
     cfg = load_config()
     rooms = cfg.get("rooms", [])
-    sendkey = cfg.get("sendkey", "")
+    push_cfg = cfg.get("push_cfg", {})
 
     if not rooms:
         logger.info("没有配置监控房间")
@@ -710,8 +676,8 @@ def main() -> None:
             }
         )
 
-    # Step 3: 合并推送
-    if newly_live and sendkey:
+    # Step 3: 合并推送（多通道：serverchan/wecom/pushplus/bark/telegram）
+    if newly_live and push_cfg:
         try:
             if len(newly_live) == 1:
                 s = newly_live[0]
@@ -726,7 +692,7 @@ def main() -> None:
                 ]
                 desp = "\n\n---\n\n".join(desp_lines)
 
-            ok = send_wechat_push(sendkey, title, desp)
+            ok = dispatch_push(push_cfg, title, desp)
             push_tag = "pushed_ok" if ok else "pushed_fail"
             logger.info("推送%s: %s", "成功" if ok else "失败", title)
 
@@ -740,7 +706,7 @@ def main() -> None:
                 if le["push"] == "queued":
                     le["push"] = "push_error"
     elif newly_live:
-        logger.info("%d 个房间状态变化，但未配置 SendKey", len(newly_live))
+        logger.info("%d 个房间状态变化，但未配置推送渠道", len(newly_live))
         for le in log_entries:
             if le["push"] == "queued":
                 le["push"] = "no_sendkey"
