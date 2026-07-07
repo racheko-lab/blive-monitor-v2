@@ -53,11 +53,13 @@
   "douyin_83510269222": {
     "last_live": "",
     "live_start": "2026-07-07 14:12:55",
-    "sec_uid": "MS4wLjABAAAANmFY_SgxxK79xoMhNmpcbIDYlEX_Qn7l8YY9GHdZtWQ"
+    "sec_uid": "MS4wLjABAAAANmFY_SgxxK79xoMhNmpcbIDYlEX_Qn7l8YY9GHdZtWQ",
+    "live_duration": "2min"
   },
   "douyin_33784926918": {
     "last_live": "",
     "live_start": "2026-07-07 14:12:55",
-    "sec_uid": "MS4wLjABAAAALE4dAeYGqUL8Q95nZBKiZHUI9ltl7WMpJEZPaDclkVF8XNI7hruLgHTJ3uzf6Hyh"
+    "sec_uid": "MS4wLjABAAAALE4dAeYGqUL8Q95nZBKiZHUI9ltl7WMpJEZPaDclkVF8XNI7hruLgHTJ3uzf6Hyh",
+    "live_duration": "2min"
   }
 }
