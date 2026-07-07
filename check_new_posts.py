@@ -19,7 +19,10 @@
   所谓「干净链接」（不带 source=Baiduspider）每次加载都会变化，无法可靠区分用户自身作品
   与他者推荐视频，据此推送会造成大量误报，故已弃用该策略。
 - 两层都拿不到（被风控/未登录且 profile 接口也异常）时，明确打印提示并保留基线，不静默、不刷屏。
-- 每个账号的 sec_uid 在本脚本内自行解析（优先用已存值；否则从直播页提取），不依赖直播监控产物。
+- 每个账号的 sec_uid 在本脚本内自行解析（优先用已存值 / post_rooms.json 直存值；否则从直播页
+  的【房间主人 anchor】结构化字段提取，绝不取推荐流），不依赖直播监控产物。
+  解析后对「实际账号」做中毒防护：用已捕获 profile 的 unique_id 校验 sec_uid 是否真对应本 handle，
+  若被推荐流污染则跳过并清除毒值，避免误监控陌生人。
 - 通过多渠道推送（见 push_utils），启用开关：环境变量 ENABLE_POST_CHECK=true。
 """
 
@@ -153,11 +156,52 @@ def apply_douyin_cookie(context, cookie_str: str) -> None:
 
 # ==================== sec_uid 解析 ====================
 
-def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
-    """解析某抖音号的 sec_uid
+def extract_host_sec_uid(html: str) -> Optional[str]:
+    """从直播页 HTML 提取【房主本人】的 sec_uid（纯函数，便于单测）。
 
-    优先：entry_id 本身已是 sec_uid（MS4w 开头）则直接用；
-    否则：打开该号的直播页，从页面提取主人 sec_uid（直播中取主页链接，离线取首个 sec_uid）。
+    抖音直播页的房间主人信息嵌在结构化 JSON 中，形如::
+
+        "anchor":{"id_str":"...","sec_uid":"MS4w...","nickname":"..."}
+
+    该 ``anchor`` 字段始终位于推荐流之前，是房主本人。
+
+    注意：**绝不可**对整页 HTML 用 ``re.search(r"MS4w...")`` 取「第一个 sec_uid」——
+    离线页 / 推荐流里也充斥大量其他主播的 MS4w，会取到陌生人的 sec_uid，导致基线全错。
+    旧版还曾用 ``a[href*="/user/"]`` 链接循环，但推荐流的 ``/user/`` 链接可能排在房主之前，
+    同样会误取。这里只认房间主人的 ``anchor`` 结构化字段，确保拿到的是本人。
+
+    Args:
+        html: 直播页完整 HTML
+
+    Returns:
+        房主 sec_uid；取不到返回 None
+    """
+    if not html:
+        return None
+    # 优先：房间主人 anchor 字段（最精准，房主本人，开播/离线均存在）
+    m = re.search(
+        r'"anchor"\s*:\s*\{[^}]*?"sec_uid"\s*:\s*"(MS4wLjABAAAA[A-Za-z0-9_\-]+)"',
+        html,
+    )
+    if m:
+        return m.group(1)
+    # 兜底：roomInfo / owner / or 结构里的 sec_uid（开播时存在，字段嵌套较浅）
+    m = re.search(
+        r'"(?:roomInfo|owner|or|anchorInfo)"\s*:\s*\{[^{}]*?"sec_uid"\s*:\s*"(MS4wLjABAAAA[A-Za-z0-9_\-]+)"',
+        html,
+    )
+    if m:
+        return m.group(1)
+    return None
+
+
+def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
+    """解析某抖音号的真实 sec_uid（房主本人，绝不取推荐流）。
+
+    解析顺序：
+      1) entry_id 本身已是 sec_uid（MS4w 开头）→ 直接用；
+      2) 打开直播页，从「房间主人 anchor」结构化字段提取（开播 / 离线均可，房主本人）；
+      3) 都拿不到 → 返回 None（本次跳过该账号，避免监控陌生人）。
 
     Args:
         context: Playwright BrowserContext
@@ -174,23 +218,10 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
         page.wait_for_timeout(3000)
-        # 优先：主播主页链接（直播中时出现，最可靠）
-        links = page.eval_on_selector_all(
-            'a[href*="/user/"]',
-            "els => els.map(a => a.getAttribute('href') || '').filter(h => h.indexOf('/user/') >= 0)",
-        )
-        for h in links:
-            if "/user/self" in h:
-                continue
-            m = re.search(r"/user/(MS4wLjABAAAA[A-Za-z0-9_\-]+)", h)
-            if m:
-                return m.group(1)
-        # 兜底：从页面 HTML 取第一个 sec_uid（离线房间也能拿到房间主人）
-        html = page.content()
-        m = re.search(r"MS4wLjABAAAA[A-Za-z0-9_\-]+", html)
-        if m:
-            return m.group(0)
-        logger.warning("  [%s] 直播页未找到 sec_uid", entry_id)
+        host = extract_host_sec_uid(page.content())
+        if host:
+            return host
+        logger.warning("  [%s] 直播页未找到房主 sec_uid（可能页面未渲染，下次重试）", entry_id)
         return None
     except Exception as e:
         logger.warning("  [%s] 解析 sec_uid 失败: %s", entry_id, e)
@@ -250,6 +281,26 @@ def parse_aweme_count(profile_text: str) -> Optional[int]:
     return int(cnt) if isinstance(cnt, int) else None
 
 
+def parse_profile_handle(profile_text: str) -> Optional[str]:
+    """从 user/profile/other 响应体解析账号唯一 handle（unique_id）。
+
+    用于「中毒防护」：把拿到的 sec_uid 打开主页后，校验 profile 里的 unique_id 是否等于
+    post_rooms.json 里期望的 handle。若不一致，说明该 sec_uid 来自推荐流陌生人，需清除重解。
+    解析失败 / 无 unique_id 返回 None（交由上层决定是否跳过）。
+    """
+    if not profile_text:
+        return None
+    try:
+        data = json.loads(profile_text)
+    except Exception:
+        return None
+    user = data.get("user") or (data.get("data") or {}).get("user") or {}
+    if not isinstance(user, dict):
+        return None
+    uid = user.get("unique_id")
+    return uid if isinstance(uid, str) and uid else None
+
+
 def _sort_key(it: Dict[str, Any]) -> Tuple[int, int]:
     """取最新作品：优先 create_time，缺失时退化为 aweme_id 数值（近似时间序）。"""
     ct = int(it.get("create_time") or 0)
@@ -295,6 +346,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
         if items:
             best = max(items, key=_sort_key)
             best["_conf"] = "api"
+            best["actual_unique_id"] = parse_profile_handle(captured.get("profile"))
             return best
 
         # 策略 2（退化）：作品数变化推测（无需 Cookie）
@@ -308,6 +360,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
                 "nickname": "",
                 "create_time": count,
                 "_conf": "count",
+                "actual_unique_id": parse_profile_handle(captured.get("profile")),
             }
         return None
     except Exception as e:
@@ -376,10 +429,10 @@ def main() -> None:
             key = f"douyin_{rid}"
             t = tracking.get(key, {})
 
-            # 解析 sec_uid（优先用已存值，否则从直播页解析；解析成功即缓存）
-            sec_uid = t.get("sec_uid") or resolve_sec_uid(context, rid)
+            # 解析 sec_uid（优先用已存值，其次 post_rooms.json 直存值，最后从直播页解析；解析成功即缓存）
+            sec_uid = t.get("sec_uid") or entry.get("sec_uid") or resolve_sec_uid(context, rid)
             if not sec_uid:
-                logger.warning("  [%s] 无法获取 sec_uid，跳过", name)
+                logger.warning("  [%s] 无法获取 sec_uid，跳过（建议开播时或配置 DOUYIN_COOKIE 后重试）", name)
                 continue
             t["sec_uid"] = sec_uid
             tracking[key] = t
@@ -390,6 +443,20 @@ def main() -> None:
             if not aweme:
                 logger.warning("  [%s] 获取作品失败/被风控（建议配置 douyin_cookie）", name)
                 gated_hint = True
+                continue
+
+            # 中毒防护：用已捕获 profile 的 unique_id 校验 sec_uid 是否真对应本 handle。
+            # 若 sec_uid 指向了别的账号（被推荐流污染），本次跳过并清除毒值，
+            # 等下次（开播 / 配置 DOUYIN_COOKIE）重新解析，避免误监控陌生人。
+            actual_uid = aweme.get("actual_unique_id")
+            if actual_uid and rid and actual_uid != rid:
+                logger.warning(
+                    "  [%s] ⚠️ 已存/解析的 sec_uid 指向了错误账号(实际=%s≠%s)，"
+                    "疑似被推荐流污染，本次跳过并清除该 sec_uid", name, actual_uid, rid,
+                )
+                t.pop("sec_uid", None)
+                tracking[key] = t
+                changed = True
                 continue
 
             conf = aweme.get("_conf", "api")
