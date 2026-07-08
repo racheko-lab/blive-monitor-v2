@@ -34,14 +34,14 @@
   },
   "douyin_XiaoyaoDx": {
     "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
-    "latest_aweme_id": "7653503526069270378",
+    "latest_aweme_id": "count:40",
     "latest_desc": "#外星人穿搭 #甜美外星人 #外星人妆造 就让推荐标签暖我一辈子👽",
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7653503526069270378",
-    "latest_ct": 1781970152,
+    "latest_ct": 40,
     "nickname": "小夭等雪",
-    "mode": "api",
-    "latest_count": 1781970152
+    "mode": "count",
+    "latest_count": 40
   },
   "douyin_83134194400": {
     "sec_uid": "MS4wLjABAAAAPzcJluI9HAtkdShRBONh_jw9miEsJ1d6Tvzw4BbOdMTFqivBlDEtRgAeEBHn6lNO",
