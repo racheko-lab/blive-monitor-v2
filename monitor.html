@@ -150,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     <div id="addWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
       <div class="addform" id="addForm" style="display:none">
-        <select id="addPlatform" class="ainput">
+        <select id="addPlatform" class="ainput" onchange="onAddPlatformChange()">
           <option value="bilibili">B站</option>
           <option value="douyin">抖音</option>
           <option value="xhs">小红书</option>
@@ -678,6 +678,21 @@ function toggleAddForm(force){
 }
 
 /** 提交添加监控表单。 */
+function onAddPlatformChange(){
+  var p=document.getElementById('addPlatform').value;
+  var inp=document.getElementById('addId');
+  if(p==='xhs'){
+    inp.placeholder='小红书主页 URL 里 /user/profile/ 后的 uid（如 59f34d10…，不是公开小红书号）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else if(p==='douyin'){
+    inp.placeholder='抖音号 / 直播间号（必填）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else{
+    inp.placeholder='直播间 ID（必填）';
+    inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
+  }
+}
+
 function submitAdd(){
   if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
   var platform=document.getElementById('addPlatform').value;

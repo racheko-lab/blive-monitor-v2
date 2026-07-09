@@ -16,6 +16,7 @@ import time
 import logging
 import urllib.request
 import urllib.parse
+import urllib.error
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -581,6 +582,24 @@ def fetch_xiaohongshu(uid: str) -> Dict[str, Any]:
     try:
         raw = fetch_with_retry(url, headers=headers)
         html = raw.decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            logger.warning(
+                "小红书用户 %s 主页返回 404：id 可能填错（应填主页 URL 中 "
+                "/user/profile/ 之后的内部 uid，而不是公开「小红书号」）。按 offline 处理。",
+                uid,
+            )
+        else:
+            logger.warning("获取小红书主页失败 (%s): HTTP %s", uid, e.code)
+        # 抓取失败按 offline：保证恢复开播时 offline->live 能触发推送
+        return {
+            "status": "offline",
+            "title": "",
+            "online": 0,
+            "live_url": XHS_WEB_URL.format(uid=uid),
+            "nickname": "",
+            "time": now_str,
+        }
     except Exception as e:
         logger.warning("获取小红书主页失败 (%s): %s", uid, e)
         # 抓取失败按 offline：保证恢复开播时 offline->live 能触发推送
@@ -597,6 +616,11 @@ def fetch_xiaohongshu(uid: str) -> Dict[str, Any]:
     result["time"] = now_str
     if not result.get("live_url"):
         result["live_url"] = XHS_WEB_URL.format(uid=uid)
+    # 200 但内容显示用户不存在/已注销：id 很可能填错，给出明确告警
+    if result.get("status") == "offline" and any(
+        k in html for k in ("用户不存在", "页面不存在", "账号不存在", "用户已注销", "该账号不存在")
+    ):
+        logger.warning("小红书主页 %s 显示用户不存在/已注销，id 可能错误。", uid)
     return result
 
 
