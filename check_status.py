@@ -54,6 +54,11 @@ BILIBILI_STATUS_MAP = {
     2: "replay",
 }
 
+# 小红书直播页 URL（路径 A：解析用户主页 HTML，免 x-s/x-t 签名）
+XHS_PROFILE_URL = "https://www.xiaohongshu.com/user/profile/{uid}"
+XHS_LIVE_URL = "https://live.xiaohongshu.com/room/{room_id}"
+XHS_WEB_URL = "https://www.xiaohongshu.com/user/profile/{uid}"
+
 # ==================== 日志配置 ====================
 
 logging.basicConfig(
@@ -386,6 +391,149 @@ def fetch_douyin(web_rid: str) -> Dict[str, Any]:
     }
 
 
+# ==================== 小红书直播检测（路径 A：解析主页 HTML，免签名） ====================
+
+def _as_int(v: Any) -> int:
+    """把可能是字符串/数字的值安全转 int。"""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _find_xhs_live(obj: Any) -> Optional[Dict[str, Any]]:
+    """递归在 __INITIAL_STATE__ 里找直播信号（liveRoom / liveStatus）。
+
+    命中条件：存在 liveRoom 且 (liveStatus==1 或含 roomId 且非明确离线)。
+    返回 {"liveRoom": {...}, "roomId": str} 或 None。
+    """
+    if isinstance(obj, dict):
+        lr = obj.get("liveRoom")
+        if isinstance(lr, dict):
+            ls = lr.get("liveStatus")
+            if ls in (4, "4", 0, "0"):
+                return None  # 明确离线
+            rid = lr.get("roomId") or lr.get("id") or lr.get("room_id")
+            if ls in (1, "1") or rid:
+                return {"liveRoom": lr, "roomId": rid}
+        if "liveStatus" in obj:
+            ls = obj["liveStatus"]
+            if ls in (1, "1"):
+                return {"liveRoom": obj, "roomId": obj.get("roomId") or obj.get("id")}
+            if ls in (4, "4", 0, "0"):
+                return None
+        for v in obj.values():
+            r = _find_xhs_live(v)
+            if r:
+                return r
+    elif isinstance(obj, list):
+        for v in obj:
+            r = _find_xhs_live(v)
+            if r:
+                return r
+    return None
+
+
+def _extract_xhs_title(html: str) -> str:
+    """从 <title> 提取页面标题（去掉小红书后缀）。"""
+    mt = re.search(r"<title>([^<]+)</title>", html, re.I)
+    if mt:
+        return mt.group(1).replace(" - 小红书", "").strip()
+    return ""
+
+
+def parse_xiaohongshu_live(html: str) -> Dict[str, Any]:
+    """从小红书主页 HTML 解析直播状态（纯函数，便于单测）。
+
+    Returns:
+        {"status": "live"/"offline", "title", "online", "live_url", "nickname"}
+    """
+    # 1) 反爬/验证页：无法判断，按未检测到直播处理
+    if any(k in html for k in ("请完成安全验证", "滑动验证", "验证码", "captcha", "系统检测到异常")):
+        return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
+
+    # 2) 解析 window.__INITIAL_STATE__ 内嵌 JSON
+    m = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\});?\s*(?:</script>|$)", html, re.S)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            found = _find_xhs_live(data)
+            if found:
+                lr = found.get("liveRoom") or {}
+                room_id = found.get("roomId") or lr.get("roomId") or lr.get("id")
+                title = lr.get("title") or lr.get("liveTitle") or ""
+                online = _as_int(lr.get("liveCount")) or _as_int(lr.get("viewerCount")) or 0
+                live_url = XHS_LIVE_URL.format(room_id=room_id) if room_id else ""
+                return {"status": "live", "title": title, "online": online, "live_url": live_url, "nickname": ""}
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 3) 直播房间链接 + 直播文案
+    lm = re.search(r"live\.xiaohongshu\.com/(?:room/|live/?\?*)(\w+)", html)
+    if lm and ("直播" in html or "live" in html.lower()):
+        room_id = lm.group(1)
+        return {
+            "status": "live",
+            "title": _extract_xhs_title(html),
+            "online": 0,
+            "live_url": XHS_LIVE_URL.format(room_id=room_id),
+            "nickname": "",
+        }
+
+    # 4) 文案兜底
+    if "正在直播" in html or "直播中" in html:
+        return {"status": "live", "title": _extract_xhs_title(html), "online": 0, "live_url": "", "nickname": ""}
+
+    return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
+
+
+def fetch_xiaohongshu(uid: str) -> Dict[str, Any]:
+    """小红书直播间检测 - 解析用户主页 HTML（路径 A：免 x-s/x-t 签名）
+
+    小红书 profile 页面开播时会注入 window.__INITIAL_STATE__（含 liveRoom）或
+    直播卡片链接 live.xiaohongshu.com/room/<id>。无需签名即可读取。
+
+    注意：小红书对无登录态/数据中心 IP 可能返回验证页（反爬）。此时无法判断，
+    按「未检测到直播」处理（offline），保证恢复开播时 offline->live 仍能触发推送。
+    如需提高成功率，可设置环境变量 XHS_COOKIE 带入登录态（可选）。
+
+    Args:
+        uid: 小红书用户 ID（profile URL 中 /user/profile/<uid> 那段）
+
+    Returns:
+        与 fetch_douyin 同构的状态字典，额外带 live_url
+    """
+    url = XHS_PROFILE_URL.format(uid=uid)
+    now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
+    headers = {
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    }
+    cookie = os.environ.get("XHS_COOKIE", "")
+    if cookie:
+        headers["Cookie"] = cookie
+    try:
+        raw = fetch_with_retry(url, headers=headers)
+        html = raw.decode("utf-8", errors="replace")
+    except Exception as e:
+        logger.warning("获取小红书主页失败 (%s): %s", uid, e)
+        # 抓取失败按 offline：保证恢复开播时 offline->live 能触发推送
+        return {
+            "status": "offline",
+            "title": "",
+            "online": 0,
+            "live_url": XHS_WEB_URL.format(uid=uid),
+            "nickname": "",
+            "time": now_str,
+        }
+
+    result = parse_xiaohongshu_live(html)
+    result["time"] = now_str
+    if not result.get("live_url"):
+        result["live_url"] = XHS_WEB_URL.format(uid=uid)
+    return result
+
+
 # ==================== 微信推送 ====================
 
 def should_push(prev_status: Optional[str], curr_status: str) -> bool:
@@ -432,12 +580,13 @@ def format_push_desp(
     name: str, platform: str, rid: str, result: Dict[str, Any]
 ) -> str:
     """格式化推送内容"""
-    platform_label = "B站" if platform == "bilibili" else "抖音"
-    live_url = (
-        f"https://live.bilibili.com/{rid}"
-        if platform == "bilibili"
-        else f"https://live.douyin.com/{rid}"
-    )
+    platform_label = {"bilibili": "B站", "douyin": "抖音", "xhs": "小红书"}.get(platform, platform)
+    if platform == "bilibili":
+        live_url = f"https://live.bilibili.com/{rid}"
+    elif platform == "douyin":
+        live_url = f"https://live.douyin.com/{rid}"
+    else:  # xhs
+        live_url = result.get("live_url") or f"https://live.xiaohongshu.com/user/profile/{rid}"
     now = bjnow().strftime("%Y-%m-%d %H:%M:%S")
 
     lines = [
@@ -577,8 +726,13 @@ def main() -> None:
                             or ""
                         ),
                     }
-            else:  # douyin
+            elif platform == "douyin":
                 result = fetch_douyin(rid)
+            elif platform == "xhs":
+                result = fetch_xiaohongshu(rid)
+            else:
+                logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
+                result = {"status": "offline", "title": "", "online": 0, "time": now_str}
 
         except Exception as e:
             logger.warning("[%s] 检测失败: %s", name, e)
