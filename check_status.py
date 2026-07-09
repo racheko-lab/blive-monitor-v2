@@ -401,26 +401,96 @@ def _as_int(v: Any) -> int:
         return 0
 
 
+def _extract_xhs_state(html: str) -> Optional[dict]:
+    """从主页 HTML 稳健提取 window.__INITIAL_STATE__ 对象。
+
+    小红书把该对象以 HTML 转义形式内联（&quot; 等），且使用 JS 字面量
+    undefined / NaN / Infinity，因此不能直接 json.loads。这里做：
+    1) 括号配平截取对象（兼顾字符串内的括号/引号）；2) HTML 反转义；
+    3) 把 undefined/NaN/Infinity 替换成 null；4) 去掉尾随逗号；5) json.loads。
+    """
+    i = html.find("window.__INITIAL_STATE__")
+    if i < 0:
+        return None
+    start = html.find("{", i)
+    if start < 0:
+        return None
+    depth = 0
+    end = -1
+    in_str = False
+    esc = False
+    for j in range(start, len(html)):
+        c = html[j]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = j + 1
+                break
+    if end < 0:
+        return None
+    blob = html[start:end]
+    blob = _html_unescape(blob)
+    blob = re.sub(r"\bundefined\b", "null", blob)
+    blob = re.sub(r"\bNaN\b", "null", blob)
+    blob = re.sub(r"\bInfinity\b", "null", blob)
+    blob = re.sub(r",(\s*[}\]])", r"\1", blob)  # 尾随逗号
+    try:
+        return json.loads(blob)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def _html_unescape(s: str) -> str:
+    import html as _html
+    return _html.unescape(s)
+
+
+def _xhs_nickname(state: dict) -> str:
+    """从 __INITIAL_STATE__ 提取用户昵称（用于推送文案兜底）。"""
+    user = state.get("user") if isinstance(state, dict) else None
+    if isinstance(user, dict):
+        for k in ("nickname", "name", "userName"):
+            v = user.get(k)
+            if isinstance(v, str) and v:
+                return v
+    return ""
+
+
 def _find_xhs_live(obj: Any) -> Optional[Dict[str, Any]]:
     """递归在 __INITIAL_STATE__ 里找直播信号（liveRoom / liveStatus）。
 
-    命中条件：存在 liveRoom 且 (liveStatus==1 或含 roomId 且非明确离线)。
+    命中条件：存在 liveRoom 且 (liveStatus 表示开播 或 含 roomId 且非明确结束)。
+    小红书 liveStatus 经验枚举：1=直播中, 2/3=准备/缓冲, 4=已结束, 0=未开播。
     返回 {"liveRoom": {...}, "roomId": str} 或 None。
     """
+    LIVE = (1, 2, 3, "1", "2", "3")
+    OFF = (0, 4, "0", "4")
     if isinstance(obj, dict):
         lr = obj.get("liveRoom")
         if isinstance(lr, dict):
             ls = lr.get("liveStatus")
-            if ls in (4, "4", 0, "0"):
-                return None  # 明确离线
+            if ls in OFF:
+                return None  # 明确已结束/未开播
             rid = lr.get("roomId") or lr.get("id") or lr.get("room_id")
-            if ls in (1, "1") or rid:
+            if ls in LIVE or rid:
                 return {"liveRoom": lr, "roomId": rid}
         if "liveStatus" in obj:
             ls = obj["liveStatus"]
-            if ls in (1, "1"):
+            if ls in LIVE:
                 return {"liveRoom": obj, "roomId": obj.get("roomId") or obj.get("id")}
-            if ls in (4, "4", 0, "0"):
+            if ls in OFF:
                 return None
         for v in obj.values():
             r = _find_xhs_live(v)
@@ -452,21 +522,17 @@ def parse_xiaohongshu_live(html: str) -> Dict[str, Any]:
     if any(k in html for k in ("请完成安全验证", "滑动验证", "验证码", "captcha", "系统检测到异常")):
         return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
 
-    # 2) 解析 window.__INITIAL_STATE__ 内嵌 JSON
-    m = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\});?\s*(?:</script>|$)", html, re.S)
-    if m:
-        try:
-            data = json.loads(m.group(1))
-            found = _find_xhs_live(data)
-            if found:
-                lr = found.get("liveRoom") or {}
-                room_id = found.get("roomId") or lr.get("roomId") or lr.get("id")
-                title = lr.get("title") or lr.get("liveTitle") or ""
-                online = _as_int(lr.get("liveCount")) or _as_int(lr.get("viewerCount")) or 0
-                live_url = XHS_LIVE_URL.format(room_id=room_id) if room_id else ""
-                return {"status": "live", "title": title, "online": online, "live_url": live_url, "nickname": ""}
-        except (json.JSONDecodeError, ValueError):
-            pass
+    # 2) 解析 window.__INITIAL_STATE__ 内嵌对象（稳健提取，处理 HTML 转义与 JS 字面量）
+    state = _extract_xhs_state(html)
+    if state:
+        found = _find_xhs_live(state)
+        if found:
+            lr = found.get("liveRoom") or {}
+            room_id = found.get("roomId") or lr.get("roomId") or lr.get("id")
+            title = lr.get("title") or lr.get("liveTitle") or ""
+            online = _as_int(lr.get("liveCount")) or _as_int(lr.get("viewerCount")) or 0
+            live_url = XHS_LIVE_URL.format(room_id=room_id) if room_id else ""
+            return {"status": "live", "title": title, "online": online, "live_url": live_url, "nickname": _xhs_nickname(state)}
 
     # 3) 直播房间链接 + 直播文案
     lm = re.search(r"live\.xiaohongshu\.com/(?:room/|live/?\?*)(\w+)", html)

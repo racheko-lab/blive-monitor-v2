@@ -128,3 +128,58 @@ def test_main_xhs_live_triggers_push(monkeypatch, tmp_path):
     st = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
     assert st.get("xhs_test_xhs_uid") == "live"
 
+
+def _wrap_real_format(obj: dict) -> str:
+    """构造小红书真实内联格式：JSON 经 HTML 转义，并掺入 JS 字面量 undefined。
+
+    真实站点的 __INITIAL_STATE__ 正是此形态（&quot; 转义 + undefined），
+    解析器必须能稳健处理，否则会退化成脆弱的关键词兜底。
+    """
+    import html as _html
+
+    raw = json.dumps(obj, ensure_ascii=False)
+    # 模拟真实页面：把对象里某字段设为 undefined（json 不支持，需手动注入）
+    raw = raw.replace('"__UNDEF__"', "undefined")
+    escaped = _html.escape(raw)
+    return (
+        '<html><head><title>某用户 - 小红书</title></head><body>'
+        f'<script>window.__INITIAL_STATE__ = {escaped};</script>'
+        "</body></html>"
+    )
+
+
+def test_parse_real_format_with_undefined_and_escape():
+    # 真实页面：liveRoom 嵌套在 user 下，含 undefined 字段，整体 HTML 转义
+    html = _wrap_real_format({
+        "user": {
+            "nickname": "真实主播",
+            "liveRoom": {"liveStatus": 1, "roomId": "r999", "title": "开播啦"},
+            "someUndefinedField": "__UNDEF__",
+        },
+        "global": {"x": "__UNDEF__"},
+    })
+    r = cs.parse_xiaohongshu_live(html)
+    assert r["status"] == "live"
+    assert r["title"] == "开播啦"
+    assert "r999" in r["live_url"]
+    assert r["nickname"] == "真实主播"
+
+
+def test_parse_real_format_ended_offline():
+    html = _wrap_real_format({
+        "user": {"nickname": "真实主播", "liveRoom": {"liveStatus": 4, "roomId": "r999"}},
+    })
+    r = cs.parse_xiaohongshu_live(html)
+    assert r["status"] == "offline"
+
+
+def test_parse_real_format_nested_undefined_offline():
+    # 未开播主页：__INITIAL_STATE__ 存在但无 liveRoom（真实未开播形态）
+    html = _wrap_real_format({
+        "user": {"nickname": "真实主播", "someUndefinedField": "__UNDEF__"},
+        "global": {"x": "__UNDEF__"},
+    })
+    r = cs.parse_xiaohongshu_live(html)
+    assert r["status"] == "offline"
+    assert r["live_url"] == ""
+
