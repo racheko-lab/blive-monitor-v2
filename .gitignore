@@ -4,6 +4,7 @@ status.json
 tracking.json
 history.json
 post_tracking.json
+notify_dedup.json
 .refresh
 
 # Jekyll / GitHub Pages

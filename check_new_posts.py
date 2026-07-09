@@ -36,6 +36,8 @@ from typing import Dict, List, Optional, Any, Tuple
 from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
 from push_utils import dispatch_push, load_push_cfg
+# 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record
 
 # ==================== 常量配置 ====================
 
@@ -637,11 +639,18 @@ def main() -> None:
 
             notify = False
             do_update = True
+            dedup_key = None  # 推送成功后需要记录的去重键
 
             if conf == "api":
                 # 精确：确有比基线更新的作品才推送；接口延迟返回更旧作品则保留基线
-                notify = should_notify_new_post(prev_id, prev_ct, aweme["aweme_id"], new_ct)
+                candidate = should_notify_new_post(prev_id, prev_ct, aweme["aweme_id"], new_ct)
                 do_update = should_update_baseline(prev_id, prev_ct, aweme["aweme_id"], new_ct)
+                post_dkey = f"post:{sec_uid}:{aweme['aweme_id']}"
+                if candidate and dedup_should_notify(post_dkey, cooldown=float("inf")):
+                    notify = True
+                    dedup_key = post_dkey
+                elif candidate:
+                    logger.info("  [%s] 去重跳过：作品 %s 已推送过，不重复", name, aweme["aweme_id"])
             else:  # conf == "count"：推测，仅当作品数确实增加且已有基线才提示
                 if prev_mode and prev_mode != cur_mode:
                     # 模式切换（如从无 Cookie 计数推测切到有 Cookie 真实接口，或反之）：
@@ -650,7 +659,13 @@ def main() -> None:
                     do_update = True
                 else:
                     prev_count = int(t.get("latest_count", 0) or 0)
-                    notify = bool(prev_count) and new_ct > prev_count
+                    candidate = bool(prev_count) and new_ct > prev_count
+                    count_dkey = f"post:{sec_uid}:count:{new_ct}"
+                    if candidate and dedup_should_notify(count_dkey, cooldown=float("inf")):
+                        notify = True
+                        dedup_key = count_dkey
+                    elif candidate:
+                        logger.info("  [%s] 去重跳过：作品数 %d 已推送过", name, new_ct)
                     do_update = True
 
             if notify:
@@ -679,6 +694,9 @@ def main() -> None:
                     try:
                         ok = dispatch_push(push_cfg, title, desp)
                         logger.info("    → 推送%s", "成功" if ok else "失败")
+                        # 仅推送成功后才记录去重（失败不标记，下一轮可补推）
+                        if ok and dedup_key:
+                            dedup_record(dedup_key)
                     except Exception as e:
                         logger.error("    → 推送异常: %s", e)
 

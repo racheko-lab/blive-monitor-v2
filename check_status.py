@@ -23,6 +23,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from common import bjnow, load_json_file, save_json_file, DEFAULT_USER_AGENT, BEIJING_TZ
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
 from push_utils import dispatch_push, load_push_cfg
+# 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 
 # ==================== 常量配置 ====================
 
@@ -650,15 +652,23 @@ def main() -> None:
         changed = prev_status is not None and prev_status != result["status"]
 
         if should_push(prev_status, result["status"]):
-            newly_live.append(
-                {
-                    "name": display_name,
-                    "platform": platform,
-                    "rid": rid,
-                    "result": result,
-                }
-            )
-            push_result = "queued"
+            dkey = f"live:{key}"
+            if dedup_should_notify(dkey):
+                newly_live.append(
+                    {
+                        "name": display_name,
+                        "platform": platform,
+                        "rid": rid,
+                        "result": result,
+                    }
+                )
+                push_result = "queued"
+            else:
+                # 冷却期内已推送过（闪烁 / 状态文件短暂丢失后的重复首检），跳过
+                logger.info(
+                    "[%s] 去重跳过：开播通知 %s 在冷却期内已发送", display_name, dkey
+                )
+                push_result = "deduped"
 
         # 记录日志
         log_entries.append(
@@ -694,6 +704,11 @@ def main() -> None:
             push_tag = "pushed_ok" if ok else "pushed_fail"
             logger.info("推送%s: %s", "成功" if ok else "失败", title)
 
+            # 推送成功后才记录去重（失败则不标记，下一轮可补推）
+            if ok:
+                for s in newly_live:
+                    dedup_record(f"live:{s['platform']}_{s['rid']}")
+
             # 更新日志里的推送标记
             for le in log_entries:
                 if le["push"] == "queued":
@@ -723,6 +738,12 @@ def main() -> None:
     if len(all_log) > HISTORY_MAX_ENTRIES:
         all_log = all_log[-HISTORY_MAX_ENTRIES:]
     save_json_file(HISTORY_FILE, all_log)
+
+    # 裁剪去重账本（丢弃过期 live: key，post: key 永久保留）
+    try:
+        dedup_prune()
+    except Exception as e:
+        logger.warning("裁剪去重账本失败（不影响主流程）: %s", e)
 
     logger.info("检测完成，状态已更新")
 
