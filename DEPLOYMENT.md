@@ -62,19 +62,26 @@ Name 填 `BLIVE_CONFIG`，Secret 填上面的 JSON 字符串。
 ## 二（续）、抖音新作品检测与 `douyin_cookie`
 
 `check_new_posts.py` 负责抖音新作品检测，由 CI 的 `ENABLE_POST_CHECK=true` 开关启用。
-它采用**两层策略 + 优雅降级**，行为取决于是否配置了抖音登录 Cookie：
+它采用**三层策略 + 优雅降级**，越靠前越精确：
 
-| 模式 | 是否需要 Cookie | 数据来源 | 推送内容 |
-|---|---|---|---|
-| **精确模式**（推荐） | ✅ 需要 `douyin_cookie` | 拦截浏览器自身签名的 `aweme/post` 接口，返回真实作品列表（含发布时间 / 描述） | 「🆕 X 发布了新作品」并链接到**具体作品** |
-| **推测模式**（兜底） | ❌ 不需要 | 读取 `user/profile/other` 的 `aweme_count`（**未登录也可达**） | 「🔔 X 可能发布了新作品」并链接到**用户主页**，提示自行确认 |
+| 优先级 | 模式 | 是否需要 Cookie | 数据来源 | 推送内容 |
+|---|---|---|---|---|
+| 0（首选） | **移动端精确** | ❌ 不需要 | 用移动端 UA 打开 `m.douyin.com/share/user/{sec_uid}`，其加载的**老接口** `m.douyin.com/web/api/v2/aweme/post/` **无 Cookie 即返回真实作品列表**（含 aweme_id / 描述 / 视频或图文链接） | 「🆕 X 发布了新作品」并链接到**具体作品** |
+| 1 | 桌面端精确 | ✅ 需要 `douyin_cookie` | 拦截浏览器自身签名的 `aweme/v1/web/aweme/post/` 接口，返回真实作品列表（含发布时间 / 描述） | 「🆕 X 发布了新作品」并链接到**具体作品** |
+| 2（兜底） | 推测模式 | ❌ 不需要 | 读取 `user/profile/other` 的 `aweme_count`（**未登录也可达**） | 「🔔 X 可能发布了新作品」并链接到**用户主页**，提示自行确认 |
 
-> **为什么精确检测必须依赖登录 Cookie？**
-> 抖音作品列表接口（`aweme/v1/web/aweme/post/`）现在强制要求 X-Bogus / a_bogus 签名
-> + WebID / 登录态，无 Cookie 的请求会被风控返回空列表；而无登录态时用户主页 DOM
-> 几乎全是推荐流，**无法可靠区分用户自身作品与他者推荐视频**，据此推送会大量误报。
-> 故精确检测必须注入登录态——脚本拦截浏览器「自己发出、已带签名」的请求，
-> 无需逆向算法。未配置 Cookie 时自动退化为「作品数推测」，至少不会漏得毫无动静。
+> **为什么移动端老接口能「无 Cookie 精确检测」？**
+> 抖音移动端分享页 `m.douyin.com/share/user/{sec_uid}` 会加载老版 Web API
+> `web/api/v2/aweme/post/`，该接口**不强制 X-Bogus / a_bogus 签名与登录态**，
+> 未登录即返回该账号真实作品列表（按 aweme_id 倒序、最新在前）。所有账号通用，
+> 因此**无需任何 Cookie 即可精确检测新作品**——这是当前最稳的首选路径。
+> 注意：该接口不返回 `create_time`，排序退化为按 `aweme_id` 数值（抖音作品 id 单调递增），
+> 脚本的 `_post_is_newer` 已支持该降级。
+>
+> 桌面端 `aweme/v1/web/aweme/post/` 仍强制签名 + 登录态（无 Cookie 被风控返回空），
+> 仅作为「已配 `douyin_cookie` 时的补充精确源」；无 Cookie 时自动退化为「作品数推测」，
+> 至少不会漏得毫无动静。无论走哪条路径，都会额外捕获 `user/profile/other` 的 `unique_id`
+> 供「中毒防护」校验 sec_uid 是否真对应本账号。
 
 ### 如何获取并配置 `douyin_cookie`
 
@@ -109,6 +116,15 @@ Name 填 `BLIVE_CONFIG`，Secret 填上面的 JSON 字符串。
 问题在于：**离线页 / 推荐流里充斥大量其他主播的 `MS4w`**，且推荐流的 `/user/` 链接可能排在房主
 之前——这会让脚本误取**陌生人**的 `sec_uid`，导致该账号基线全错、把别人的新作品推给你。
 现仅认房间主人的 `anchor` 字段，从根上杜绝该问题。
+
+**实战坑：RENDER_DATA 转义形态。** 直播页 HTML 里，`anchor` 字段可能以两种形态出现：
+- (A) 正常 JSON：`"anchor":{"id_str":"…","sec_uid":"MS4w…"}`；
+- (B) RENDER_DATA 转义形态（引号被转义、花括号不转义）：
+  `\"anchor\":{\"id_str\":\"…\",\"sec_uid\":\"MS4w…\"}`。
+  注意整页里**唯一的未转义 `"anchor"`** 往往是 `<script … "anchor" nonce="">` 这种 **HTML 属性**
+  （不是 JSON 对象），绝不能误匹配；真正的房主 JSON 在转义形态 (B) 里。`extract_host_sec_uid`
+  已同时支持两种形态，且**只锚定 `anchor`/`roomInfo`/`owner`/`or`/`anchorInfo` 字段**，绝不对整页
+  取「第一个 MS4w」。`81197422897`（昵称「整天白日梦」）正是 (B) 形态的真实案例。
 
 **中毒防护（运行时兜底）**：即使解析逻辑回归，脚本每次抓取主页后都会用 `user/profile/other`
 返回的 `unique_id` 校验「这个 `sec_uid` 是不是本账号」。若发现指向了别的账号（被推荐流污染），
