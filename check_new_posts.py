@@ -364,6 +364,26 @@ def parse_profile_handle(profile_text: str) -> Optional[str]:
     return uid if isinstance(uid, str) and uid else None
 
 
+def parse_profile_nickname(profile_text: str) -> Optional[str]:
+    """从 user/profile/other 响应体解析账号真实昵称（nickname）。
+
+    用于「前端显示昵称」：用户通过前端添加抖音号时往往只填了 id（handle/数字号），
+    没填昵称；此处用主页接口返回的真实昵称回填，使前端展示「峰哥亡命天涯」而非裸 id。
+    解析失败 / 无昵称返回 None（交由上层决定是否保留已有值）。
+    """
+    if not profile_text:
+        return None
+    try:
+        data = json.loads(profile_text)
+    except Exception:
+        return None
+    user = data.get("user") or (data.get("data") or {}).get("user") or {}
+    if not isinstance(user, dict):
+        return None
+    nick = user.get("nickname")
+    return nick if isinstance(nick, str) and nick.strip() else None
+
+
 def _sort_key(it: Dict[str, Any]) -> Tuple[int, int]:
     """取最新作品：优先 create_time，缺失时退化为 aweme_id 数值（近似时间序）。"""
     ct = int(it.get("create_time") or 0)
@@ -437,6 +457,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
         page.wait_for_timeout(SETTLE_WAIT)
 
         actual_uid = parse_profile_handle(dcap.get("profile"))
+        actual_nick = parse_profile_nickname(dcap.get("profile"))
 
         # 策略 0 优先：移动端真实作品（无 Cookie）
         items = parse_aweme_list(mcap.get("post")) if mcap.get("post") else []
@@ -445,6 +466,8 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
             best["_conf"] = "api"
             best["_src"] = "mobile"
             best["actual_unique_id"] = actual_uid
+            # 真实昵称优先用作品作者，缺失时回退到主页 profile/other 的真实昵称
+            best["nickname"] = best.get("nickname") or actual_nick or ""
             return best
 
         # 策略 1：桌面端 API 响应（需登录 Cookie）
@@ -454,6 +477,7 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
             best["_conf"] = "api"
             best["_src"] = "desktop"
             best["actual_unique_id"] = actual_uid
+            best["nickname"] = best.get("nickname") or actual_nick or ""
             return best
 
         # 策略 2（退化）：作品数变化推测
@@ -464,7 +488,8 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
                 "desc": "（接口被风控/未登录，按作品数变化推测可能有新作品，请到主页确认）",
                 "video_url": f"https://www.douyin.com/user/{sec_uid}",
                 "is_note": False,
-                "nickname": "",
+                # 即便退化到「作品数推测」，主页 profile/other 仍返回真实昵称，回填供前端展示
+                "nickname": actual_nick or "",
                 "create_time": count,
                 "_conf": "count",
                 "actual_unique_id": actual_uid,
@@ -589,6 +614,11 @@ def main() -> None:
                 entry["sec_uid"] = sec_uid
                 post_rooms_dirty = True
 
+            # 展示/推送用名：前端添加常只填了 id（handle/数字号），此处用主页真实昵称回填，
+            # 这样推送标题与前端卡片都显示「峰哥亡命天涯」而非裸 id。
+            if name == rid and aweme.get("nickname"):
+                name = aweme["nickname"]
+
             conf = aweme.get("_conf", "api")
             desc = aweme.get("desc", "") or "[无描述]"
             kind = "图文" if aweme.get("is_note") else "视频"
@@ -657,11 +687,12 @@ def main() -> None:
                 t["latest_ct"] = new_ct
                 t["mode"] = conf
                 t["latest_count"] = new_ct
+                # 真实昵称在所有模式都回填（前端展示/推送都用它，避免只显示裸 id）
+                t["nickname"] = aweme.get("nickname") or t.get("nickname", "")
                 if conf == "api":
                     t["latest_desc"] = aweme.get("desc", "")
                     t["latest_type"] = kind
                     t["latest_url"] = aweme.get("video_url", "")
-                    t["nickname"] = aweme.get("nickname", "") or t.get("nickname", "")
             else:
                 logger.info("  [%s] 接口返回作品较旧，保留已有基线（抖音接口延迟）", name)
             tracking[key] = t
