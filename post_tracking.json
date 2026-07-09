@@ -64,5 +64,16 @@
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7659466394198609830",
     "nickname": ""
+  },
+  "douyin_llqq192": {
+    "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
+    "latest_aweme_id": "7658638889217224691",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "我做這麼多只是為了沒有眼淚的明天",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7658638889217224691",
+    "nickname": ""
   }
 }
