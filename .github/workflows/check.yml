@@ -80,7 +80,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.com"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制
-          git add -f state.json tracking.json history.json post_tracking.json
+          # 注：post_rooms.json 也会被后端写回（固化解析出的 sec_uid），一并纳入版本控制，
+          # 使「前端网页添加的账号」在首次解析后与「预存 sec_uid 的账号」行为一致。
+          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
