@@ -113,11 +113,11 @@ function renderFeed(){
         if(s.online)meta.push('人气 '+e(s.online));
         if(s.area)meta.push(e(s.area));
         items.push({pin:true,t:Date.now()/1000,html:
-          '<div class="fcard live"><div class="f-top"><span class="pf '+(s.platform==='bilibili'?'bili':'dy')+'">'+(s.platform==='bilibili'?'B站':'抖音')+'</span>'+
+          '<div class="fcard live"><div class="f-top"><span class="pf '+(s.platform==='bilibili'?'bili':(s.platform==='douyin'?'dy':'xhs'))+'">'+(s.platform==='bilibili'?'B站':(s.platform==='douyin'?'抖音':'小红书'))+'</span>'+
           '<span class="name">'+e(s.name)+'</span><span class="badge live">🔴 直播中</span></div>'+
           (s.title?'<div class="f-title">'+e(s.title)+'</div>':'')+
           (meta.length?'<div class="f-meta">'+meta.join(' · ')+'</div>':'')+
-          '<a class="act" href="'+(s.platform==='bilibili'?'https://live.bilibili.com/'+s.id:'https://live.douyin.com/'+s.id)+'" target="_blank">进入直播间 →</a></div>'});
+          '<a class="act" href="'+(s.platform==='bilibili'?'https://live.bilibili.com/'+s.id:s.platform==='douyin'?'https://live.douyin.com/'+s.id:'https://www.xiaohongshu.com/user/profile/'+s.id)+'" target="_blank">进入直播间 →</a></div>'});
       }
     });
   }
@@ -139,13 +139,13 @@ function renderFeed(){
   if(hist){
     var pm={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
     hist.slice(-80).forEach(function(l){
-      var cls=l.platform==='bilibili'?'bili':'dy';
+      var cls=l.platform==='bilibili'?'bili':(l.platform==='xhs'?'xhs':'dy');
       if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
       var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
       var chg=l.changed?'<span class="chg">[变化]</span>':'';
       var pt=pm[l.push]||'';
       items.push({pin:false,t:tnum(l.time),html:
-        '<div class="fcard"><div class="f-top"><span class="pf '+(l.platform==='bilibili'?'bili':'dy')+'">'+(l.platform==='bilibili'?'B站':'抖音')+'</span>'+
+        '<div class="fcard"><div class="f-top"><span class="pf '+(l.platform==='bilibili'?'bili':(l.platform==='xhs'?'xhs':'dy'))+'">'+(l.platform==='bilibili'?'B站':(l.platform==='xhs'?'小红书':'抖音'))+'</span>'+
         '<span class="name">'+e(l.name)+'</span><span class="f-time">'+ago(tnum(l.time))+'</span></div>'+
         '<div class="f-meta">'+stIcon+' '+({live:'开播',replay:'回放',offline:'下播',error:'检测异常'}[l.status]||l.status)+chg+pt+(l.title?' · '+e(l.title):'')+'</div></div>'});
     });

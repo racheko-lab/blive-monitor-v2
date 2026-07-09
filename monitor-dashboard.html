@@ -122,6 +122,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
           <button class="chip active" onclick="fil('all')">全部</button>
           <button class="chip" onclick="fil('bilibili')">哔哩哔哩</button>
           <button class="chip" onclick="fil('douyin')">抖音</button>
+          <button class="chip" onclick="fil('xhs')">小红书</button>
         </div>
       </div>
       <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
@@ -143,13 +144,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
-function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
+function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');cs[3].className='chip'+(f==='xhs'?' active':'');renderLive();}
 function renderLive(){
   var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
+  else if(fl==='xhs')rs=rs.filter(function(r){return r.platform==='xhs';});
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
   rs.sort(function(a,b){
@@ -167,9 +169,9 @@ function renderLive(){
     var sc={live:'s-live',replay:'s-replay',offline:'s-offline',error:'s-error'}[st]||'s-offline';
     var stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
     var sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
-    var pl=r.platform==='bilibili'?'bili':'dy';
-    var pln=r.platform==='bilibili'?'B站':'抖音';
-    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:'https://live.douyin.com/'+r.id;
+    var pl=r.platform==='bilibili'?'bili':(r.platform==='douyin'?'dy':'xhs');
+    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'小红书');
+    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'https://www.xiaohongshu.com/user/profile/'+r.id;
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
     if(s&&s.area)meta.push(e(s.area));
@@ -217,7 +219,7 @@ function renderLog(){
   var h='';
   for(var i=hist.length-1;i>=Math.max(0,hist.length-80);i--){
     var l=hist[i];
-    var cls=l.platform==='bilibili'?'bili':'dy';
+    var cls=l.platform==='bilibili'?'bili':(l.platform==='xhs'?'xhs':'dy');
     if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
     var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
     var chg=l.changed?' <span class="chg">[变化]</span>':'';

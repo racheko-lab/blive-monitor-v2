@@ -139,9 +139,9 @@ function renderHero(){
     var meta=[];
     if(s.online)meta.push('人气 '+e(s.online));
     if(s.area)meta.push(e(s.area));
-    var u=s.platform==='bilibili'?'https://live.bilibili.com/'+s.id:'https://live.douyin.com/'+s.id;
+    var u=s.platform==='bilibili'?'https://live.bilibili.com/'+s.id:s.platform==='douyin'?'https://live.douyin.com/'+s.id:'https://www.xiaohongshu.com/user/profile/'+s.id;
     h+='<div class="hero-card"><div class="hero-top"><span class="hero-live"><span class="pulse"></span>直播中</span>'+
-       '<span class="pf '+(s.platform==='bilibili'?'bili':'dy')+'">'+(s.platform==='bilibili'?'B站':'抖音')+'</span></div>'+
+       '<span class="pf '+(s.platform==='bilibili'?'bili':(s.platform==='douyin'?'dy':'xhs'))+'">'+(s.platform==='bilibili'?'B站':(s.platform==='douyin'?'抖音':'小红书'))+'</span></div>'+
        '<div class="hero-name">'+e(s.name)+'</div>'+
        (s.title?'<div class="hero-title">'+e(s.title)+'</div>':'')+
        (meta.length?'<div class="hero-meta">'+meta.join(' · ')+'</div>':'')+
@@ -189,7 +189,7 @@ function renderLogBox(){
   var h='';
   for(var i=hist.length-1;i>=Math.max(0,hist.length-60);i--){
     var l=hist[i];
-    var cls=l.platform==='bilibili'?'bili':'dy';
+    var cls=l.platform==='bilibili'?'bili':(l.platform==='xhs'?'xhs':'dy');
     if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
     var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
     var chg=l.changed?' <span class="chg">[变化]</span>':'';
