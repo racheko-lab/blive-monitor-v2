@@ -23,14 +23,14 @@
   },
   "douyin_lelelelele0703": {
     "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
-    "latest_aweme_id": "7659605960603761792",
+    "latest_aweme_id": "count:63",
     "latest_desc": "我一直在寻找 可爱的微笑",
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7659605960603761792",
-    "latest_ct": 0,
+    "latest_ct": 63,
     "nickname": "白日梦想嘉",
-    "mode": "api",
-    "latest_count": 0
+    "mode": "count",
+    "latest_count": 63
   },
   "douyin_XiaoyaoDx": {
     "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
