@@ -166,6 +166,25 @@ def apply_douyin_cookie(context, cookie_str: str) -> None:
 
 # ==================== sec_uid 解析 ====================
 
+# 房主 sec_uid 统一正则（供 extract_host_sec_uid / resolve_sec_uid 复用）
+SEC_RE = re.compile(r"MS4wLjABAAAA[A-Za-z0-9_\-]+")
+
+
+def is_sec_uid(s: str) -> bool:
+    """判断字符串是否形如抖音 sec_uid（MS4w 开头）。"""
+    return bool(s) and s.startswith("MS4w")
+
+
+def looks_like_handle(s: str) -> bool:
+    """判断字符串是否像抖音 handle（非纯数字、非 sec_uid）。
+
+    用于「中毒防护」时决定是否用 profile 的 unique_id 反查校验：
+    纯数字 id（如用户填的抖音数字号）无法与 unique_id 直接比对，此时信任直播页
+    房主 anchor 解析出的 sec_uid，不做反查，避免误杀正确账号。
+    """
+    return bool(s) and not s.isdigit() and not is_sec_uid(s)
+
+
 def extract_host_sec_uid(html: str) -> Optional[str]:
     """从直播页 HTML 提取【房主本人】的 sec_uid（纯函数，便于单测）。
 
@@ -221,26 +240,50 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
     解析顺序：
       1) entry_id 本身已是 sec_uid（MS4w 开头）→ 直接用；
       2) 打开直播页，从「房间主人 anchor」结构化字段提取（开播 / 离线均可，房主本人）；
-      3) 都拿不到 → 返回 None（本次跳过该账号，避免监控陌生人）。
+      3) 兜底：拦截直播页自动发出的 user/profile/other 响应，取出房主 sec_uid；
+      4) 都拿不到 → 返回 None（本次跳过该账号，避免监控陌生人）。
+
+    说明：直播页的房主 anchor 字段在开播 / 离线两种状态下都会随页面下发
+    （经验证，离线页的 RENDER_DATA 转义形态里同样含房主 sec_uid），因此该路径对
+    「纯发视频、不直播」的账号也有效——这是前端网页添加的账号能正确解析的关键。
 
     Args:
         context: Playwright BrowserContext
-        entry_id: post_rooms.json 里的 id（可能是 sec_uid 或直播房号 web_rid）
+        entry_id: post_rooms.json 里的 id（可能是 sec_uid、抖音 handle 或数字号 web_rid）
 
     Returns:
         sec_uid 字符串，失败返回 None
     """
-    if entry_id.startswith("MS4w"):
+    if is_sec_uid(entry_id):
         return entry_id
 
     url = f"https://live.douyin.com/{entry_id}"
     page = context.new_page()
+    captured: Dict[str, str] = {}
+
+    def on_resp(resp):
+        # 兜底：直播页自动签发的 user/profile/other 响应里同时含 sec_uid 与 unique_id。
+        # 仅当 unique_id 与 entry_id 一致（或页面未给 unique_id）时才采用，避免取错账号。
+        u = resp.url
+        if "user/profile/other" in u:
+            try:
+                body = resp.body().decode("utf-8", "replace")
+                uid = parse_profile_handle(body)
+                m = SEC_RE.search(body)
+                if m and (not uid or uid == entry_id):
+                    captured["profile"] = m.group(1)
+            except Exception:
+                pass
+
     try:
+        page.on("response", on_resp)
         page.goto(url, wait_until="domcontentloaded", timeout=BROWSER_TIMEOUT)
         page.wait_for_timeout(3000)
         host = extract_host_sec_uid(page.content())
         if host:
             return host
+        if captured.get("profile"):
+            return captured["profile"]
         logger.warning("  [%s] 直播页未找到房主 sec_uid（可能页面未渲染，下次重试）", entry_id)
         return None
     except Exception as e:
@@ -485,6 +528,7 @@ def main() -> None:
         apply_douyin_cookie(context, cookie)
 
         gated_hint = False
+        post_rooms_dirty = False
         for entry in post_rooms:
             rid = entry.get("id", "")
             name = entry.get("name", rid)
@@ -493,8 +537,16 @@ def main() -> None:
             key = f"douyin_{rid}"
             t = tracking.get(key, {})
 
-            # 解析 sec_uid（优先用已存值，其次 post_rooms.json 直存值，最后从直播页解析；解析成功即缓存）
-            sec_uid = t.get("sec_uid") or entry.get("sec_uid") or resolve_sec_uid(context, rid)
+            # 解析 sec_uid：
+            #  - 优先用已存值（tracking）或 post_rooms.json 直存值 → 视为「可信」，不再反查；
+            #  - 否则从直播页解析（运行时解析，视为「不可信」，需 unique_id 反查校验）。
+            stored_sec = t.get("sec_uid") or entry.get("sec_uid")
+            if stored_sec:
+                sec_uid = stored_sec
+                sec_trusted = True
+            else:
+                sec_uid = resolve_sec_uid(context, rid)
+                sec_trusted = False
             if not sec_uid:
                 logger.warning("  [%s] 无法获取 sec_uid，跳过（建议开播时或配置 DOUYIN_COOKIE 后重试）", name)
                 continue
@@ -510,18 +562,32 @@ def main() -> None:
                 continue
 
             # 中毒防护：用已捕获 profile 的 unique_id 校验 sec_uid 是否真对应本 handle。
-            # 若 sec_uid 指向了别的账号（被推荐流污染），本次跳过并清除毒值，
-            # 等下次（开播 / 配置 DOUYIN_COOKIE）重新解析，避免误监控陌生人。
+            #  - 仅当 rid 形如 handle（非纯数字、非 sec_uid）时才做反查，避免误杀数字号账号；
+            #  - 可信（已存）sec_uid 即便反查不一致也保留并告警，绝不清除用户/历史沉淀的值；
+            #  - 不可信（运行时解析）的若反查不一致，说明被推荐流污染，跳过并清除毒值，下次重解。
             actual_uid = aweme.get("actual_unique_id")
-            if actual_uid and rid and actual_uid != rid:
-                logger.warning(
-                    "  [%s] ⚠️ 已存/解析的 sec_uid 指向了错误账号(实际=%s≠%s)，"
-                    "疑似被推荐流污染，本次跳过并清除该 sec_uid", name, actual_uid, rid,
-                )
-                t.pop("sec_uid", None)
-                tracking[key] = t
-                changed = True
-                continue
+            if actual_uid and looks_like_handle(rid) and actual_uid != rid:
+                if sec_trusted:
+                    logger.warning(
+                        "  [%s] ⚠️ 已存 sec_uid 指向账号(实际=%s)与填写 id(%s)不一致，"
+                        "仍信任已存值继续监控", name, actual_uid, rid,
+                    )
+                else:
+                    logger.warning(
+                        "  [%s] ⚠️ 解析的 sec_uid 指向了错误账号(实际=%s≠%s)，"
+                        "疑似被推荐流污染，本次跳过并清除该 sec_uid", name, actual_uid, rid,
+                    )
+                    t.pop("sec_uid", None)
+                    tracking[key] = t
+                    changed = True
+                    continue
+
+            # 写回：若本次 sec_uid 来自运行时解析（post_rooms.json 原本无），将其固化进
+            # post_rooms.json，使该账号等价于「预存 sec_uid」的账号——此后即使直播页短暂
+            # 取不到也不受影响。这正是让「前端网页添加的账号」与「预存 sec_uid 的账号」行为一致的关窍。
+            if not entry.get("sec_uid") and sec_uid:
+                entry["sec_uid"] = sec_uid
+                post_rooms_dirty = True
 
             conf = aweme.get("_conf", "api")
             desc = aweme.get("desc", "") or "[无描述]"
@@ -616,6 +682,12 @@ def main() -> None:
     for k in [k for k in list(tracking.keys()) if k.startswith("douyin_") and k not in cur_keys]:
         del tracking[k]
         changed = True
+
+    # 固化本次运行时解析出的 sec_uid 回 post_rooms.json（使前端网页添加的账号等价于预存 sec_uid）
+    if post_rooms_dirty:
+        save_json_file(CONFIG_FILE, post_rooms)
+        logger.info("已将 %d 个账号解析到的 sec_uid 写回 post_rooms.json",
+                    sum(1 for e in post_rooms if e.get("sec_uid")))
 
     if changed:
         save_json_file(TRACKING_FILE, tracking)
