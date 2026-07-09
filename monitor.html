@@ -344,7 +344,8 @@ function renderPosts(){
   for(var i=0;i<postRooms.length;i++){
     var r=postRooms[i],id=r.id;
     var tt=postTrack['douyin_'+id]||{};
-    var name=tt.nickname||r.name||id;
+    // 显示名优先级：用户自定义名（且不同于裸 id）> 主页真实昵称 > 兜底 id
+    var name=(r.name && r.name!==id) ? r.name : (tt.nickname || r.name || id);
     var sec_id=tt.sec_uid||'';
     var aid=tt.latest_aweme_id||'';
     var link=tt.latest_url||(sec_id?'https://www.douyin.com/user/'+sec_id:'https://www.douyin.com/');
