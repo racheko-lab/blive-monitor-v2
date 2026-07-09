@@ -10,13 +10,28 @@ import check_new_posts as cnp
 
 # ---------- 假 Playwright：让 main() 的惰性 import 可用，无需真实浏览器 ----------
 class _FakeContext:
+    def __init__(self, page=None):
+        self._page = page
+        self.cookies = []
+        self.browser = _FakeBrowser(self)
+
+    def new_page(self):
+        return self._page
+
+    def add_cookies(self, cookies):
+        self.cookies.extend(cookies)
+
     def close(self):
         pass
 
 
 class _FakeBrowser:
+    def __init__(self, owner=None):
+        self.owner = owner
+
     def new_context(self, **kwargs):
-        return _FakeContext()
+        # 单测：复用发起方的同一个 page，使移动端/桌面端抓取共用同一 FakePage
+        return self.owner if self.owner is not None else _FakeContext()
 
     def close(self):
         pass
@@ -246,10 +261,23 @@ class FakePage:
         self.closed = True
 
 
+class _FakeCtxBrowser:
+    """移动端 new_context 复用同一个 FakeCtx，使移动端/桌面端抓取共用同一 FakePage。"""
+    def __init__(self, owner):
+        self.owner = owner
+
+    def new_context(self, **kwargs):
+        return self.owner
+
+    def close(self):
+        pass
+
+
 class FakeCtx:
     def __init__(self, page):
         self._page = page
         self.cookies = []
+        self.browser = _FakeCtxBrowser(self)
 
     def new_page(self):
         return self._page
@@ -299,6 +327,39 @@ def test_get_latest_aweme_gated_returns_none():
         ],
     )
     assert cnp.get_latest_aweme(FakeCtx(page), "MS4wSEC") is None
+
+
+def test_get_latest_aweme_mobile_v2_first():
+    """移动端 v2 接口（无 Cookie）应作为首选精确路径，标记 _src=mobile。"""
+    page = FakePage(responses=[
+        ("https://m.douyin.com/web/api/v2/aweme/post/?x=1", json.dumps(POPULATED)),
+    ])
+    res = cnp.get_latest_aweme(FakeCtx(page), "MS4wSEC")
+    assert res is not None
+    assert res["aweme_id"] == "999"
+    assert res["_conf"] == "api"
+    assert res["_src"] == "mobile"
+
+
+def test_get_latest_aweme_mobile_preferred_over_desktop():
+    """移动端与桌面端同时返回作品时，优先采用移动端（_src=mobile）。"""
+    page = FakePage(responses=[
+        ("https://m.douyin.com/web/api/v2/aweme/post/?x=1", json.dumps(POPULATED)),
+        ("https://www.douyin.com/aweme/v1/web/aweme/post/?x=2", json.dumps(POPULATED)),
+    ])
+    res = cnp.get_latest_aweme(FakeCtx(page), "MS4wSEC")
+    assert res is not None
+    assert res["_src"] == "mobile"
+
+
+def test_get_latest_aweme_desktop_when_no_mobile():
+    """仅桌面端 v1 接口有作品、移动端无 → 退化为桌面端（_src=desktop）。"""
+    page = FakePage(responses=[
+        ("https://www.douyin.com/aweme/v1/web/aweme/post/?x=2", json.dumps(POPULATED)),
+    ])
+    res = cnp.get_latest_aweme(FakeCtx(page), "MS4wSEC")
+    assert res is not None
+    assert res["_src"] == "desktop"
 
 
 def _count_aweme(n):
@@ -459,6 +520,17 @@ HOST_HTML = (
     '"feed":[{"author":{"sec_uid":"MS4wLjABAAAASecRec999","nickname":"推荐流陌生人"}}]}'
 )
 
+# RENDER_DATA 转义形态：引号被转义为 \"，花括号不转义。
+# 真实案例：live.douyin.com/81197422897 的直播页里，唯一的未转义 "anchor" 是
+# <script ... "anchor" nonce=""> 的 HTML 属性（非 JSON），真正的房主 JSON 在转义形态里。
+HOST_HTML_ESCAPED = (
+    '<script "anchor" nonce=""></script>'
+    'var render=\\"anchor\\":{\\"id_str\\":\\"2184080776246480\\",'
+    '\\"sec_uid\\":\\"MS4wLjABAAAAaBxG5OhPShhY5L6dwkQqHjwJg6Tx70esLegv5Hc_ib6ZMfAJNAAWzLuHgnDZ5EsE\\",'
+    '\\"nickname\\":\\"整天白日梦\\"},'
+    '\\"feed\\":[{\\"author\\":{\\"sec_uid\\":\\"MS4wLjABAAAASecRec999\\"}}]}\\'
+)
+
 
 def test_extract_host_sec_uid_prefers_anchor_over_recommendation():
     """整页虽含推荐流陌生人的 MS4w，但只应取房间主人 anchor 的 sec_uid。"""
@@ -471,6 +543,17 @@ def test_extract_host_sec_uid_none_when_missing():
     """页面无 anchor / roomInfo 结构（如未渲染）→ 返回 None，绝不瞎猜。"""
     assert cnp.extract_host_sec_uid('{"feed":[{"author":{"sec_uid":"MS4wLjABAAAASecRec999"}}]}') is None
     assert cnp.extract_host_sec_uid("") is None
+
+
+def test_extract_host_sec_uid_handles_escaped_render_data():
+    """RENDER_DATA 转义形态（引号转义、花括号不转义）也能取到房主本人 sec_uid。
+
+    关键：未转义的 "anchor" 是 <script> 的 HTML 属性（非 JSON），绝不能误取；
+    真正的房主在转义 JSON 里。同时整页充斥推荐流陌生人的转义 MS4w，也必须忽略。
+    """
+    got = cnp.extract_host_sec_uid(HOST_HTML_ESCAPED)
+    assert got == "MS4wLjABAAAAaBxG5OhPShhY5L6dwkQqHjwJg6Tx70esLegv5Hc_ib6ZMfAJNAAWzLuHgnDZ5EsE"
+    assert got != "MS4wLjABAAAASecRec999"
 
 
 def test_main_poison_guard_skips_wrong_account(tmp_path, monkeypatch):
