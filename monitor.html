@@ -156,6 +156,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .health.stale{color:var(--live)}.health.stale .h-time{color:rgba(255,71,87,.75)}
 .health.fail{color:var(--live)}.health.fail .h-time{color:rgba(255,71,87,.75)}
 .loadmore{text-align:center;padding:11px;color:var(--bili);font-size:12px;font-weight:700;cursor:pointer;border:1px dashed var(--line);border-radius:10px;margin-top:6px}
+/* ===== P0-7 统一健康仪表盘（深色主题，复用既有变量与 .logstats/.spark/.log-item） ===== */
+.dash-kpis{grid-template-columns:repeat(5,1fr)}      /* KPI 卡网格：窄屏回退见下方媒体查询 */
+.dash-kpis .stat-b{font-size:18px;line-height:1.1}
+#kpiFresh{font-size:12px;line-height:1.2}              /* 新鲜度 label 较长，缩小字号避免溢出 */
+.dash-block{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.dash-block-title{font-size:13px;font-weight:800;margin-bottom:9px;color:var(--text)}
+.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dash-row .dash-block{margin-bottom:0}
+.dash-trend-labs{display:flex;gap:3px;margin-top:5px}
+.dash-trend-labs .trend-lab{flex:1;text-align:center;font-size:9px;color:var(--text3);font-variant-numeric:tabular-nums}
+@media (max-width:520px){
+  .dash-kpis{grid-template-columns:repeat(3,1fr)}
+  .dash-row{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -343,6 +357,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
       <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
     </div>
   </section>
+
+  <!-- P0-7 统一健康仪表盘：纯前端聚合视图，复用 ld() 已载入的全局 hist/stat/rooms -->
+  <section class="view" id="view-dashboard">
+    <div class="panel-head"><h2>📊 健康仪表盘</h2></div>
+    <div class="logstats dash-kpis">
+      <div class="stat-card"><div class="stat-t">监控房间</div><div class="stat-b"><span id="kpiRooms">0</span></div></div>
+      <div class="stat-card"><div class="stat-t">直播中</div><div class="stat-b"><span id="kpiLive">0</span></div></div>
+      <div class="stat-card"><div class="stat-t">今日开播</div><div class="stat-b"><span id="kpiToday">0</span></div></div>
+      <div class="stat-card"><div class="stat-t">通知异常</div><div class="stat-b"><span id="kpiNotify">0</span></div></div>
+      <div class="stat-card"><div class="stat-t">数据新鲜度</div><div class="stat-b"><span id="kpiFresh">—</span></div></div>
+    </div>
+    <div class="dash-block">
+      <div class="dash-block-title">📈 开播趋势（近 7 天）</div>
+      <div id="dashTrend"></div>
+    </div>
+    <div class="dash-row">
+      <div class="dash-block">
+        <div class="dash-block-title">🏆 开播排行 Top5</div>
+        <div id="dashRank"></div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-block-title">📡 平台分布</div>
+        <div id="dashPlatform"></div>
+      </div>
+    </div>
+    <div class="dash-block">
+      <div class="dash-block-title">🔔 通知健康</div>
+      <div id="dashNotify"></div>
+    </div>
+  </section>
 </main>
 
 <nav class="tabbar">
@@ -350,6 +394,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   <button class="tab" onclick="show('posts')"><span class="ic">🎬</span>新作</button>
   <button class="tab" onclick="show('log')"><span class="ic">📋</span>日志</button>
   <button class="tab" onclick="show('config')"><span class="ic">⚙️</span>配置</button>
+  <button class="tab" onclick="show('dashboard')"><span class="ic">📊</span>仪表盘</button>
 </nav>
 
 <!-- Token 设置弹层已移除：相关 UI 内联到「配置」标签页（view-config） -->
@@ -384,10 +429,10 @@ function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').
 function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
 
 function show(t){
-  var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config'};
+  var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config','dashboard':'view-dashboard'};
   Object.keys(views).forEach(function(k){var el=document.getElementById(views[k]); if(el) el.classList.toggle('active',k===t);});
   var tabs=document.querySelectorAll('.tab');
-  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config'][i]===t);});
+  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config','dashboard'][i]===t);});
   /* P0-4：切视图时把两个搜索框的显示值同步为全局 q（单 q 跨 tab 共享，不丢搜索词） */
   var ls=document.getElementById('liveSearch'); if(ls) ls.value=q;
   var ps=document.getElementById('postsSearch'); if(ps) ps.value=q;
@@ -681,6 +726,155 @@ function renderStats(){
     '<div class="stat-card"><div class="stat-t">近7天异常/风控</div><div class="stat-b">'+(s.totals.error+s.totals.cookie_warn)+'</div><div class="spark">'+bars(errWarn,'--yellow')+'</div></div>';
 }
 
+/* ===================== P0-7 统一健康仪表盘 ===================== */
+/* 纯前端聚合：复用 ld() 已载入的全局 hist/stat/rooms，不发起任何网络请求。
+ * 仅在 ld() 成功路径末尾统一调用 renderDashboard()（切 tab 不重算，数据由 90s 刷新重渲染）。 */
+
+var DASH_TOP_N = 5;     // 开播排行 Top N
+var DASH_NOTIFY_N = 5;  // 通知健康最近 N 条
+
+/** 今日北京时间 YYYY-MM-DD（复用 bjNow 思路，严禁本地时区 new Date() 直读）。 */
+function todayBJ(){
+  var d = bjNow();
+  function p(n){ return (n<10?'0':'')+n; }
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+
+/** 今日开播次数：type==='live_on' 且 time 前 10 位 === 今日北京时间。 */
+function liveOnToday(hist){
+  var t = todayBJ();
+  return (hist||[]).filter(function(l){
+    return (l.type||l.status)==='live_on' && (l.time||'').substring(0,10)===t;
+  }).length;
+}
+
+/** 通知异常计数：level 优先，type 兜底（保证不漏 cookie_warn/error）。 */
+function notifyAnomalyCount(hist){
+  return (hist||[]).filter(function(l){
+    var lv = l.level, tp = l.type||l.status;
+    return lv==='warn' || lv==='error' || tp==='error' || tp==='cookie_warn';
+  }).length;
+}
+
+/** 开播排行 Top N：按 name 聚合 live_on 次数，降序；并列按最近开播时间倒序。 */
+function liveOnRank(hist, n){
+  var m={}, last={};
+  (hist||[]).forEach(function(l){
+    if((l.type||l.status)==='live_on'){
+      m[l.name]=(m[l.name]||0)+1;
+      if(!last[l.name] || l.time>last[l.name]) last[l.name]=l.time;
+    }
+  });
+  return Object.keys(m).map(function(k){ return {name:k, count:m[k], last:last[k]||''}; })
+    .sort(function(a,b){ return b.count-a.count || (b.last>a.last?1:-1); })
+    .slice(0, n);
+}
+
+/** 平台分布：rooms 按 platform 计数；hist 的 live_on 按 platform 分桶。 */
+function platformDist(rooms, hist){
+  var r={bilibili:0,douyin:0,other:0}, lv={bilibili:0,douyin:0,other:0};
+  (rooms||[]).forEach(function(r0){
+    if(r0.platform==='bilibili')r.bilibili++; else if(r0.platform==='douyin')r.douyin++; else r.other++;
+  });
+  (hist||[]).forEach(function(l){
+    if((l.type||l.status)!=='live_on') return;
+    if(l.platform==='bilibili')lv.bilibili++; else if(l.platform==='douyin')lv.douyin++; else lv.other++;
+  });
+  return {rooms:r, live:lv};
+}
+
+/** 最近 N 条异常（通知健康列表）：与 notifyAnomalyCount 同口径，按 time 倒序。 */
+function recentAnomalies(hist, n){
+  return (hist||[]).filter(function(l){
+    var lv=l.level, tp=l.type||l.status;
+    return lv==='warn' || lv==='error' || tp==='error' || tp==='cookie_warn';
+  }).sort(function(a,b){ return (b.time||'')>(a.time||'')?1:-1; }).slice(0, n);
+}
+
+/** 平台分布比例条 HTML（B站 var(--bili) / 抖音 var(--dy)）。 */
+function buildPlatformHTML(plat){
+  function row(label, bili, dy){
+    var tot=bili+dy, bp=tot?Math.round(bili/tot*100):0, dp=100-bp;
+    return '<div style="font-size:12px;color:var(--text2);margin:6px 0 3px">'+e(label)+'（'+tot+'）</div>'
+      + '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--card2)">'
+      + '<div style="width:'+bp+'%;background:var(--bili)"></div>'
+      + '<div style="width:'+dp+'%;background:var(--dy)"></div></div>'
+      + '<div style="display:flex;font-size:11px;margin-top:3px"><span style="color:var(--bili)">B站 '+bili+' ('+bp+'%)</span><span style="margin-left:auto;color:var(--dy)">抖音 '+dy+' ('+dp+'%)</span></div>';
+  }
+  return row('房间数', plat.rooms.bilibili, plat.rooms.douyin)
+       + row('开播数', plat.live.bilibili,  plat.live.douyin);
+}
+
+/** 主渲染：把全局 hist/stat/rooms 聚合写入 #view-dashboard 各容器。 */
+function renderDashboard(){
+  var dash = document.getElementById('view-dashboard');
+  if(!dash) return;
+  // 防御：数据未载入时优雅降级（global 为空也不会抛错）
+  var fresh = calcFreshness();                       // 复用 P0-1 → {state,label}
+  var roomTotal = rooms.length;
+  var liveNow = (stat&&stat.rooms) ? stat.rooms.filter(function(r){return r.status==='live';}).length : 0;
+  var todayLive = liveOnToday(hist);                 // 今日北京时间口径
+  var notifyCnt = notifyAnomalyCount(hist);
+  // 趋势：复用 computeStatsJS 的北京日分桶，live_on[] 与 days[] 对齐（oldest→newest）
+  var s = computeStatsJS((hist||[]), 7);
+  var trend = s.live_on, days = s.days;
+  // 排行 / 平台 / 通知
+  var rank = liveOnRank(hist, DASH_TOP_N);
+  var plat = platformDist(rooms, hist);
+  var recent = recentAnomalies(hist, DASH_NOTIFY_N);
+
+  // —— KPI ——
+  var kRooms=document.getElementById('kpiRooms');
+  var kLive=document.getElementById('kpiLive');
+  var kToday=document.getElementById('kpiToday');
+  var kNotify=document.getElementById('kpiNotify');
+  var kFresh=document.getElementById('kpiFresh');
+  if(kRooms)kRooms.textContent = roomTotal;
+  if(kLive)kLive.textContent = liveNow;
+  if(kToday)kToday.textContent = todayLive;
+  if(kNotify)kNotify.textContent = notifyCnt;
+  if(kFresh){
+    var fc = {ok:'var(--green)',warn:'var(--yellow)',stale:'var(--live)',fail:'var(--live)'}[fresh.state]||'var(--text2)';
+    kFresh.textContent = fresh.label;
+    kFresh.style.color = fc;
+  }
+
+  // —— 趋势 CSS 条形（复用 .spark/.bar，高度按最大值归一；标 MM-DD 标签）——
+  var dt=document.getElementById('dashTrend');
+  if(dt){
+    var max = Math.max(1, Math.max.apply(null, trend));
+    var barsHtml = trend.map(function(v,i){
+      return '<div class="bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%;background:var(--live)"></div>';
+    }).join('');
+    var labsHtml = days.map(function(d){ return '<span class="trend-lab">'+e(d)+'</span>'; }).join('');
+    dt.innerHTML = '<div class="spark">'+barsHtml+'</div><div class="dash-trend-labs">'+labsHtml+'</div>';
+  }
+
+  // —— 排行列表 ——
+  var dr=document.getElementById('dashRank');
+  if(dr){
+    dr.innerHTML = rank.length ? rank.map(function(r,i){
+      return '<div class="log-item"><span class="log-dot live"></span><span class="log-txt"><b>'+(i+1)+'. '+e(r.name)+'</b> · '+r.count+' 场</span></div>';
+    }).join('') : '<div class="empty" style="padding:18px">暂无开播记录</div>';
+  }
+
+  // —— 平台分布（比例条）——
+  var dp=document.getElementById('dashPlatform');
+  if(dp){ dp.innerHTML = buildPlatformHTML(plat); }
+
+  // —— 通知健康最近 N 条 ——
+  var dn=document.getElementById('dashNotify');
+  if(dn){
+    dn.innerHTML = recent.length ? recent.map(function(l){
+      var cls = (l.level==='error'||l.type==='error')?'err':'warn';
+      var detail = e(l.detail || l.title || l.type || '—');
+      var pname = l.platform==='bilibili'?'B站':(l.platform==='douyin'?'抖音':'—');
+      return '<div class="log-item"><span class="log-dot '+cls+'"></span>'
+        + '<span class="log-txt"><b>'+e(l.name||'—')+'</b> · '+pname+' · '+(l.time||'').substring(5,16)+'<br>'+detail+'</span></div>';
+    }).join('') : '<div class="empty" style="padding:18px">✅ 近期无通知异常</div>';
+  }
+}
+
 function populateLogAccounts(){
   var sel=document.getElementById('logAccount'); if(!sel)return;
   var map={};
@@ -779,7 +973,7 @@ function readViewParam(){
     var p=new URLSearchParams(location.search);
     var v=p.get('view');
     if(v==='dashboard'||v==='feed'||v==='hero'){
-      show('log');                       // 三入口统一落到日志主视图
+      show(v==='dashboard'?'dashboard':'log');   // dashboard 入口直达仪表盘；feed/hero 仍落日志
       if(v==='feed'){                    // feed：新作品优先
         logState.type='new_post'; setChipActive('logTypeChips','type','new_post');
       }
@@ -1215,7 +1409,7 @@ function ld(){
         if(fb&&fb.length){
           rooms=fb;
           document.getElementById('liveBody').innerHTML='<div class="empty" style="color:#ffa502">⚠️ 实时读取失败：'+e(reason)+'<br>已用缓存列表显示（只读）；点「⚙️ 设置 Token」填入有效 Token 后即可正常增删</div>';
-          renderLive();renderPosts();renderLog();
+          renderLive();renderPosts();renderLog();renderDashboard();
         }else{
           document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 房间列表读取失败：'+e(reason)+'<br>请点「⚙️ 设置 Token」填入有效 Token 后刷新；<br>或检查网络是否能访问 api.github.com</div>';
           renderPosts();renderLog();
@@ -1225,6 +1419,7 @@ function ld(){
     }
     readViewParam();
     renderLive();renderPosts();renderLog();
+    renderDashboard();   // P0-7 仪表盘：数据载入即聚合渲染，切 tab 不重算
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
     // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
