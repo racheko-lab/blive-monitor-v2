@@ -137,6 +137,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .ld-k{color:var(--text3);min-width:42px;flex-shrink:0}
 .ld-v{color:var(--text);word-break:break-all}
 .log-dot.err{background:var(--live)}.log-dot.warn{background:var(--yellow)}
+/* P0-1 监控自检健康条（常驻跨 tab，四态：ok 绿 / warn 黄 / stale 红 / fail 红） */
+/* 注意：不改动既有 .dot / .s-* / .ostat* 语义，健康条独立 class 前缀 .health */
+.health{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto;padding:9px 16px;font-size:12px;font-weight:700;background:rgba(11,11,18,.55);border-bottom:1px solid var(--line);backdrop-filter:blur(10px);transition:.3s}
+.health .h-ic{font-size:14px;line-height:1;flex-shrink:0}
+.health .h-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.health .h-time{color:var(--text2);font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0}
+.health.ok{color:var(--green)}.health.ok .h-time{color:rgba(46,213,115,.7)}
+.health.warn{color:var(--yellow)}.health.warn .h-time{color:rgba(255,165,2,.75)}
+.health.stale{color:var(--live)}.health.stale .h-time{color:rgba(255,71,87,.75)}
+.health.fail{color:var(--live)}.health.fail .h-time{color:rgba(255,71,87,.75)}
 .loadmore{text-align:center;padding:11px;color:var(--bili);font-size:12px;font-weight:700;cursor:pointer;border:1px dashed var(--line);border-radius:10px;margin-top:6px}
 </style>
 </head>
@@ -152,6 +162,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
     <div class="status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
   </div>
 </header>
+
+<!-- P0-1 监控自检健康条：常驻跨 tab，复用 calcFreshness 渲染四态（ok/warn/stale/fail） -->
+<div id="healthBar" class="health" role="status" aria-live="polite">监控自检中…</div>
 
 <div class="overview">
   <div class="ostat live"><div class="n" id="statLive">0</div><div class="l">直播中</div></div>
@@ -494,6 +507,58 @@ function bjNow(){
   var d=new Date();
   // local = UTC - offset(min) ；Beijing = UTC + 480(min) ⇒ Beijing = local + (offset + 480)
   return new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+}
+/* ===== P0-1 监控自检心跳：北京时间解析 + 新鲜度计算 =====
+ * 统一复用 bjNow() 的时区折算思路（北京时间 → 真实 UTC 毫秒），
+ * 严禁 new Date(str) 直解析（会按运行环境本地时区，差 8 小时）。 */
+/* 新鲜度阈值（分钟），集中定义避免散落魔法数字；后续调阈值改一处即可 */
+var FRESH_WARN_MIN  = 10;   // ≤10 分钟 → ok（绿）
+var FRESH_STALE_MIN = 30;   // >30 分钟 → stale（红）；10<mins≤30 → warn（黄）
+
+/**
+ * 将北京时间字符串 "YYYY-MM-DD HH:MM:SS"（无时区）转为真实 UTC 毫秒。
+ * @param {string} s - 北京时间字符串（空格或 T 分隔均可）。
+ * @return {number|null} 成功返回 UTC 毫秒；空串/非法格式返回 null（上层据此判 loadfail）。
+ */
+function parseBeijing(s){
+  if(!s) return null;
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if(!m) return null;
+  // 先按「本地时区」解释该墙上时间，再叠回与北京的时差，得到真实 UTC 毫秒。
+  var d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+  return d.getTime() - (d.getTimezoneOffset() + 480) * 60000;
+}
+
+/**
+ * 计算监控数据新鲜度（基于 status.json.updated）。
+ * @param {string} [updated] - 北京时间更新串；缺省取全局 stat.updated。
+ * @param {number} [now] - 参考当前时间（UTC 毫秒），默认 Date.now()；注入便于测试。
+ * @return {{state:string, mins:number|null, updated:string|null, label:string}}
+ *   state: 'ok'|'warn'|'stale'|'loadfail'；mins: 距更新的分钟数（loadfail 为 null）。
+ */
+function calcFreshness(updated, now){
+  updated = (updated === undefined) ? (stat && stat.updated) : updated;
+  now = (now === undefined || now === null) ? Date.now() : now;
+  var ms = parseBeijing(updated);
+  if(!updated || ms === null){
+    return {
+      state:'loadfail', mins:null, updated:updated||null,
+      label:'加载失败·无法读取状态文件，请检查网络 / GitHub Pages 部署'
+    };
+  }
+  var mins = Math.max(0, Math.round((now - ms) / 60000));
+  var state, label;
+  if(mins <= FRESH_WARN_MIN){
+    state = 'ok';
+    label = (mins < 1) ? '刚刚更新' : (mins + ' 分钟前更新');
+  } else if(mins <= FRESH_STALE_MIN){
+    state = 'warn';
+    label = '数据偏旧·' + mins + ' 分钟前更新，留意是否即将停更';
+  } else {
+    state = 'stale';
+    label = '已超过 ' + mins + ' 分钟无更新·监控可能已停更，请检查 CI / PAT';
+  }
+  return { state:state, mins:mins, updated:updated, label:label };
 }
 function computeStatsJS(histData, days, now){
   now=now||bjNow();
@@ -1007,6 +1072,32 @@ function removeRoom(arg){
     .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
 }
 
+/* ===== P0-1 监控自检：健康条渲染 ===== */
+/**
+ * 渲染常驻健康条 #healthBar。
+ * @param {{state:string, mins:number|null, updated:string|null, label:string}} f - calcFreshness 结果。
+ */
+function renderHealthBar(f){
+  var el = document.getElementById('healthBar');
+  if(!el || !f) return;
+  var cls = 'health', ic = '💚';
+  if(f.state === 'ok'){ cls += ' ok'; ic = '💚'; }
+  else if(f.state === 'warn'){ cls += ' warn'; ic = '🟡'; }
+  else if(f.state === 'stale'){ cls += ' stale'; ic = '🔴'; }
+  else { cls += ' fail'; ic = '⚫'; }   // loadfail
+  // 复用已有 ago() 输出相对时间（ago 入参为秒级 unix 时间戳）
+  var rel = '';
+  if(f.state !== 'loadfail' && f.updated){
+    var ms = parseBeijing(f.updated);
+    if(ms !== null) rel = '（' + ago(Math.floor(ms / 1000)) + '）';
+  }
+  el.className = cls;
+  el.innerHTML =
+    '<span class="h-ic">' + ic + '</span>' +
+    '<span class="h-t">' + e(f.label) + '</span>' +
+    '<span class="h-time">' + e(f.updated || '') + rel + '</span>';
+}
+
 function ld(){
   var t=Date.now();
   var hasTok=getGhToken();
@@ -1031,6 +1122,10 @@ function ld(){
     var dcls=liveCount>0?'on':(hasErr?'err':'ok');
     var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
     document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
+    // P0-1：基于 status.updated 渲染常驻健康条（新鲜度四态：ok/warn/stale/fail）
+    var __fresh = calcFreshness();
+    renderHealthBar(__fresh);
+    window.__fresh = __fresh;
     document.getElementById('statLive').textContent=liveCount;
     document.getElementById('statRooms').textContent=rooms.length;
     document.getElementById('statPosts').textContent=postRooms.length;
@@ -1053,6 +1148,8 @@ function ld(){
     renderLive();renderPosts();renderLog();
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
+    // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
+    renderHealthBar(calcFreshness(null));
     if(!rooms.length)document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
   });
 }
