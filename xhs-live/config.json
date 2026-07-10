@@ -1,0 +1,17 @@
+{
+  "_说明": "小红书开播检测工具配置。请把下面字段替换为你的真实值。",
+  "_获取cookie": "浏览器登录 www.xiaohongshu.com 后,F12 -> Network -> 任意请求 -> 复制 Cookie 整行",
+  "_获取bark_key": "打开 Bark App,首页顶部显示的字符串就是你的 Key",
+  "_user_url格式": "https://www.xiaohongshu.com/user/profile/<用户ID>",
+
+  "xhs_user_url": "https://www.xiaohongshu.com/user/profile/替换为你要监控的用户ID",
+  "xhs_cookie": "在此粘贴小红书网页版登录 Cookie(整行),不填可能看不到直播状态",
+  "bark_key": "替换为你的Bark Key",
+  "bark_server": "https://api.day.app",
+
+  "check_interval_seconds": 600,
+  "state_file": "state.json",
+  "request_timeout": 15,
+  "remind_interval_seconds": 3600,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
