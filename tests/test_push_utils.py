@@ -82,11 +82,11 @@ def test_load_push_cfg_invalid_json():
 # ==================== dispatch_push 路由 ====================
 
 def test_dispatch_push_empty():
-    assert push_utils.dispatch_push({}, "t", "d") is False
+    assert push_utils.dispatch_push({}, "t", "d").ok is False
 
 
 def test_dispatch_push_unknown_type(caplog):
-    assert push_utils.dispatch_push({"type": "nope"}, "t", "d") is False
+    assert push_utils.dispatch_push({"type": "nope"}, "t", "d").ok is False
 
 
 def test_dispatch_push_routes_serverchan(monkeypatch):
@@ -98,7 +98,7 @@ def test_dispatch_push_routes_serverchan(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake)
     ok = push_utils.dispatch_push({"type": "serverchan", "sendkey": "SCT1"}, "标题", "正文")
-    assert ok is True
+    assert ok.ok is True
     assert "sctapi.ftqq.com" in called["url"]
 
 
@@ -115,7 +115,7 @@ def test_dispatch_push_routes_bark(monkeypatch):
         {"type": "bark", "url": "https://api.day.app/KEY", "group": "blive"},
         "🔴 开播", "正文",
     )
-    assert ok is True
+    assert ok.ok is True
     assert captured["url"] == "https://api.day.app/KEY"
     body = json.loads(captured["data"])
     assert body["title"] == "🔴 开播"
@@ -126,40 +126,40 @@ def test_dispatch_push_routes_bark(monkeypatch):
 
 def test_send_via_serverchan_ok(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"code": 0}))
-    assert push_utils.send_via_serverchan("SCT1", "t", "d") is True
+    assert push_utils.send_via_serverchan("SCT1", "t", "d").ok is True
 
 
 def test_send_via_serverchan_fail_code(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"code": 1, "msg": "x"}))
-    assert push_utils.send_via_serverchan("SCT1", "t", "d") is False
+    assert push_utils.send_via_serverchan("SCT1", "t", "d").ok is False
 
 
 def test_send_via_serverchan_empty_key():
-    assert push_utils.send_via_serverchan("", "t", "d") is False
+    assert push_utils.send_via_serverchan("", "t", "d").ok is False
 
 
 def test_send_via_wecom_ok(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"errcode": 0}))
-    assert push_utils.send_via_wecom("https://qyapi.weixin.qq.com/x", "t", "d") is True
+    assert push_utils.send_via_wecom("https://qyapi.weixin.qq.com/x", "t", "d").ok is True
 
 
 def test_send_via_wecom_fail(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"errcode": 93000}))
-    assert push_utils.send_via_wecom("https://qyapi.weixin.qq.com/x", "t", "d") is False
+    assert push_utils.send_via_wecom("https://qyapi.weixin.qq.com/x", "t", "d").ok is False
 
 
 def test_send_via_pushplus_ok(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"code": 200}))
-    assert push_utils.send_via_pushplus("tok", "t", "d") is True
+    assert push_utils.send_via_pushplus("tok", "t", "d").ok is True
 
 
 def test_send_via_bark_ok(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen({"code": 200}))
-    assert push_utils.send_via_bark("https://api.day.app/KEY", "t", "d", group="g") is True
+    assert push_utils.send_via_bark("https://api.day.app/KEY", "t", "d", group="g").ok is True
 
 
 def test_send_via_bark_empty():
-    assert push_utils.send_via_bark("", "t", "d") is False
+    assert push_utils.send_via_bark("", "t", "d").ok is False
 
 
 def test_send_via_bark_network_error(monkeypatch):
@@ -167,7 +167,7 @@ def test_send_via_bark_network_error(monkeypatch):
         raise urllib.error.URLError("boom")
 
     monkeypatch.setattr(urllib.request, "urlopen", boom)
-    assert push_utils.send_via_bark("https://api.day.app/KEY", "t", "d") is False
+    assert push_utils.send_via_bark("https://api.day.app/KEY", "t", "d").ok is False
 
 
 def test_send_via_telegram_ok(monkeypatch):
@@ -178,7 +178,7 @@ def test_send_via_telegram_ok(monkeypatch):
         return FakeResp({"ok": True, "result": {}})
 
     monkeypatch.setattr(urllib.request, "urlopen", fake)
-    assert push_utils.send_via_telegram("T", "C", "标题", "正文") is True
+    assert push_utils.send_via_telegram("T", "C", "标题", "正文").ok is True
     # 应为 POST + JSON，而非把消息塞进 URL 查询串
     assert captured["req"].data is not None
     body = json.loads(captured["req"].data)
@@ -197,11 +197,11 @@ def test_send_via_telegram_long_message(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake)
     long_text = "描述：" + "非常长的内容" * 500
-    assert push_utils.send_via_telegram("T", "C", "🆕 新作品", long_text) is True
+    assert push_utils.send_via_telegram("T", "C", "🆕 新作品", long_text).ok is True
     body = json.loads(captured["req"].data)
     assert long_text in body["text"]
 
 
 def test_send_via_telegram_empty():
-    assert push_utils.send_via_telegram("", "C", "t", "d") is False
-    assert push_utils.send_via_telegram("T", "", "t", "d") is False
+    assert push_utils.send_via_telegram("", "C", "t", "d").ok is False
+    assert push_utils.send_via_telegram("T", "", "t", "d").ok is False

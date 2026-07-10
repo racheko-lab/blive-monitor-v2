@@ -726,14 +726,42 @@ def main() -> None:
                 ]
                 desp = "\n\n---\n\n".join(desp_lines)
 
-            ok = dispatch_push(push_cfg, title, desp)
-            push_tag = "pushed_ok" if ok else "pushed_fail"
-            logger.info("推送%s: %s", "成功" if ok else "失败", title)
+            res = dispatch_push(push_cfg, title, desp)
+            push_tag = "pushed_ok" if res.ok else "pushed_fail"
+            channel = (push_cfg.get("type") or "unknown").lower()
+            logger.info("推送%s: %s", "成功" if res.ok else "失败", title)
 
-            # 推送成功后才记录去重（失败则不标记，下一轮可补推）
-            if ok:
+            if res.ok:
+                # 推送成功后才记录去重（失败则不标记，下一轮可补推）
                 for s in newly_live:
                     dedup_record(f"live:{s['platform']}_{s['rid']}")
+            else:
+                # 失败：写 error 级统一日志事件（含渠道+原因），下一轮 CI 可补推。
+                # runtime.log 经 logger.error 始终落盘（不受 30min 节流）；
+                # 注入 log_entries 的 error 事件会经 dedupe_by_throttle 落 history.json（受节流防刷屏）。
+                primary = newly_live[0]
+                last_err = (res.last_error or "未知错误")[:200]
+                logger.error(
+                    "通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                    channel, res.attempts, res.last_error, title,
+                )
+                log_entries.append(
+                    {
+                        "time": now_str,
+                        "name": primary["name"],
+                        "platform": primary["platform"],
+                        "status": "error",
+                        "title": title,
+                        "changed": False,
+                        "prev": None,
+                        "push": "pushed_fail",
+                        "rid": primary["rid"],
+                        "type": "error",
+                        "level": "error",
+                        "detail": f"通知发送失败（{channel}）：{last_err}",
+                        "account": primary["rid"],
+                    }
+                )
 
             # 更新日志里的推送标记
             for le in log_entries:

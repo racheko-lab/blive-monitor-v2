@@ -523,7 +523,7 @@ def _truncate_detail(s: str, maxlen: int = 200) -> str:
     return s
 
 
-def append_event(rid, name, platform, etype, detail="", level=None, now=None, account=None):
+def append_event(rid, name, platform, etype, detail="", level=None, now=None, account=None, push=None):
     """向统一 history.json 追加一条分级事件（原子写 + 错误类节流）。
 
     所有 history 写入统一经 ``log_utils.append_history``（.tmp+os.replace + 上限裁剪），
@@ -539,6 +539,7 @@ def append_event(rid, name, platform, etype, detail="", level=None, now=None, ac
         level: 严重级；缺省由 type 推导。
         now: 当前时间（datetime 或字符串）；缺省 bjnow()。
         account: 账号唯一键（默认 == rid）。
+        push: 可选推送状态（如 "pushed_fail"）；缺省 None。
     """
     if etype not in EVENT_TYPES:
         etype = "system"
@@ -555,7 +556,7 @@ def append_event(rid, name, platform, etype, detail="", level=None, now=None, ac
         "title": "",
         "changed": False,
         "prev": None,
-        "push": None,
+        "push": push,
         "rid": rid,
         "type": etype,
         "level": level,
@@ -827,11 +828,28 @@ def main() -> None:
                     )
                 if push_cfg:
                     try:
-                        ok = dispatch_push(push_cfg, title, desp)
-                        logger.info("    → 推送%s", "成功" if ok else "失败")
-                        # 仅推送成功后才记录去重（失败不标记，下一轮可补推）
-                        if ok and dedup_key:
-                            dedup_record(dedup_key)
+                        res = dispatch_push(push_cfg, title, desp)
+                        logger.info("    → 推送%s", "成功" if res.ok else "失败")
+                        if res.ok:
+                            # 仅推送成功后才记录去重（失败不标记，下一轮可补推）
+                            if dedup_key:
+                                dedup_record(dedup_key)
+                        else:
+                            # 失败：写 error 级统一日志事件（含渠道+原因），下一个 CI 周期可补推。
+                            # runtime.log 经 logger.error 始终落盘（不受 30min 节流）；
+                            # append_event 内 error 类事件会经 dedupe_by_throttle 落 history.json（受节流防刷屏）。
+                            channel = (push_cfg.get("type") or "unknown").lower()
+                            last_err = (res.last_error or "未知错误")[:200]
+                            logger.error(
+                                "通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                                channel, res.attempts, res.last_error, title,
+                            )
+                            append_event(
+                                rid, name, "douyin", "error",
+                                detail=f"通知发送失败（{channel}）：{last_err}",
+                                now=bjnow(),
+                                push="pushed_fail",
+                            )
                     except Exception as e:
                         logger.error("    → 推送异常: %s", e)
 
