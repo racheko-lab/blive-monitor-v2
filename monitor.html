@@ -64,6 +64,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .room-meta{font-size:11px;color:var(--text3);margin-top:7px}
 .act{display:inline-block;margin-top:10px;padding:7px 15px;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none;background:var(--live);color:#fff}
 .act.dy{background:linear-gradient(135deg,var(--dy),#0ea5b7);color:#04222a}
+.act-off{background:rgba(255,255,255,.07);color:var(--text2);border:1px solid var(--line)}
 /* post card */
 .post{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow)}
 .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:18px;font-weight:800;color:#04222a;background:linear-gradient(135deg,var(--dy),#7af0ff)}
@@ -375,7 +376,7 @@ function renderLive(){
     if(s&&s.area)meta.push(e(s.area));
     if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
     var title=s&&s.title?('<div class="room-title">'+e(s.title)+'</div>'):'';
-    var act=(u!=='#')?'<a class="act" href="'+u+'" target="_blank">'+(st==='live'?'进入直播间 →':'查看直播间 →')+'</a>':'';
+    var act=(u!=='#')?'<a class="'+(st==='live'?'act':'act act-off')+'" href="'+u+'" target="_blank">'+(st==='live'?'进入直播间 →':'查看直播间 →')+'</a>':'';
     var rmArg=JSON.stringify({platform:r.platform,id:r.id});
     var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
     h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span>'+rmbtn+'</div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
