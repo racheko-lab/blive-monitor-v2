@@ -1016,7 +1016,7 @@ function ld(){
        读取结果统一包成 {ok,data/err}，便于在失败时给出明确提示，而不是静默显示“暂无监控房间”。 */
     (hasTok
       ? apiGetRooms().then(function(r){return {ok:true,data:r};}).catch(function(err){return {ok:false,err:err};})
-      : fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?{ok:true,data:r.json()}:{ok:false};}).catch(function(){return {ok:false};})),
+      : fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(async function(r){return r.ok?{ok:true,data:await r.json()}:{ok:false};}).catch(function(){return {ok:false};})),
     fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
     fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
     fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
