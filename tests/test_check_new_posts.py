@@ -557,11 +557,19 @@ def test_extract_host_sec_uid_handles_escaped_render_data():
 
 
 def test_main_poison_guard_skips_wrong_account(tmp_path, monkeypatch):
-    """中毒防护：sec_uid 指向了别的账号（被推荐流污染）→ 跳过、不推送、并清除毒值。"""
+    """中毒防护：handle 型账号运行时解析到了错误 sec_uid（被推荐流污染）→ 跳过、不推送、并清除毒值。
+
+    关键契约（与代码一致）：
+    - rid 必须是 handle（`looks_like_handle` 才为真，才能用 unique_id 反查）；
+      若 rid 本身是 sec_uid 形态（MS4w 开头），反查无意义，防护刻意不触发。
+    - 毒值必须来自「运行时解析」（`sec_trusted=False`）：即 tracking / entry 里都没有
+      预存 sec_uid，靠 resolve_sec_uid 解析出被污染的 sec_uid。若 sec_uid 是用户手填的
+      可信值（stored_sec 命中），代码选择信任它、仅告警不清值，那是另一条有意分支。
+    """
     _install_fake_playwright()
-    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
-               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
-                                            "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
+    # 用 handle 作 id，且不预置 stored sec_uid → 运行时解析（不可信，需反查）
+    tf = _seed(tmp_path, monkeypatch, [{"id": "weiren_handle", "name": "阿伟"}],
+               tracking=None)
     calls = []
     monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     # get_latest_aweme 实际打开的是陌生人主页（unique_id 与期望 handle 不符）
@@ -573,7 +581,34 @@ def test_main_poison_guard_skips_wrong_account(tmp_path, monkeypatch):
 
     tracking = json.loads(tf.read_text(encoding="utf-8"))
     assert calls == []                                    # 不应误推送陌生人的「新作品」
-    assert "sec_uid" not in tracking["douyin_MS4wABC"]     # 毒值被清除，下次重解
+    assert "sec_uid" not in tracking["douyin_weiren_handle"]  # 毒值被清除，下次重解
+
+
+def test_main_poison_guard_skipped_for_sec_uid_id(tmp_path, monkeypatch):
+    """有意行为：当 rid 本身就是 sec_uid（用户手填可信值）时，中毒防护不触发、保留该值。
+
+    反查的前提是 rid 为 handle（能跟 profile 的 unique_id 比对）；rid 已是 sec_uid 形态时
+    `looks_like_handle` 返回 False，代码信任用户手填的 sec_uid、仅告警不清值。这条分支必须
+    被锁住，避免将来误改 `looks_like_handle` 而破坏"用户预存 sec_uid 账号"的正常工作。
+    """
+    _install_fake_playwright()
+    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
+                                            "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
+    calls = []
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    # 即便是「错误」账号的 unique_id，因为 rid 是 sec_uid 形态（可信），防护不触发
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        **_count_aweme(12), "actual_unique_id": "stranger_xyz",
+    })
+
+    cnp.main()
+
+    tracking = json.loads(tf.read_text(encoding="utf-8"))
+    # sec_uid 形态 id 视为可信，保留，不清除
+    assert "sec_uid" in tracking["douyin_MS4wABC"]
+    # 该账号正常走检测（count 10→12 推测推送），不因为 unique_id 不符而误杀
+    assert len(calls) == 1
 
 
 def test_main_poison_guard_ok_when_handle_matches(tmp_path, monkeypatch):
