@@ -37,7 +37,7 @@ from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
-from notify_dedup import should_notify as dedup_should_notify, record as dedup_record
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 
 # ==================== 常量配置 ====================
 
@@ -506,6 +506,34 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
 
 # ==================== 主逻辑 ====================
 
+def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
+    """健康检查：tracking 有基线但 dedup 账本为空/缺失时告警。
+
+    这种情况通常意味着 CI 状态持久化出了问题（git push 失败导致去重账本丢失）。
+    虽然去重账本丢失不必然导致重复推送（tracking 基线仍能拦截同作品重推），
+    但它是状态完整性的重要信号，值得告警。
+    """
+    # 有基线的账号数
+    accounts_with_baseline = sum(
+        1 for t in tracking.values()
+        if t.get("latest_aweme_id")
+    )
+    if accounts_with_baseline == 0:
+        return  # 首次运行，无基线，不需要告警
+
+    # 检查 dedup 账本
+    from notify_dedup import _load as dedup_load
+    ledger = dedup_load()
+    post_keys = [k for k in ledger if k.startswith("post:")]
+    if not post_keys and accounts_with_baseline > 0:
+        logger.warning(
+            "⚠️ 去重账本为空但 tracking 有 %d 个账号基线 — "
+            "CI 状态持久化可能异常（检查 merge_state.py / git push 是否正常）。"
+            "当前 tracking 基线仍可防同作品重推，但若 tracking 也丢失则可能重复推送。",
+            accounts_with_baseline,
+        )
+
+
 def main() -> None:
     """主函数"""
     if os.environ.get("ENABLE_POST_CHECK", "").lower() != "true":
@@ -526,6 +554,10 @@ def main() -> None:
     tracking: Dict[str, Dict[str, Any]] = load_json_file(TRACKING_FILE, {})
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
     changed = False
+
+    # 健康检查：tracking 有基线但 dedup 账本为空/缺失 → 可能状态丢失，
+    # 提示运维检查 CI 持久化（merge_state.py 是否正常工作）
+    _dedup_health_check(tracking)
 
     logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
 
@@ -740,6 +772,10 @@ def main() -> None:
 
     if changed:
         save_json_file(TRACKING_FILE, tracking)
+
+    # 清理去重账本中的过期 live: key（post: key 永久保留）。
+    # check_status.py 也会调 prune，但若本脚本单独运行时确保账本不无限增长。
+    dedup_prune()
 
     logger.info("新作品检测完成")
 

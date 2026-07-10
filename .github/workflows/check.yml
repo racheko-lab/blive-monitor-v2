@@ -87,26 +87,49 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.com"
-          # 关键：先拉取远端最新再提交。此时工作区为 checkout 的干净状态，rebase
-          # 不会与本地改动冲突；若仍有冲突则 abort，绝不在冲突态下 push（否则状态文件丢失、
-          # 下一轮把同一次开播/上新当成「首次」重新推送，造成重复通知）。
-          git pull --rebase origin master 2>&1 || git rebase --abort 2>/dev/null || true
+          # 关键：用语义合并替代 git pull --rebase。
+          # 旧方案 `git pull --rebase` 在状态文件有本地改动时会失败（远端也改了同一文件），
+          # abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。
+          # 新方案：fetch 远端（不 rebase），用 merge_state.py 按字段语义合并状态文件，
+          # 然后 reset 到远端 HEAD 再覆盖合并后的文件，确保 push 快进成功。
+          git fetch origin master 2>&1 || true
+          python3 merge_state.py origin/master
+          # 保存合并后的状态文件到临时目录
+          TMPD=$(mktemp -d)
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json; do
+            [ -f "$f" ] && cp "$f" "$TMPD/"
+          done
+          # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
+          git reset --hard origin/master 2>/dev/null || true
+          # 恢复合并后的状态文件
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json; do
+            [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
+          done
+          rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
-          # 注：post_rooms.json 也会被后端写回（固化解析出的 sec_uid），一并纳入版本控制，
-          # 使「前端网页添加的账号」在首次解析后与「预存 sec_uid 的账号」行为一致。
           git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
           git commit -m "📡 update state [skip ci]" || true
-          # 推送（失败重试一次；仍失败则本次状态将在下一轮自动对齐，去重账本兜底防刷屏）
+          # 推送：基于远端 master 提交，应为快进。若失败（远端又推进了），重试
           for i in 1 2; do
-            if git push origin HEAD:master 2>&1; then
-              break
-            fi
-            echo "push 失败，重试 ($i)..."
-            git pull --rebase origin master 2>&1 || git rebase --abort 2>/dev/null || true
-          done || echo "push failed (状态将在下一次 run 自动对齐)"
+            git push origin HEAD:master 2>&1 && break
+            echo "push 失败，重试 ($i)... 重新 fetch + 合并"
+            git fetch origin master 2>&1 || true
+            python3 merge_state.py origin/master
+            TMPD=$(mktemp -d)
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json; do
+              [ -f "$f" ] && cp "$f" "$TMPD/"
+            done
+            git reset --hard origin/master 2>/dev/null || true
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json; do
+              [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
+            done
+            rm -rf "$TMPD"
+            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json
+            git commit -m "📡 update state [skip ci]" || true
+          done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
 
       # 构建 Pages 目录（同域名部署；状态已提交 Git 作可靠后备）
       - name: Build Pages
