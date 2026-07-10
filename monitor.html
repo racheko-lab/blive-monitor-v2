@@ -632,8 +632,14 @@ function submitPostAdd(){
       togglePostAddForm(false);
       if(norm.sec_uid){
         toast('已添加抖音号（已带 sec_uid，立即生效）', true);
+        // 带 sec_uid 的账号无需等 CI 解析，但触发一次检测以尽快回填昵称/作品
+        triggerMonitor().catch(function(){});
       }else{
-        toast('已添加抖音号，将在下次检测自动解析 sec_uid…', true);
+        toast('已添加抖音号，正在获取昵称与作品…', true);
+        // 主动触发一次 CI：让它在几秒内解析 sec_uid + 昵称并写回 post_rooms.json，
+        // 前端最多刷新一次即可看到真实昵称（而非裸 id）。ghWriteWithRetry 已增强为
+        // 基于最新 sha 重试 ≤5 次，CI 那次 post_rooms 写回也会先合并远端最新，不再 409。
+        triggerMonitor().catch(function(){});
       }
     })
     .catch(function(err){
@@ -711,11 +717,12 @@ function submitAdd(){
          导致“添加/删除后必须刷新页面才看得到”）。本地列表即权威，渲染立即生效。 */
       rooms=res.rooms||[]; renderLive(); updateStatRooms();
       toggleAddForm(false);
-      toast('已添加监控，将在下次检测（≤5 分钟）获取状态…', true);
-      /* 注：不再主动 triggerMonitor()。原因：CI 的 check.yml 在跑完后会把新解析到的状态写回
-         rooms.json / state.json 并 git push，与本次直写竞争同一文件的 blob sha → 409 冲突，
-         表现为“连点添加失败”。交给 cron（每 5 分钟）或“立即触发”按钮更稳妥，
-         且 ghWriteWithRetry 已增强为基于最新 sha 重试 ≤5 次自愈。 */
+      toast('已添加监控，正在获取状态…', true);
+      /* 主动触发 CI 立即抓取新房间状态（省去最长 ~5 分钟等待）。
+         此前为修 409 竞态临时去掉了触发；现 ghWriteWithRetry 已增强为基于最新 sha
+         重试 ≤5 次、CI 写回也会先合并远端最新，重启用安全。 */
+      triggerMonitor().catch(function(){});
+      setTimeout(function(){ ld(); }, 90000);
     })
     .catch(function(err){
       var msg=err && err.message ? err.message : '添加失败';

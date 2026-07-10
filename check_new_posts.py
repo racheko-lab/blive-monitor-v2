@@ -650,8 +650,12 @@ def main() -> None:
 
             # 展示/推送用名：前端添加常只填了 id（handle/数字号），此处用主页真实昵称回填，
             # 这样推送标题与前端卡片都显示「峰哥亡命天涯」而非裸 id。
-            if name == rid and aweme.get("nickname"):
+            # 同时把昵称写回 post_rooms.json 的 name 字段——否则前端在 tracking 未加载时
+            # 仍显示裸 id。这正是「添加后无需等待 CI 即有真实昵称」的关键。
+            if aweme.get("nickname") and (name == rid or not entry.get("name") or entry.get("name") == rid):
                 name = aweme["nickname"]
+                entry["name"] = name
+                post_rooms_dirty = True
 
             conf = aweme.get("_conf", "api")
             desc = aweme.get("desc", "") or "[无描述]"
