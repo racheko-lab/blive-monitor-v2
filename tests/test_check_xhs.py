@@ -183,3 +183,41 @@ def test_parse_real_format_nested_undefined_offline():
     assert r["status"] == "offline"
     assert r["live_url"] == ""
 
+
+# ===== 无头浏览器渲染后的直播间 DOM 检测（真实可用路径）=====
+
+
+def _wrap_room_dom(live: bool, title: str = "测试主播") -> str:
+    """构造渲染后的直播间 DOM 片段。live=True 时带 xgplayer-is-live 播放器。"""
+    player = (
+        '<div class="player-el xgplayer xhsplayer-skin-live xgplayer-is-live xgplayer-playing"></div>'
+        if live else '<div class="player-el xgplayer"></div>'
+    )
+    return (
+        f'<html><head><title>{title}{cs.XHS_LIVE_TITLE_SUFFIX}</title></head>'
+        f"<body>{player}</body></html>"
+    )
+
+
+def test_parse_room_dom_live_detected():
+    # xgplayer-is-live 出现 -> live，并提取昵称（标题去掉后缀）
+    r = cs.parse_xiaohongshu_room_dom(_wrap_room_dom(True, "太阳蛋本蛋🍳"), "https://live.xiaohongshu.com/room/abc")
+    assert r["status"] == "live"
+    assert r["nickname"] == "太阳蛋本蛋🍳"
+    assert "live.xiaohongshu.com/room/" in r["live_url"]
+
+
+def test_parse_room_dom_xhsplayer_skin_live():
+    # xhsplayer-skin-live 也是在播信号
+    html = '<html><head><title>某主播的小红书直播间</title></head><body><div class="xhsplayer-skin-live"></div></body></html>'
+    r = cs.parse_xiaohongshu_room_dom(html, "https://xhslink.com/m/xyz")
+    assert r["status"] == "live"
+    assert r["nickname"] == "某主播"
+
+
+def test_parse_room_dom_offline():
+    # 无在播信号 -> offline
+    r = cs.parse_xiaohongshu_room_dom(_wrap_room_dom(False, "测试主播"), "https://xhslink.com/m/xyz")
+    assert r["status"] == "offline"
+    assert r["live_url"] == ""
+

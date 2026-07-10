@@ -14,6 +14,8 @@ import os
 import re
 import time
 import logging
+import shutil
+import subprocess
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -59,6 +61,32 @@ BILIBILI_STATUS_MAP = {
 XHS_PROFILE_URL = "https://www.xiaohongshu.com/user/profile/{uid}"
 XHS_LIVE_URL = "https://live.xiaohongshu.com/room/{room_id}"
 XHS_WEB_URL = "https://www.xiaohongshu.com/user/profile/{uid}"
+# 直播间播放页（无头浏览器渲染后据播放器状态判直播）
+XHS_ROOM_HOST_URL = "https://www.xiaohongshu.com/livestream/host/{uid}"
+XHS_LIVE_TITLE_SUFFIX = "的小红书直播间"
+XHS_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+# 探测无头浏览器（运行时需安装 chromium；Cloudflare Worker 等环境无则自动降级）
+def _find_chromium() -> Optional[str]:
+    for name in ("chromium", "chromium-browser", "google-chrome", "chrome"):
+        p = shutil.which(name)
+        if p:
+            return p
+    # Playwright 自带的 chromium（check.yml 已安装，路径不在 PATH 上）
+    import glob
+
+    matches = sorted(
+        glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome")),
+        reverse=True,
+    )
+    if matches:
+        return matches[0]
+    return None
+
+
+CHROMIUM_BIN = _find_chromium()
 
 # ==================== 日志配置 ====================
 
@@ -554,73 +582,192 @@ def parse_xiaohongshu_live(html: str) -> Dict[str, Any]:
     return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
 
 
-def fetch_xiaohongshu(uid: str) -> Dict[str, Any]:
-    """小红书直播间检测 - 解析用户主页 HTML（路径 A：免 x-s/x-t 签名）
+def _is_xhs_url(target: str) -> bool:
+    """判断 rooms.json 里的 xhs id 是直播间链接/短链，还是 profile uid。"""
+    t = target.strip().lower()
+    return t.startswith("http://") or t.startswith("https://") or "xiaohongshu.com" in t or "xhslink.com" in t
 
-    小红书 profile 页面开播时会注入 window.__INITIAL_STATE__（含 liveRoom）或
-    直播卡片链接 live.xiaohongshu.com/room/<id>。无需签名即可读取。
 
-    注意：小红书对无登录态/数据中心 IP 可能返回验证页（反爬）。此时无法判断，
-    按「未检测到直播」处理（offline），保证恢复开播时 offline->live 仍能触发推送。
-    如需提高成功率，可设置环境变量 XHS_COOKIE 带入登录态（可选）。
+def _resolve_xhs_shortlink(target: str) -> str:
+    """解析小红书短链（xhslink.com）到真实直播间/主页 URL；非短链原样返回。"""
+    t = target.strip()
+    if "xhslink.com" not in t:
+        return t
+    try:
+        req = urllib.request.Request(t, headers={"User-Agent": XHS_UA})
+        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
+            return resp.geturl()
+    except Exception as e:
+        logger.warning("解析小红书短链失败 (%s): %s，按原值处理", t, e)
+        return t
+
+
+def _render_with_chromium(url: str) -> Optional[str]:
+    """用无头 Chromium 渲染页面并返回 DOM 字符串。无 chromium 或失败返回 None。"""
+    if not CHROMIUM_BIN:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                CHROMIUM_BIN,
+                "--headless=new",
+                "--no-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--ignore-certificate-errors",
+                "--disable-blink-features=AutomationControlled",
+                f"--user-agent={XHS_UA}",
+                "--virtual-time-budget=12000",
+                "--dump-dom",
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        return proc.stdout
+    except Exception as e:
+        logger.warning("chromium 渲染失败 (%s): %s", url, e)
+        return None
+
+
+def parse_xiaohongshu_room_dom(html: str, room_url: str) -> Dict[str, Any]:
+    """从无头浏览器渲染后的直播间 DOM 判断直播状态。
+
+    实测：小红书直播状态不在服务端 HTML / __INITIAL_STATE__ 里（SSR 是空模板，
+    JS 把数据存进应用状态而非 script 标签）。但真实在播时 DOM 会渲染播放器，
+    其 class 带 ``xgplayer-is-live`` / ``xhsplayer-skin-live``，页面标题为
+    ``<昵称>的小红书直播间``。据此判定。
+    """
+    is_live = (
+        "xgplayer-is-live" in html
+        or "xhsplayer-skin-live" in html
+    )
+    if not is_live:
+        return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
+    title = _extract_xhs_title(html).replace(XHS_LIVE_TITLE_SUFFIX, "").strip()
+    # 人气：尝试从标题附近的「x人观看」等文案提取（可选）
+    online = _extract_xhs_online(html)
+    live_url = _extract_xhs_room_link(html) or room_url
+    return {
+        "status": "live",
+        "title": title,
+        "online": online,
+        "live_url": live_url,
+        "nickname": title,
+    }
+
+
+def _extract_xhs_online(html: str) -> int:
+    """从渲染后的 DOM 提取观看人数（如「1.2万人在看」），失败返回 0。"""
+    m = re.search(r"([\d.]+)\s*万?\s*(?:人观看|人在看|人气)", html)
+    if not m:
+        return 0
+    try:
+        val = float(m.group(1))
+        if "万" in m.group(0):
+            val *= 10000
+        return int(val)
+    except ValueError:
+        return 0
+
+
+def _extract_xhs_room_link(html: str) -> str:
+    """从渲染后的 DOM 提取直播间链接（live.xiaohongshu.com/room/...）。"""
+    m = re.search(r"https?://live\.xiaohongshu\.com/room/[\w-]+", html)
+    if m:
+        return m.group(0)
+    return ""
+
+
+def fetch_xiaohongshu(target: str) -> Dict[str, Any]:
+    """小红书直播间检测。
+
+    小红书的直播状态**不在服务端返回的 HTML / __INITIAL_STATE__** 里（SSR 是空模板，
+    真实数据由客户端 JS 经签名 API 填充）。因此两条可行路径：
+
+    1) 若 rooms.json 里的 id 是**直播间链接/短链**：用无头 Chromium 渲染该直播间页，
+       据播放器状态（``xgplayer-is-live``）判定在播。这是可靠路径，但要求运行时
+       安装 chromium，且直播间每次开播链接会变（需重新粘贴短链）。
+    2) 若只是 profile uid：服务端无法判定直播，按 offline 降级（不误报，但也不生效）。
+
+    注意：数据中心 IP 访问部分页面会被风控（「安全限制」），但指定直播间 URL 通常可渲染。
+    无 chromium 的环境自动降级为 offline，不崩溃。
 
     Args:
-        uid: 小红书用户 ID（profile URL 中 /user/profile/<uid> 那段）
+        target: 小红书直播间链接/短链，或 profile uid
 
     Returns:
         与 fetch_douyin 同构的状态字典，额外带 live_url
     """
-    url = XHS_PROFILE_URL.format(uid=uid)
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
-    headers = {
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "zh-CN,zh;q=0.9",
-    }
-    cookie = os.environ.get("XHS_COOKIE", "")
-    if cookie:
-        headers["Cookie"] = cookie
+
+    if _is_xhs_url(target):
+        room_url = _resolve_xhs_shortlink(target)
+        dom = _render_with_chromium(room_url)
+        if dom is not None:
+            result = parse_xiaohongshu_room_dom(dom, room_url)
+            result["time"] = now_str
+            if not result.get("live_url"):
+                result["live_url"] = room_url
+            return result
+        # 无 chromium：服务端 HTML 不含直播状态，降级 offline
+        logger.warning(
+            "未检测到 chromium，无法渲染小红书直播间 %s（服务端 HTML 无直播状态）。按 offline。",
+            room_url,
+        )
+        return {
+            "status": "offline",
+            "title": "",
+            "online": 0,
+            "live_url": room_url,
+            "nickname": "",
+            "time": now_str,
+        }
+
+    # profile uid：服务端无法判定直播，降级 offline 并提示
+    logger.warning(
+        "xhs id %s 为 profile uid，服务端无法检测直播（需直播间链接/短链 + 无头浏览器）。按 offline。",
+        target,
+    )
     try:
-        raw = fetch_with_retry(url, headers=headers)
+        raw = fetch_with_retry(XHS_PROFILE_URL.format(uid=target), headers={"User-Agent": XHS_UA})
         html = raw.decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         if e.code == 404:
             logger.warning(
                 "小红书用户 %s 主页返回 404：id 可能填错（应填主页 URL 中 "
                 "/user/profile/ 之后的内部 uid，而不是公开「小红书号」）。按 offline 处理。",
-                uid,
+                target,
             )
         else:
-            logger.warning("获取小红书主页失败 (%s): HTTP %s", uid, e.code)
-        # 抓取失败按 offline：保证恢复开播时 offline->live 能触发推送
+            logger.warning("获取小红书主页失败 (%s): HTTP %s", target, e.code)
         return {
             "status": "offline",
             "title": "",
             "online": 0,
-            "live_url": XHS_WEB_URL.format(uid=uid),
+            "live_url": XHS_WEB_URL.format(uid=target),
             "nickname": "",
             "time": now_str,
         }
     except Exception as e:
-        logger.warning("获取小红书主页失败 (%s): %s", uid, e)
-        # 抓取失败按 offline：保证恢复开播时 offline->live 能触发推送
+        logger.warning("获取小红书主页失败 (%s): %s", target, e)
         return {
             "status": "offline",
             "title": "",
             "online": 0,
-            "live_url": XHS_WEB_URL.format(uid=uid),
+            "live_url": XHS_WEB_URL.format(uid=target),
             "nickname": "",
             "time": now_str,
         }
-
     result = parse_xiaohongshu_live(html)
     result["time"] = now_str
     if not result.get("live_url"):
-        result["live_url"] = XHS_WEB_URL.format(uid=uid)
-    # 200 但内容显示用户不存在/已注销：id 很可能填错，给出明确告警
+        result["live_url"] = XHS_WEB_URL.format(uid=target)
     if result.get("status") == "offline" and any(
         k in html for k in ("用户不存在", "页面不存在", "账号不存在", "用户已注销", "该账号不存在")
     ):
-        logger.warning("小红书主页 %s 显示用户不存在/已注销，id 可能错误。", uid)
+        logger.warning("小红书主页 %s 显示用户不存在/已注销，id 可能错误。", target)
     return result
 
 
