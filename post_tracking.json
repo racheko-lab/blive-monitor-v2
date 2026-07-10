@@ -1,26 +1,4 @@
 {
-  "douyin_dy571881": {
-    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "latest_aweme_id": "7659987980702027054",
-    "latest_ct": 0,
-    "mode": "api",
-    "latest_count": 0,
-    "latest_desc": "The shy开发EZ辅助 #shy",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659987980702027054",
-    "nickname": "披萨解说"
-  },
-  "douyin_lelelelele0703": {
-    "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
-    "latest_aweme_id": "7659605960603761792",
-    "latest_desc": "我一直在寻找 可爱的微笑",
-    "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7659605960603761792",
-    "latest_ct": 0,
-    "nickname": "白日梦想嘉",
-    "mode": "api",
-    "latest_count": 0
-  },
   "douyin_XiaoyaoDx": {
     "sec_uid": "MS4wLjABAAAAbhVFeKXUZKEuMdK1agllHXZQVhdOkHsnXY_QTfKFmVQ",
     "latest_aweme_id": "7659255579152725994",
@@ -31,15 +9,6 @@
     "nickname": "小夭等雪",
     "mode": "api",
     "latest_count": 0
-  },
-  "douyin_98078804724": {
-    "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1",
-    "latest_aweme_id": "count:1",
-    "latest_ct": 1,
-    "mode": "count",
-    "latest_count": 1,
-    "nickname": "什么都知道",
-    "need_cookie": true
   },
   "douyin_zhuizhuguang61": {
     "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
@@ -52,14 +21,27 @@
     "mode": "api",
     "latest_count": 0
   },
-  "douyin_74597663503": {
-    "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
-    "latest_aweme_id": "count:2",
-    "latest_ct": 2,
-    "mode": "count",
-    "latest_count": 2,
-    "nickname": "D.my",
-    "need_cookie": true
+  "douyin_dy571881": {
+    "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
+    "latest_aweme_id": "7659987980702027054",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
+    "latest_desc": "The shy开发EZ辅助 #shy",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7659987980702027054",
+    "nickname": "披萨解说"
+  },
+  "douyin_FengBro": {
+    "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
+    "latest_aweme_id": "7660491790876851825",
+    "latest_desc": "峰哥在受首尔品尝韩牛烤肉 #韩国吃什么 #韩国美食推荐 #韩国特色美食",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7660491790876851825",
+    "nickname": "峰哥亡命天涯",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0
   },
   "douyin_llqq192": {
     "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
@@ -72,16 +54,34 @@
     "latest_url": "https://www.douyin.com/video/7658638889217224691",
     "nickname": "栗子鸡"
   },
-  "douyin_FengBro": {
-    "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
-    "latest_aweme_id": "7660491790876851825",
-    "latest_desc": "峰哥在受首尔品尝韩牛烤肉 #韩国吃什么 #韩国美食推荐 #韩国特色美食",
+  "douyin_98078804724": {
+    "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1",
+    "latest_aweme_id": "count:1",
+    "latest_ct": 1,
+    "mode": "count",
+    "latest_count": 1,
+    "nickname": "什么都知道",
+    "need_cookie": true
+  },
+  "douyin_lelelelele0703": {
+    "sec_uid": "MS4wLjABAAAA8VDhOD_J1ZJ5Tiw7iWSP8DyR_fsqD2mZHAxLKRnpLhAtp71KJf-X4DLOSMimT3n_",
+    "latest_aweme_id": "7659605960603761792",
+    "latest_desc": "我一直在寻找 可爱的微笑",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660491790876851825",
-    "nickname": "峰哥亡命天涯",
+    "latest_url": "https://www.douyin.com/video/7659605960603761792",
     "latest_ct": 0,
+    "nickname": "白日梦想嘉",
     "mode": "api",
     "latest_count": 0
+  },
+  "douyin_74597663503": {
+    "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
+    "latest_aweme_id": "count:2",
+    "latest_ct": 2,
+    "mode": "count",
+    "latest_count": 2,
+    "nickname": "D.my",
+    "need_cookie": true
   },
   "douyin_81197422897": {
     "sec_uid": "MS4wLjABAAAAaBxG5OhPShhY5L6dwkQqHjwJg6Tx70esLegv5Hc_ib6ZMfAJNAAWzLuHgnDZ5EsE",
