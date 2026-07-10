@@ -789,6 +789,13 @@ def main() -> None:
                     prev_count = int(t.get("latest_count", 0) or 0)
                     candidate = bool(prev_count) and new_ct > prev_count
                     count_dkey = f"post:{sec_uid}:count:{new_ct}"
+                    # 新作品事件写入统一日志（与推送去重解耦：检测到即写）
+                    if candidate:
+                        append_event(
+                            rid, name, "douyin", "new_post",
+                            detail=f"作品数 {prev_count}→{new_ct}",
+                            now=bjnow(),
+                        )
                     if candidate and dedup_should_notify(count_dkey, cooldown=float("inf")):
                         notify = True
                         dedup_key = count_dkey
