@@ -93,5 +93,14 @@
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7659466394198609830",
     "nickname": "整天白日梦"
+  },
+  "douyin_93253035255": {
+    "sec_uid": "MS4wLjABAAAA3khMMxu6pl1ywocHJ2IXZuRfwrLKFaTEjX1hFKNuiLfEG5jgBh-_zbpo9q3HGMcp",
+    "latest_aweme_id": "count:46",
+    "latest_ct": 46,
+    "mode": "count",
+    "latest_count": 46,
+    "nickname": "王辟谣-",
+    "need_cookie": true
   }
 }
