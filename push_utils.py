@@ -29,7 +29,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -313,6 +313,65 @@ def send_via_telegram(token: str, chat: str, title: str, desp: str) -> SendResul
         return SendResult(ok=False, attempts=1, last_error=f"error: {e}", status_code=None)
 
 
+# ==================== 通知精细化装饰（mention / group 注入） ====================
+
+def decorate(title: str, desp: str, push_cfg: Dict[str, Any]) -> Tuple[str, str]:
+    """在发送前对 (title, desp) 注入 mention / group（装饰一次，重试不重复）。
+
+    注入规则（按渠道类型 ``ptype = push_cfg["type"]``）：
+      - group 标题前缀：当 group 非空且 ``ptype != "bark"`` 时，
+        ``title = f"[{group}] {title}"``（Bark 走原生 group 参数，不改 title）。
+      - mention 注入（仅 wecom / telegram；其余渠道忽略，优雅降级不报错）：
+          * wecom    : 按逗号分隔，对每个非空 token 包 ``<@token>``，拼到 desp 开头。
+          * telegram : 按逗号分隔，每个 token 确保以 ``@`` 开头（无则补 ``@``），拼到 desp 开头。
+          * bark / serverchan / pushplus : 忽略 mention（不改变 desp）。
+      - 多提及：mention 支持逗号分隔，逐个包裹后空格拼接；空项跳过。
+      - 任意解析 / 拼接异常都吞掉，返回原 (title, desp)，绝不抛出。
+
+    Note:
+        由 ``dispatch_push`` 在「进入重试前、调用 ``send_with_retry`` 之前」调用一次，
+        因此重试循环复用已装饰的 (title, desp)，不会重复装饰。
+
+    Args:
+        title: 推送标题（来自 format_push_title / 内联格式化）。
+        desp: 推送正文。
+        push_cfg: 透传的推送配置 dict（含 "type" / 可选 "mention" / "group"）。
+
+    Returns:
+        装饰后的 (title, desp)。Bark 的 group 不在 title 体现，仍由 send_via_bark 参数承载。
+    """
+    try:
+        mention = (push_cfg.get("mention") or "").strip()
+        group = (push_cfg.get("group") or "").strip()
+        ptype = (push_cfg.get("type") or "").lower()
+    except Exception:  # 配置异常：等价无装饰
+        return title, desp
+
+    # ---- group 标题前缀（非 Bark 文本渠道）----
+    if group and ptype != "bark":
+        title = f"[{group}] {title}"
+
+    # ---- mention 注入（仅 wecom / telegram；其余渠道忽略）----
+    if mention:
+        try:
+            users = [u.strip() for u in mention.split(",") if u.strip()]
+            if users:
+                if ptype == "wecom":
+                    tags = " ".join(f"<@{u}>" for u in users)
+                    desp = f"{tags}\n{desp}"
+                elif ptype == "telegram":
+                    # 每个 token 确保以 @ 开头（无则补 @）
+                    tags = " ".join(
+                        f"@{u[1:] if u.startswith('@') else u}" for u in users
+                    )
+                    desp = f"{tags}\n{desp}"
+                # bark / serverchan / pushplus -> 忽略（优雅降级）
+        except Exception:
+            # 解析 / 拼接失败：保持原 desp，绝不中断推送
+            pass
+    return title, desp
+
+
 # ==================== 分发 ====================
 
 def _build_send_fn(ptype: str, push_cfg: Dict[str, Any]) -> Optional[Callable[[str, str], SendResult]]:
@@ -371,6 +430,8 @@ def dispatch_push(push_cfg: Dict[str, Any], title: str, desp: str) -> SendResult
                 ok=False, attempts=0,
                 last_error=f"config: unknown channel {ptype}", status_code=None,
             )
+        # 进入重试前完成 mention/group 装饰（仅一次，重试不重复装饰）
+        title, desp = decorate(title, desp, push_cfg)
         return send_with_retry(fn, title, desp)
     except Exception as e:
         # 兜底：分发层任何意外都收敛为 ok=False 的 SendResult，绝不抛出

@@ -1191,10 +1191,10 @@ function clearToken(){
 /* ===== 推送渠道配置（下拉 + 加密写入 Actions Secret） ===== */
 var PUSH_FIELDS={
   bark:[{id:'url',label:'Bark 地址',ph:'https://api.day.app/你的KEY',req:true},{id:'group',label:'分组名（可选，App 内归类）',ph:'blive'}],
-  serverchan:[{id:'sendkey',label:'Server酱 SendKey',ph:'SCTxxxxxxxx',req:true}],
-  wecom:[{id:'webhook',label:'企业微信机器人 Webhook',ph:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx',req:true}],
-  pushplus:[{id:'token',label:'PushPlus Token',ph:'token',req:true},{id:'topic',label:'Topic（可选）',ph:''}],
-  telegram:[{id:'token',label:'Bot Token',ph:'123456:ABC-DEF',req:true},{id:'chat',label:'Chat ID',ph:'-100123456',req:true}]
+  serverchan:[{id:'sendkey',label:'Server酱 SendKey',ph:'SCTxxxxxxxx',req:true},{id:'group',label:'分组标签（可选，标题前缀 [分组名]）',ph:'B站'}],
+  wecom:[{id:'webhook',label:'企业微信机器人 Webhook',ph:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx',req:true},{id:'mention',label:'@提及（企业微信 userid，逗号分隔多人）',ph:'zhangsan'},{id:'group',label:'分组标签（可选，通知前缀 [分组名]）',ph:'直播'}],
+  pushplus:[{id:'token',label:'PushPlus Token',ph:'token',req:true},{id:'topic',label:'Topic（可选）',ph:''},{id:'group',label:'分组标签（可选，标题前缀 [分组名]）',ph:'B站'}],
+  telegram:[{id:'token',label:'Bot Token',ph:'123456:ABC-DEF',req:true},{id:'chat',label:'Chat ID',ph:'-100123456',req:true},{id:'mention',label:'@提及（Telegram @username，逗号分隔多人）',ph:'username'},{id:'group',label:'分组标签（可选，通知前缀 [分组名]）',ph:'直播'}]
 };
 function onPushChannelChange(){
   var ch=document.getElementById('pushChannel').value;

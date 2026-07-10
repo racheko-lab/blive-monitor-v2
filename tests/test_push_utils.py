@@ -205,3 +205,217 @@ def test_send_via_telegram_long_message(monkeypatch):
 def test_send_via_telegram_empty():
     assert push_utils.send_via_telegram("", "C", "t", "d").ok is False
     assert push_utils.send_via_telegram("T", "", "t", "d").ok is False
+
+
+# ==================== P0-3 通知精细化：decorate 注入矩阵 ====================
+
+def test_decorate_wecom_mention_multiple():
+    """wecom：多提及逗号分隔 -> <@zhangsan> <@lisi> 出现在 desp 开头。"""
+    _, desp = push_utils.decorate("标题", "正文", {"type": "wecom", "mention": "zhangsan,lisi"})
+    assert desp.startswith("<@zhangsan> <@lisi>\n正文")
+
+
+def test_decorate_wecom_mention_whitespace_and_empty_tokens():
+    """wecom：空白/空项被跳过，仅有效 token 被包裹。"""
+    _, desp = push_utils.decorate("t", "正文", {"type": "wecom", "mention": " a , , b "})
+    assert desp == "<@a> <@b>\n正文"
+
+
+def test_decorate_telegram_mention_autoprefix():
+    """telegram：无 @ 时自动补 @，拼到 desp 开头。"""
+    _, desp = push_utils.decorate("t", "正文", {"type": "telegram", "mention": "username"})
+    assert desp.startswith("@username\n正文")
+
+
+def test_decorate_telegram_mention_keeps_existing_at():
+    """telegram：已有 @ 的 token 不重复补 @。"""
+    _, desp = push_utils.decorate("t", "正文", {"type": "telegram", "mention": "@bob,carol"})
+    assert desp.startswith("@bob @carol\n正文")
+
+
+def test_decorate_bark_mention_ignored_title_unchanged():
+    """bark：mention 被忽略、group 不进入 title（走原生参数）。"""
+    title, desp = push_utils.decorate(
+        "🔴 开播", "正文", {"type": "bark", "mention": "alice", "group": "blive"}
+    )
+    assert title == "🔴 开播"        # title 不变
+    assert "alice" not in desp        # mention 忽略
+
+
+def test_decorate_serverchan_mention_ignored_group_prefix():
+    """serverchan：mention 忽略，group 前缀 [x] 加到 title。"""
+    title, desp = push_utils.decorate(
+        "开播", "正文", {"type": "serverchan", "mention": "x", "group": "B站"}
+    )
+    assert title == "[B站] 开播"
+    assert "x" not in desp
+
+
+def test_decorate_pushplus_mention_ignored_group_prefix():
+    """pushplus：mention 忽略，group 前缀 [x] 加到 title。"""
+    title, desp = push_utils.decorate(
+        "开播", "正文", {"type": "pushplus", "mention": "x", "group": "B站"}
+    )
+    assert title == "[B站] 开播"
+    assert "x" not in desp
+
+
+def test_decorate_group_prefix_non_bark():
+    """非 Bark 渠道：group 非空时 title 加 [分组名] 前缀。"""
+    title, _ = push_utils.decorate("标题", "正文", {"type": "wecom", "group": "直播"})
+    assert title == "[直播] 标题"
+
+
+def test_decorate_bark_group_no_title_prefix():
+    """bark：即便配置 group，title 也不加前缀（走原生参数）。"""
+    title, _ = push_utils.decorate("标题", "正文", {"type": "bark", "group": "直播"})
+    assert title == "标题"
+
+
+def test_decorate_empty_mention_group_noop():
+    """空 mention/group：等价于无装饰，原值返回。"""
+    title, desp = push_utils.decorate(
+        "标题", "正文", {"type": "wecom", "mention": "", "group": ""}
+    )
+    assert title == "标题" and desp == "正文"
+
+
+def test_decorate_exception_input_safe():
+    """异常输入（push_cfg.get 抛错）：返回原值，绝不抛出。"""
+
+    class BadDict:
+        def get(self, *a, **k):
+            raise RuntimeError("bad")
+
+    title, desp = push_utils.decorate("标题", "正文", BadDict())
+    assert title == "标题" and desp == "正文"
+
+
+def test_decorate_mention_single_injection_multiline():
+    """mention 仅注入一次（整条消息级），不逐行重复。"""
+    desp = "line1\nline2"
+    _, out = push_utils.decorate("t", desp, {"type": "wecom", "mention": "a,b"})
+    assert out == "<@a> <@b>\nline1\nline2"
+
+
+def test_dispatch_push_wecom_mention_and_group(monkeypatch):
+    """集成：wecom 经 dispatch_push 后 content 含 group 前缀 + mention 注入。"""
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"errcode": 0})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    cfg = {
+        "type": "wecom",
+        "webhook": "https://qyapi.weixin.qq.com/x",
+        "mention": "zhangsan,lisi",
+        "group": "B站",
+    }
+    ok = push_utils.dispatch_push(cfg, "🔴 x 开播了！", "正文")
+    assert ok.ok is True
+    body = json.loads(captured["data"])
+    content = body["text"]["content"]
+    assert content.startswith("[B站] 🔴 x 开播了！\n\n<@zhangsan> <@lisi>\n正文")
+
+
+def test_dispatch_push_telegram_mention_and_group(monkeypatch):
+    """集成：telegram 经 dispatch_push 后 text 含 group 前缀 + @提及。"""
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"ok": True, "result": {}})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    cfg = {
+        "type": "telegram",
+        "token": "T",
+        "chat": "C",
+        "mention": "username",
+        "group": "直播",
+    }
+    ok = push_utils.dispatch_push(cfg, "标题", "正文")
+    assert ok.ok is True
+    body = json.loads(captured["data"])
+    assert body["text"].startswith("[直播] 标题\n\n@username\n正文")
+
+
+def test_dispatch_push_bark_mention_ignored_group_param(monkeypatch):
+    """集成：bark 的 group 走参数、title 无前缀、mention 被忽略。"""
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"code": 200})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    cfg = {
+        "type": "bark",
+        "url": "https://api.day.app/KEY",
+        "mention": "@alice",
+        "group": "blive",
+    }
+    ok = push_utils.dispatch_push(cfg, "开播了", "正文")
+    assert ok.ok is True
+    body = json.loads(captured["data"])
+    assert body["title"] == "开播了"   # 不带 group 前缀
+    assert body["group"] == "blive"    # 走原生参数
+    assert "@alice" not in body["body"]
+
+
+def test_dispatch_push_serverchan_group_prefix_mention_ignored(monkeypatch):
+    """集成：serverchan group 前缀到 title，mention 不进入 desp。"""
+    from urllib.parse import parse_qs
+
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"code": 0})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    cfg = {"type": "serverchan", "sendkey": "SCT1", "mention": "ignored", "group": "B站"}
+    ok = push_utils.dispatch_push(cfg, "开播", "正文")
+    assert ok.ok is True
+    parsed = parse_qs(captured["data"].decode("utf-8"))
+    assert parsed["title"][0] == "[B站] 开播"
+    assert "ignored" not in parsed["desp"][0]
+
+
+def test_dispatch_push_pushplus_group_prefix_mention_ignored(monkeypatch):
+    """集成：pushplus group 前缀到 title，mention 不进入 content。"""
+    from urllib.parse import parse_qs
+
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"code": 200})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    cfg = {"type": "pushplus", "token": "tok", "mention": "ignored", "group": "B站"}
+    ok = push_utils.dispatch_push(cfg, "开播", "正文")
+    assert ok.ok is True
+    parsed = parse_qs(captured["data"].decode("utf-8"))
+    assert parsed["title"][0] == "[B站] 开播"
+    assert "ignored" not in parsed["content"][0]
+
+
+def test_dispatch_push_no_mention_group_backward_compat(monkeypatch):
+    """向后兼容：无 mention/group 的配置行为完全不变。"""
+    captured = {}
+
+    def fake(req, timeout=10):
+        captured["data"] = req.data
+        return FakeResp({"errcode": 0})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    ok = push_utils.dispatch_push(
+        {"type": "wecom", "webhook": "https://qyapi.weixin.qq.com/x"}, "标题", "正文"
+    )
+    assert ok.ok is True
+    body = json.loads(captured["data"])
+    assert body["text"]["content"] == "标题\n\n正文"
+
