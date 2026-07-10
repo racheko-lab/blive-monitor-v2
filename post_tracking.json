@@ -117,14 +117,5 @@
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0
-  },
-  "douyin_74597663503": {
-    "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
-    "latest_aweme_id": "count:2",
-    "latest_ct": 2,
-    "mode": "count",
-    "latest_count": 2,
-    "nickname": "D.my",
-    "need_cookie": true
   }
 }

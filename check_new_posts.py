@@ -769,17 +769,38 @@ def main() -> None:
             "或设置环境变量 DOUYIN_COOKIE 以突破风控。"
         )
 
-    # 清理已不在监控列表中的账号状态（避免历史残留）
-    cur_keys = {f"douyin_{e.get('id', '')}" for e in post_rooms if e.get("id")}
+    # ===== 固化 sec_uid 时采用「字段合并」而非整体覆盖，避免与前端增删竞态 =====
+    # 重新读取磁盘上最新的 post_rooms.json（而非本轮回合开始时载入的内存副本）。
+    # 若用启动时的内存副本整体覆盖写回，会把用户在「本轮期间」删除的账号又加回来、
+    # 或丢失用户新增的账号；再经 merge_state.py 的并集合并后，被删账号会复活。
+    # 这里只做原地字段更新：对当前文件里仍存在的账号，用本轮解析到的 sec_uid/昵称更新；
+    # 绝不把内存副本里多出来的账号写回（即不复活已删除的账号）。
+    current_rooms = load_json_file(CONFIG_FILE, []) or []
+    cur_by_id = {str(e.get("id", "")): e for e in current_rooms if e.get("id")}
+    # 本轮解析/写回过的账号（仅取确有 sec_uid 的）
+    resolved = {str(e.get("id", "")): e for e in post_rooms if e.get("id") and e.get("sec_uid")}
+    rooms_changed = False
+    for rid, cur in cur_by_id.items():
+        r = resolved.get(rid)
+        if not r:
+            continue
+        if cur.get("sec_uid") != r.get("sec_uid"):
+            cur["sec_uid"] = r["sec_uid"]
+            rooms_changed = True
+        if r.get("name") and cur.get("name") != r.get("name"):
+            cur["name"] = r["name"]
+            rooms_changed = True
+
+    # 清理已不在监控列表中的账号状态（基于「当前文件」判定，确保用户删除的账号状态被清掉）
+    cur_keys = {f"douyin_{rid}" for rid in cur_by_id}
     for k in [k for k in list(tracking.keys()) if k.startswith("douyin_") and k not in cur_keys]:
         del tracking[k]
         changed = True
 
-    # 固化本次运行时解析出的 sec_uid 回 post_rooms.json（使前端网页添加的账号等价于预存 sec_uid）
-    if post_rooms_dirty:
-        save_json_file(CONFIG_FILE, post_rooms)
-        logger.info("已将 %d 个账号解析到的 sec_uid 写回 post_rooms.json",
-                    sum(1 for e in post_rooms if e.get("sec_uid")))
+    # 仅当确有字段更新时才回写 post_rooms.json（避免无意义的提交）
+    if rooms_changed:
+        save_json_file(CONFIG_FILE, current_rooms)
+        logger.info("已将解析到的 sec_uid 合并写回 post_rooms.json（已保留前端增删，不复活已删账号）")
 
     if changed:
         save_json_file(TRACKING_FILE, tracking)
