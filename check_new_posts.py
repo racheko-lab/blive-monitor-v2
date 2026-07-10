@@ -743,6 +743,13 @@ def main() -> None:
                 t["latest_count"] = new_ct
                 # 真实昵称在所有模式都回填（前端展示/推送都用它，避免只显示裸 id）
                 t["nickname"] = aweme.get("nickname") or t.get("nickname", "")
+                # need_cookie 标记：账号稳定走 count 退化（接口被风控/未登录，拿不到真实
+                # 作品列表）时置 True，引导用户到 BLIVE_CONFIG 配置 douyin_cookie 突破风控。
+                # api 模式下拿到真实作品则清除该标记。
+                if conf == "count":
+                    t["need_cookie"] = True
+                else:
+                    t.pop("need_cookie", None)
                 if conf == "api":
                     t["latest_desc"] = aweme.get("desc", "")
                     t["latest_type"] = kind

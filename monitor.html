@@ -354,14 +354,24 @@ function renderPosts(){
     var type=tt.latest_type||'';
     var desc=tt.latest_desc||'';
     var time=ago(tt.latest_ct);
+    var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
     var ini=name?name.charAt(0):'🎬';
     var rmArg=JSON.stringify({id:r.id});
     var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'';
     var inner;
-    if(aid){
+    if(aid && !String(aid).startsWith('count:')){
+      // 正常模式：拿到真实作品（aweme_id）
       inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+rmbtn+'</div>'+
         '<div class="post-desc">'+e(desc||'(无描述)')+'</div>'+
         '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">查看作品 →</a></div>';
+    }else if(aid && String(aid).startsWith('count:')){
+      // 退化计数模式：抖音接口被风控（未登录），只拿到作品总数，无具体作品。
+      // 明确告诉用户需配置 Cookie 才能获取具体作品，而不是显示「等待首次抓取」让人误以为没抓。
+      var cnt=String(aid).replace('count:','');
+      var hint=needCookie?'⚠️ 仅检测到 '+cnt+' 个作品（抖音接口风控）。到仓库 Settings→Secrets 的 BLIVE_CONFIG 配置 douyin_cookie 即可获取具体作品':'已检测 '+cnt+' 个作品';
+      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+rmbtn+'</div>'+
+        '<div class="post-desc" style="color:var(--text3)">'+e(hint)+'</div>'+
+        '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">打开主页 →</a></div>';
     }else{
       inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+rmbtn+'</div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
     }

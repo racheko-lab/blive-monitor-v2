@@ -82,7 +82,8 @@
     "latest_ct": 2,
     "mode": "count",
     "latest_count": 2,
-    "nickname": "D.my"
+    "nickname": "D.my",
+    "need_cookie": true
   },
   "douyin_98078804724": {
     "sec_uid": "MS4wLjABAAAAHW8TIoMaLugftULnmwyZtXKPRa5kq0mDZEFBOlGNri0xBcgB8pU39TQmKOuJ22_1",
@@ -90,6 +91,7 @@
     "latest_ct": 1,
     "mode": "count",
     "latest_count": 1,
-    "nickname": "什么都知道"
+    "nickname": "什么都知道",
+    "need_cookie": true
   }
 }
