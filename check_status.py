@@ -27,7 +27,10 @@ from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 # 横切模块：运行时日志 + history 读写/上限（HISTORY_MAX 唯一来源）
-from log_utils import HISTORY_MAX, init_runtime_logging, load_history, append_history
+from log_utils import (
+    HISTORY_MAX, init_runtime_logging, load_history, append_history,
+    type_from_status, level_from_type, dedupe_by_throttle,
+)
 # 级联清理（history 孤儿）：固化阶段裁剪已删房间的残留日志
 import state_prune
 
@@ -686,6 +689,7 @@ def main() -> None:
                 push_result = "deduped"
 
         # 记录日志
+        entry_type = type_from_status(result["status"])
         log_entries.append(
             {
                 "time": now_str,
@@ -698,6 +702,12 @@ def main() -> None:
                 "push": push_result,
                 # 新增 rid：取值为房间 id，用于级联清理时精确匹配孤儿（向后兼容：前端忽略未知字段）
                 "rid": rid,
+                # 统一日志模型（日志模块功能性重写）：type 区分事件类型、level 由 type 推导、
+                # account == rid 供按账号视图聚合。
+                "type": entry_type,
+                "level": level_from_type(entry_type),
+                "detail": "",
+                "account": rid,
             }
         )
 
@@ -758,7 +768,10 @@ def main() -> None:
         if r.get("id")
     }
 
-    # 追加本轮条目（每条已带 rid），保留最近 HISTORY_MAX 条（统一上限，单一来源）
+    # 错误类（type=error）事件经节流去重：同 rid+type 30min 内不重复写，防刷屏
+    log_entries = dedupe_by_throttle(log_entries, now, history_path=HISTORY_FILE)
+
+    # 追加本轮条目（每条已带 rid/type），保留最近 HISTORY_MAX 条（统一上限，单一来源）
     append_history(HISTORY_FILE, log_entries, HISTORY_MAX)
 
     # 读取刚写入的 history，按 active_keys 裁掉已删房间的孤儿记录，再原子写回

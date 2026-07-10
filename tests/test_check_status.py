@@ -349,3 +349,57 @@ def test_log_entry_carries_rid_and_orphan_pruned(tmp_path, monkeypatch):
     assert not any(e.get("rid") == "999" for e in hist)
     # 仍存在的房间（rid=123）历史保留，且包含本轮新写入条目
     assert sum(1 for e in hist if e.get("rid") == "123") >= 1
+
+
+# ==================== 日志模块功能性重写：type 分级写入 + 错误节流 ====================
+
+def _seed_paths(tmp_path, monkeypatch, rooms, prev_state="{}"):
+    """搭建 check_status 的临时文件路径（含 HISTORY_FILE），返回 history 路径。"""
+    import log_utils as lu  # noqa: F401  (确保 type 来源可用)
+    rooms_file = tmp_path / "rooms.json"
+    rooms_file.write_text(json.dumps(rooms), encoding="utf-8")
+    state_file = tmp_path / "state.json"
+    state_file.write_text(prev_state, encoding="utf-8")
+    hist_file = tmp_path / "history.json"
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(rooms_file))
+    monkeypatch.setattr(cs, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(hist_file))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    return hist_file
+
+
+def test_live_entry_carries_typed_fields(tmp_path, monkeypatch):
+    """直播条目补写 type=live_on / level=info / account=rid。"""
+    hf = _seed_paths(tmp_path, monkeypatch, [{"platform": "bilibili", "id": "123", "name": "A"}])
+    sample = {"code": 0, "data": {"by_room_ids": {"123": {"live_status": 1, "title": "x", "online": 1}}}}
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", lambda ids: sample["data"]["by_room_ids"])
+    cs.main()
+    hist = json.loads(hf.read_text(encoding="utf-8"))
+    e = hist[0]
+    assert e["type"] == "live_on"
+    assert e["level"] == "info"
+    assert e["rid"] == "123"
+    assert e["account"] == "123"
+
+
+def test_error_entry_throttled_within_window(tmp_path, monkeypatch):
+    """同账号检测失败（type=error）在 30min 窗口内仅写一次（防刷屏）。"""
+    hf = _seed_paths(tmp_path, monkeypatch, [{"platform": "bilibili", "id": "123", "name": "A"}])
+
+    # 批量接口返回空（非整体失败）→ 单房间进入 except 分支 → status=error
+    def fake_batch(ids):
+        return {}
+
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", fake_batch)
+
+    cs.main()  # run1：写一条 error
+    hist1 = json.loads(hf.read_text(encoding="utf-8"))
+    assert any(e.get("type") == "error" for e in hist1)
+    err1 = sum(1 for e in hist1 if e.get("type") == "error")
+
+    cs.main()  # run2（秒级间隔，窗口内）→ error 被抑制，不重复写
+    hist2 = json.loads(hf.read_text(encoding="utf-8"))
+    err2 = sum(1 for e in hist2 if e.get("type") == "error")
+    assert err2 == err1, "30min 窗口内同账号 error 应被节流，不重复写"

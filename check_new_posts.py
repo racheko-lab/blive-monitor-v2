@@ -41,8 +41,11 @@ from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
-# 横切模块：运行时日志（init_runtime_logging）
-from log_utils import init_runtime_logging
+# 横切模块：运行时日志（init_runtime_logging）+ 统一 history 读写/上限/节流
+from log_utils import (
+    init_runtime_logging, append_history, dedupe_by_throttle,
+    HISTORY_MAX, EVENT_TYPES, level_from_type,
+)
 # 级联清理（post_tracking 孤儿 / post_rooms 字段合并，替代原内联应急补丁）
 import state_prune
 
@@ -52,6 +55,7 @@ import state_prune
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(REPO_DIR, "post_rooms.json")      # 作品监控的抖音号列表（独立）
 TRACKING_FILE = os.path.join(REPO_DIR, "post_tracking.json")  # 作品监控状态（独立）
+HISTORY_FILE = os.path.join(REPO_DIR, "history.json")         # 统一日志（与 check_status 同文件）
 
 # 浏览器配置
 BROWSER_TIMEOUT = 30000   # 页面加载超时（ms）
@@ -509,6 +513,64 @@ def get_latest_aweme(context, sec_uid: str) -> Optional[Dict[str, Any]]:
         page.close()
 
 
+# ==================== 统一日志写入（错误可见 / 新作品进统一日志） ====================
+
+def _truncate_detail(s: str, maxlen: int = 200) -> str:
+    """截断 detail 自由文本，避免单条异常堆栈撑爆 history。"""
+    s = s or ""
+    if len(s) > maxlen:
+        s = s[:maxlen] + "…"
+    return s
+
+
+def append_event(rid, name, platform, etype, detail="", level=None, now=None, account=None):
+    """向统一 history.json 追加一条分级事件（原子写 + 错误类节流）。
+
+    所有 history 写入统一经 ``log_utils.append_history``（.tmp+os.replace + 上限裁剪），
+    禁止散落直写。错误类（error/cookie_warn）经 ``dedupe_by_throttle`` 节流（同 rid+type
+    30min 内不重复写，防刷屏）；其余（new_post/system/live_*）始终写入。
+
+    Args:
+        rid: 账号主键（与 history 的 rid 同源）。
+        name: 显示名。
+        platform: bilibili | douyin。
+        etype: 事件 type（见 log_utils.EVENT_TYPES）；非法值降级 system。
+        detail: 自由文本（错误原因/作品链接/风控提示），自动截断。
+        level: 严重级；缺省由 type 推导。
+        now: 当前时间（datetime 或字符串）；缺省 bjnow()。
+        account: 账号唯一键（默认 == rid）。
+    """
+    if etype not in EVENT_TYPES:
+        etype = "system"
+    now_dt = now if now is not None else bjnow()
+    now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S") if hasattr(now_dt, "strftime") else str(now_dt)
+    if level is None:
+        level = level_from_type(etype)
+    entry = {
+        "time": now_str,
+        "name": name,
+        "platform": platform,
+        # 兼容旧字段：前端按 status 懒推导图标；新代码统一用 type
+        "status": etype,
+        "title": "",
+        "changed": False,
+        "prev": None,
+        "push": None,
+        "rid": rid,
+        "type": etype,
+        "level": level,
+        "detail": _truncate_detail(detail),
+        "account": account if account is not None else rid,
+    }
+    to_write = [entry]
+    if etype in ("error", "cookie_warn"):
+        to_write = dedupe_by_throttle(to_write, now_dt, history_path=HISTORY_FILE)
+        if not to_write:
+            # 节流抑制：仅保留 Python logger 控制台输出（调用方已打），不写 history 刷屏
+            return
+    append_history(HISTORY_FILE, to_write, HISTORY_MAX)
+
+
 # ==================== 主逻辑 ====================
 
 def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
@@ -597,6 +659,10 @@ def main() -> None:
             rid = entry.get("id", "")
             name = entry.get("name", rid)
             if not rid:
+                # 条目缺 id（配置不完整）→ 写 system 跳过，不刷屏（不写垃圾 error）
+                logger.warning("  post_rooms.json 中存在缺 id 的条目，已跳过")
+                append_event("", "(缺id)", "douyin", "system",
+                             detail="账号配置不完整（缺 id），已跳过", now=bjnow())
                 continue
             key = f"douyin_{rid}"
             t = tracking.get(key, {})
@@ -612,16 +678,30 @@ def main() -> None:
                 sec_uid = resolve_sec_uid(context, rid)
                 sec_trusted = False
             if not sec_uid:
+                # 缺 sec_uid 且无法解析 → 降级 type=system 跳过刷屏（不写垃圾 error）
                 logger.warning("  [%s] 无法获取 sec_uid，跳过（建议开播时或配置 DOUYIN_COOKIE 后重试）", name)
+                append_event(rid, name, "douyin", "system",
+                             detail="账号配置不完整（缺 sec_uid），已跳过", now=bjnow())
                 continue
             t["sec_uid"] = sec_uid
             tracking[key] = t
             changed = True
 
             # 获取最新作品（三层策略：m.douyin.com 免 Cookie 首选 / 桌面端需 Cookie / count 退化）
-            aweme = get_latest_aweme(context, sec_uid)
+            try:
+                aweme = get_latest_aweme(context, sec_uid)
+            except Exception as exc:  # 抓取失败（意外异常）→ 写 error（节流），跳过该账号
+                logger.error("  [%s] 获取作品异常: %s", name, exc)
+                append_event(rid, name, "douyin", "error",
+                             detail=f"获取作品异常: {exc}", now=bjnow())
+                gated_hint = True
+                continue
             if not aweme:
+                # 接口被风控/未登录（拿不到真实作品列表）→ 写 cookie_warn（节流），跳过
                 logger.warning("  [%s] 获取作品失败/被风控（建议配置 douyin_cookie）", name)
+                append_event(rid, name, "douyin", "cookie_warn",
+                             detail="抖音接口被风控，配置 douyin_cookie 可获取具体作品",
+                             now=bjnow())
                 gated_hint = True
                 continue
 
@@ -686,6 +766,13 @@ def main() -> None:
                 # 精确：确有比基线更新的作品才推送；接口延迟返回更旧作品则保留基线
                 candidate = should_notify_new_post(prev_id, prev_ct, aweme["aweme_id"], new_ct)
                 do_update = should_update_baseline(prev_id, prev_ct, aweme["aweme_id"], new_ct)
+                # 新作品事件写入统一日志（与推送去重解耦：检测到即写，无论是否推送成功）
+                if candidate:
+                    append_event(
+                        rid, name, "douyin", "new_post",
+                        detail=f"{desc}  {aweme.get('video_url', '')}".strip(),
+                        now=bjnow(),
+                    )
                 post_dkey = f"post:{sec_uid}:{aweme['aweme_id']}"
                 if candidate and dedup_should_notify(post_dkey, cooldown=float("inf")):
                     notify = True

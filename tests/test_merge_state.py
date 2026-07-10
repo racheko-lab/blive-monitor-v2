@@ -156,3 +156,30 @@ def test_history_max_imported_from_log_utils():
     import log_utils
     assert ms.HISTORY_MAX == 500
     assert ms.HISTORY_MAX is log_utils.HISTORY_MAX
+
+
+# ---------- history 合并透传新增分级字段（日志模块功能性重写） ----------
+
+def test_history_passthrough_typed_fields():
+    """带 type/level/detail/account 的 history 经 merge_history 字段无损透传。"""
+    local = [{
+        "time": "t1", "name": "A", "platform": "douyin", "rid": "R1",
+        "type": "new_post", "level": "info", "detail": "作品x", "account": "R1",
+    }]
+    remote = [{
+        "time": "t0", "name": "B", "platform": "bilibili", "rid": "R2",
+        "type": "live_on", "level": "info", "detail": "", "account": "R2",
+    }]
+    merged = ms.merge_history(local, remote)
+    assert len(merged) == 2
+    assert all("type" in e and "level" in e for e in merged)
+    assert all("detail" in e and "account" in e for e in merged)
+
+
+def test_history_merge_with_type_is_idempotent():
+    """带 type 的 history 经并集合并后，type 字段不丢失、条数正确。"""
+    local = [{"time": "t1", "name": "A", "platform": "douyin", "type": "new_post", "rid": "R1"}]
+    remote = [{"time": "t1", "name": "A", "platform": "douyin", "type": "new_post", "rid": "R1"}]
+    merged = ms.merge_history(local, remote)
+    assert len(merged) == 1  # 同 time+name+platform 去重
+    assert merged[0]["type"] == "new_post"

@@ -2,6 +2,7 @@
 import json
 import logging
 import logging.handlers
+from datetime import datetime
 
 import pytest
 
@@ -168,3 +169,130 @@ def test_get_logger_default_account_empty():
     adapter = lu.get_logger("test_mod")
     _, kwargs = adapter.process("hi", {})
     assert kwargs["extra"]["account"] == ""
+
+
+# ==================== 日志分级 / 统一模型（日志模块功能性重写） ====================
+
+def test_event_types_and_levels_constants():
+    assert lu.EVENT_TYPES == frozenset(
+        {"live_on", "live_off", "new_post", "error", "cookie_warn", "system"}
+    )
+    assert lu.LEVELS == frozenset({"info", "warn", "error"})
+    assert lu.ERROR_THROTTLE_MINUTES == 30
+    assert lu.STATUS_TO_TYPE["live"] == "live_on"
+    assert lu.STATUS_TO_TYPE["offline"] == "live_off"
+    assert lu.STATUS_TO_TYPE["replay"] == "live_off"
+    assert lu.STATUS_TO_TYPE["error"] == "error"
+    assert lu.TYPE_TO_LEVEL["cookie_warn"] == "warn"
+    assert lu.TYPE_TO_LEVEL["error"] == "error"
+    assert lu.TYPE_TO_LEVEL["new_post"] == "info"
+
+
+def test_type_from_status_and_level_from_type():
+    assert lu.type_from_status("live") == "live_on"
+    assert lu.type_from_status("offline") == "live_off"
+    assert lu.type_from_status("replay") == "live_off"
+    assert lu.type_from_status("error") == "error"
+    assert lu.type_from_status("unknown") == "system"
+    assert lu.type_from_status(None) == "system"
+    assert lu.level_from_type("live_on") == "info"
+    assert lu.level_from_type("new_post") == "info"
+    assert lu.level_from_type("cookie_warn") == "warn"
+    assert lu.level_from_type("error") == "error"
+    assert lu.level_from_type("nope") == "info"
+    assert lu.level_from_type(None) == "info"
+
+
+def test_should_suppress_30min_window(tmp_path):
+    p = str(tmp_path / "history.json")
+    lu.append_history(p, [{"time": "2026-07-10 10:00:00", "rid": "1", "type": "error"}], 500)
+    now_in = datetime(2026, 7, 10, 10, 5)    # 5 分钟之后 → 窗口内
+    now_out = datetime(2026, 7, 10, 10, 35)   # 35 分钟之后 → 窗口外
+    assert lu.should_suppress("1", "error", now_in, history_path=p) is True
+    assert lu.should_suppress("1", "error", now_out, history_path=p) is False
+    # 不同 rid / 不同 type 不抑制
+    assert lu.should_suppress("2", "error", now_in, history_path=p) is False
+    assert lu.should_suppress("1", "cookie_warn", now_in, history_path=p) is False
+    # 空 rid / 空 type 视为不抑制
+    assert lu.should_suppress("", "error", now_in, history_path=p) is False
+    assert lu.should_suppress("1", "", now_in, history_path=p) is False
+
+
+def test_should_suppress_with_in_memory(tmp_path):
+    p = str(tmp_path / "history.json")
+    now = datetime(2026, 7, 10, 10, 0)
+    # 内存 pending 中已有同 rid+type（10 分钟前）→ 抑制，不依赖磁盘
+    pending = [{"time": "2026-07-10 09:50:00", "rid": "A", "type": "error"}]
+    assert lu.should_suppress("A", "error", now, history_path=p, in_memory=pending) is True
+    # 不同 type 不抑制
+    assert lu.should_suppress("A", "cookie_warn", now, history_path=p, in_memory=pending) is False
+
+
+def test_dedupe_by_throttle_suppresses_recent_error(tmp_path):
+    p = str(tmp_path / "history.json")
+    now = datetime(2026, 7, 10, 10, 0)
+    # 预置一条 5 分钟前的 error（rid=1）
+    lu.append_history(p, [{"time": "2026-07-10 09:55:00", "rid": "1", "type": "error"}], 500)
+    entries = [
+        {"rid": "1", "type": "error", "time": "2026-07-10 10:00:00"},   # 应被抑制
+        {"rid": "1", "type": "new_post", "time": "2026-07-10 10:00:00"},  # 保留（非错误类）
+        {"rid": "2", "type": "error", "time": "2026-07-10 10:00:00"},    # 保留（不同 rid）
+    ]
+    out = lu.dedupe_by_throttle(entries, now, history_path=p)
+    assert [e["type"] for e in out] == ["new_post", "error"]
+
+
+def test_dedupe_by_throttle_keeps_all_when_no_recent(tmp_path):
+    p = str(tmp_path / "history.json")
+    now = datetime(2026, 7, 10, 10, 0)
+    entries = [
+        {"rid": "1", "type": "error", "time": "2026-07-10 10:00:00"},
+        {"rid": "1", "type": "system", "time": "2026-07-10 10:00:00"},
+    ]
+    out = lu.dedupe_by_throttle(entries, now, history_path=p)
+    # 磁盘无近期同 rid+error → 全部保留
+    assert len(out) == 2
+
+
+def test_dedupe_by_throttle_does_not_mutate_input(tmp_path):
+    p = str(tmp_path / "history.json")
+    now = datetime(2026, 7, 10, 10, 0)
+    entries = [{"rid": "1", "type": "error", "time": "2026-07-10 10:00:00"}]
+    snapshot = [dict(e) for e in entries]
+    lu.dedupe_by_throttle(entries, now, history_path=p)
+    assert entries == snapshot
+
+
+def test_compute_stats_aggregates_by_day():
+    hist = [
+        {"time": "2026-07-10 10:00:00", "type": "new_post"},
+        {"time": "2026-07-10 11:00:00", "type": "new_post"},
+        {"time": "2026-07-10 12:00:00", "type": "live_on"},
+        {"time": "2026-07-09 10:00:00", "type": "new_post"},
+        {"time": "2026-07-08 10:00:00", "type": "error"},
+    ]
+    now = datetime(2026, 7, 10, 23, 0)
+    s = lu.compute_stats(hist, days=7, now=now)
+    # labels 从 07-04 … 07-10（idx 6 为今天 07-10）
+    assert s["days"][6] == "07-10"
+    assert s["new_post"][6] == 2       # 7-10 两条新作品
+    assert s["new_post"][5] == 1       # 7-09 一条
+    assert s["live_on"][6] == 1
+    assert s["error"][4] == 1          # 7-08 一条错误
+    assert s["totals"]["new_post"] == 3
+    assert s["totals"]["live_on"] == 1
+    assert s["totals"]["error"] == 1
+    assert s["totals"]["cookie_warn"] == 0
+
+
+def test_compute_stats_ignores_unknown_type():
+    hist = [
+        {"time": "2026-07-10 10:00:00", "type": "new_post"},
+        {"time": "2026-07-10 10:00:00", "type": "weird"},  # 不参与统计
+        {"time": "2026-07-10 10:00:00"},                    # 无 type 不参与
+    ]
+    now = datetime(2026, 7, 10, 23, 0)
+    s = lu.compute_stats(hist, days=7, now=now)
+    assert s["new_post"][6] == 1
+    assert s["totals"]["new_post"] == 1
+

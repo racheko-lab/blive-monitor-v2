@@ -1,0 +1,82 @@
+%% 日志模块功能性重写 — 程序调用流程（4 条时序）
+%% 复用既有 log_utils.append_history（原子写 + 上限裁剪）与 state_prune 级联清理。
+
+%% ============ ① 状态变更 → 写分级日志（带节流） ============
+sequenceDiagram
+    autonumber
+    participant CS as CheckStatus
+    participant LU as LogUtils
+    participant HF as history.json (磁盘)
+
+    CS->>CS: 检测房间 → 得到 status (live/offline/replay/error/unknown)
+    CS->>CS: 构建 entry: type=type_from_status(status), level=level_from_type(type), rid=room.id
+    alt type ∈ {error, cookie_warn}  (抓取失败 / 风控)
+        CS->>LU: dedupe_by_throttle(entries, now, HISTORY_FILE)
+        LU->>LU: should_suppress(rid, type, now) 扫描磁盘末尾 N 条同 rid+type
+        LU-->>CS: 过滤后 entries (30min 内重复则剔除)
+    end
+    CS->>LU: append_history(HISTORY_FILE, entries, HISTORY_MAX)
+    LU->>HF: load → +entries → cap(500) → save(.tmp+os.replace)
+    Note over CS,HF: 之后 state_prune.prune_history_orphans 按 active_keys 裁孤儿 (上轮已有)
+
+%% ============ ② 新作品 → 写 new_post + 推送；错误 → 写 error/cookie_warn ============
+sequenceDiagram
+    autonumber
+    participant CNP as CheckNewPosts
+    participant PU as PushUtils
+    participant LU as LogUtils
+    participant HF as history.json
+
+    CNP->>CNP: 检测到真实新作品 (api 模式, candidate=true)
+    CNP->>PU: dispatch_push(新作品标题/链接)
+    PU-->>CNP: ok / fail
+    CNP->>LU: append_event(rid, name, douyin, type=new_post, detail=作品链接, level=info, now)
+    LU->>HF: append_history(...) 原子写
+
+    Note over CNP,HF: 错误/风控路径 (同账号同类型 30min 节流)
+    CNP->>CNP: sec_uid 解析失败 / 接口被风控(aweme=None) / fetch 异常
+    CNP->>LU: append_event(..., type=cookie_warn|error, detail=原因)
+    LU->>LU: should_suppress(rid, type, now) 基于磁盘末尾判断
+    alt 窗口内已写过
+        LU-->>CNP: 跳过 (仅保留 Python logger 控制台输出)
+    else 可写
+        LU->>HF: append_history(...)
+    end
+    Note over CNP: 缺 id / 缺 sec_uid 且无法解析 → 降级 type=system 跳过刷屏
+
+%% ============ ③ 前端：筛选 / 分页 / 统计 / 展开渲染 ============
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant M as monitor.html (canonical)
+    participant H as history.json
+
+    M->>H: fetch('history.json') + status/rooms/post_*
+    H-->>M: hist[] (含 type/level/detail/account)
+    M->>M: computeStatsJS(hist, 7) → stats bar (近7天 新作品/开播/异常)
+    M->>M: applyFilters() 按 logState{search,type,platform,account,date,sort}
+    M->>M: renderLogList(前 visible=50 条)
+    U->>M: 点击「加载更早」
+    M->>M: logState.visible += 50 → renderLogList(增量)
+    U->>M: 点击某条目
+    M->>M: onExpand → 内联显示 time/platform/type/name/title/push/detail/rid
+    U->>M: 切换排序 / 选择账号下拉
+    M->>M: 重算 applyFilters + renderLogList
+
+%% ============ ④ 四视图整合：重定向到主视图 ============
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant D as monitor-dashboard.html
+    participant F as monitor-feed.html
+    participant Hr as monitor-hero.html
+    participant M as monitor.html ★canonical
+
+    U->>D: 打开 dashboard 入口
+    D->>M: location.replace('monitor.html?view=dashboard')
+    U->>F: 打开 feed 入口
+    F->>M: location.replace('monitor.html?view=feed')
+    U->>Hr: 打开 hero 入口
+    Hr->>M: location.replace('monitor.html?view=hero')
+    M->>M: readViewParam() → show('log') + 预置筛选
+    Note over D,F,Hr: 三兄弟仅保留重定向壳，删除各自重复日志渲染 (D类)

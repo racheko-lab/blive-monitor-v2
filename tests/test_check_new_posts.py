@@ -153,6 +153,8 @@ def _seed(tmp_path, monkeypatch, post_rooms, tracking=None, push_cfg='{"push":{"
         tracking_file.write_text(json.dumps(tracking), encoding="utf-8")
     monkeypatch.setattr(cnp, "CONFIG_FILE", str(config_file))
     monkeypatch.setattr(cnp, "TRACKING_FILE", str(tracking_file))
+    # 隔离 HISTORY_FILE，避免新作品/错误写入污染仓库真实 history.json
+    monkeypatch.setattr(cnp, "HISTORY_FILE", str(tmp_path / "history.json"))
     monkeypatch.setattr(cnp, "resolve_sec_uid", lambda ctx, rid: rid)
     monkeypatch.setenv("ENABLE_POST_CHECK", "true")
     monkeypatch.setenv("BLIVE_CONFIG", push_cfg)
@@ -661,6 +663,98 @@ def test_main_poison_guard_skipped_for_sec_uid_id(tmp_path, monkeypatch):
     assert "sec_uid" in tracking["douyin_MS4wABC"]
     # 该账号正常走检测（count 10→12 推测推送），不因为 unique_id 不符而误杀
     assert len(calls) == 1
+
+
+# ==================== 日志模块功能性重写：新作品/错误进统一日志 ====================
+
+def _hist_types(tmp_path):
+    hist = json.loads((tmp_path / "history.json").read_text(encoding="utf-8"))
+    return hist
+
+
+def test_new_post_written_to_history(tmp_path, monkeypatch):
+    """检测到真实新作品（api + candidate）时，向 history 写一条 type=new_post。"""
+    _install_fake_playwright()
+    _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+          tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
+        "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
+    })
+    cnp.main()
+    hist = _hist_types(tmp_path)
+    np = [e for e in hist if e.get("type") == "new_post"]
+    assert len(np) == 1
+    assert np[0]["rid"] == "MS4wABC"
+    assert np[0]["platform"] == "douyin"
+    assert np[0]["level"] == "info"
+    assert "999" in (np[0]["detail"] or "")
+
+
+def test_cookie_warn_written_when_gated(tmp_path, monkeypatch):
+    """接口被风控/未登录（aweme=None）→ 写一条 type=cookie_warn（level=warn）。"""
+    _install_fake_playwright()
+    _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+          tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: None)
+    cnp.main()
+    hist = _hist_types(tmp_path)
+    cw = [e for e in hist if e.get("type") == "cookie_warn"]
+    assert len(cw) >= 1
+    assert cw[0]["level"] == "warn"
+    assert cw[0]["rid"] == "MS4wABC"
+
+
+def test_error_written_on_fetch_exception(tmp_path, monkeypatch):
+    """抓取异常（get_latest_aweme 抛出）→ 写一条 type=error，detail 含异常信息。"""
+    _install_fake_playwright()
+    _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+          tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+
+    def boom(ctx, sec):
+        raise RuntimeError("网络超时")
+
+    monkeypatch.setattr(cnp, "get_latest_aweme", boom)
+    cnp.main()
+    hist = _hist_types(tmp_path)
+    err = [e for e in hist if e.get("type") == "error"]
+    assert len(err) >= 1
+    assert "网络超时" in (err[0]["detail"] or "")
+    assert err[0]["level"] == "error"
+
+
+def test_cookie_warn_throttled_within_window(tmp_path, monkeypatch):
+    """同账号 cookie_warn 在 30min 窗口内仅写一次（防刷屏）。"""
+    _install_fake_playwright()
+    _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+          tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: None)
+    cnp.main()
+    cw1 = sum(1 for e in _hist_types(tmp_path) if e.get("type") == "cookie_warn")
+    cnp.main()  # 秒级间隔，窗口内 → 抑制
+    cw2 = sum(1 for e in _hist_types(tmp_path) if e.get("type") == "cookie_warn")
+    assert cw2 == cw1, "30min 窗口内同账号 cookie_warn 应被节流，不重复写"
+
+
+def test_system_written_when_sec_uid_missing(tmp_path, monkeypatch):
+    """缺 sec_uid 且无法解析 → 降级 type=system 跳过（不写垃圾 error 刷屏）。"""
+    _install_fake_playwright()
+    # 无 sec_uid、且 resolve_sec_uid 返回空（模拟解析失败）
+    _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+          tracking={"douyin_MS4wABC": {"latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(cnp, "resolve_sec_uid", lambda ctx, rid: "")  # 解析失败
+    cnp.main()
+    hist = _hist_types(tmp_path)
+    sys = [e for e in hist if e.get("type") == "system"]
+    assert len(sys) >= 1
+    assert sys[0]["level"] == "info"
+    # 不应出现 error/cookie_warn 刷屏
+    assert not any(e.get("type") in ("error", "cookie_warn") for e in hist)
 
 
 def test_main_poison_guard_ok_when_handle_matches(tmp_path, monkeypatch):

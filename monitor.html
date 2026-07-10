@@ -113,6 +113,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{background:rgba(46,213,115,.95)}
 .toast.err{background:rgba(255,71,87,.95)}
+/* ===== 日志功能化（P0-3/4/5/6 搜索/筛选/分页/排序/展开/统计） ===== */
+.logstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 2px 10px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.stat-t{font-size:10px;color:var(--text2)}
+.stat-b{font-size:20px;font-weight:800;line-height:1.1;margin:2px 0 6px;color:var(--text)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:34px}
+.spark .bar{flex:1;border-radius:3px 3px 0 0;min-height:2px;opacity:.85}
+.logfilter{display:flex;flex-direction:column;gap:8px;margin:0 2px 12px}
+.logchips{display:flex;flex-wrap:wrap;gap:6px}
+.lchip{padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text2);border:1px solid var(--line);background:transparent;transition:.2s}
+.lchip.active{background:var(--bili);color:#fff;border-color:transparent}
+.logrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#logSearch{flex:1;min-width:140px}
+#logAccount,#logDate{flex:0 1 auto;min-width:120px}
+.log-item-clickable{cursor:pointer}
+.chev{margin-left:auto;color:var(--text3);font-size:10px;transition:.2s;transform:rotate(-90deg)}
+.log-item-clickable.open .chev{transform:rotate(0)}
+.log-detail{display:none;margin-top:8px;padding:9px 11px;background:var(--card2);border:1px solid var(--line);border-radius:10px;font-size:11.5px;line-height:1.7}
+.log-detail.open{display:block}
+.ld-row{display:flex;gap:8px}
+.ld-k{color:var(--text3);min-width:42px;flex-shrink:0}
+.ld-v{color:var(--text);word-break:break-all}
+.log-dot.err{background:var(--live)}.log-dot.warn{background:var(--yellow)}
+.loadmore{text-align:center;padding:11px;color:var(--bili);font-size:12px;font-weight:700;cursor:pointer;border:1px dashed var(--line);border-radius:10px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -177,7 +201,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
   </section>
 
   <section class="view" id="view-log">
-    <div class="panel-head"><h2>📋 监控日志</h2></div>
+    <div class="panel-head"><h2>📋 监控日志</h2><span class="count" id="logCount" style="font-size:11px;color:var(--text2)"></span></div>
+    <div id="logStats" class="logstats"></div>
+    <div id="logFilter" class="logfilter">
+      <input id="logSearch" class="ainput" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
+      <div class="logchips" id="logTypeChips">
+        <button class="lchip active" data-type="all" onclick="onLogType('all')">全部</button>
+        <button class="lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
+        <button class="lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
+        <button class="lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
+        <button class="lchip" data-type="error" onclick="onLogType('error')">异常</button>
+        <button class="lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
+        <button class="lchip" data-type="system" onclick="onLogType('system')">系统</button>
+      </div>
+      <div class="logchips" id="logPfChips">
+        <button class="lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
+        <button class="lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
+        <button class="lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+      </div>
+      <div class="logrow">
+        <select id="logAccount" class="ainput" onchange="onLogAccount()"><option value="">全部账号</option></select>
+        <input id="logDate" class="ainput" type="date" onchange="onLogDate()">
+        <button class="lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
+      </div>
+    </div>
     <div id="logBody" class="logbox"></div>
   </section>
 
@@ -380,21 +427,223 @@ function renderPosts(){
   body.innerHTML=h;
 }
 
-function renderLog(){
-  var lb=document.getElementById('logBody');
-  if(!hist||!hist.length){lb.innerHTML='<div class="empty">暂无日志</div>';return;}
-  var pm={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
-  var h='';
-  for(var i=hist.length-1;i>=Math.max(0,hist.length-80);i--){
+/* 推送标记映射（status 兼容字段，新代码主要看 type） */
+var PM={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
+
+/* 日志视图单一状态（P0-3/4/5 筛选/分页/排序） */
+var logState={search:'',type:'all',platform:'all',account:'',date:'',sort:'desc',visible:50};
+var logFiltered=[];      // 当前过滤结果缓存
+var logExpanded={};      // 已展开条目的索引集合（按 logFiltered 下标）
+
+/* type → 图标/中文标签/配色类（缺 type 时按旧 status 懒推导，向后兼容） */
+function typeMeta(t){
+  var map={
+    live_on:{i:'🔴',l:'开播',c:'live'},
+    live_off:{i:'⚫',l:'下播',c:'off'},
+    new_post:{i:'🎬',l:'新作品',c:'dy'},
+    error:{i:'❌',l:'异常',c:'err'},
+    cookie_warn:{i:'⚠️',l:'风控',c:'warn'},
+    system:{i:'⚙️',l:'系统',c:'off'}
+  };
+  if(map[t])return map[t];
+  // 兼容无 type 的存量条目（按旧 status 推导图标）
+  var si={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[t]||'⚫';
+  var sc=(t==='live')?'live':(t==='replay'?'off':'off');
+  return {i:si,l:t||'事件',c:sc};
+}
+
+/* 纯函数：输入全局 hist + logState → 输出过滤+排序后列表（P0-3/4） */
+function applyFilters(){
+  var out=[];
+  var q=logState.search.trim().toLowerCase();
+  var date=logState.date||'';
+  for(var i=0;i<hist.length;i++){
     var l=hist[i];
-    var cls=l.platform==='bilibili'?'bili':'dy';
-    if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
-    var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
-    var chg=l.changed?' <span class="chg">[变化]</span>':'';
-    var pt=pm[l.push]||'';
-    h+='<div class="log-item"><span class="log-dot '+cls+'"></span><span class="log-time">'+e(l.time).substring(11,16)+'</span><span class="log-txt">'+stIcon+' <b>'+e(l.name)+'</b>'+chg+pt+(l.title?' · '+e(l.title):'')+'</span></div>';
+    var t=l.type||l.status;
+    // 类型（异常+风控 合并为严重度快捷时由调用方先映射，这里按单一 type 匹配）
+    if(logState.type!=='all' && t!==logState.type)continue;
+    // 平台
+    if(logState.platform!=='all' && l.platform!==logState.platform)continue;
+    // 账号（account==rid）
+    if(logState.account){
+      var acc=l.account||l.rid||'';
+      if(acc!==logState.account)continue;
+    }
+    // 日期（按 time 的日期部分）
+    if(date && (l.time||'').substring(0,10)!==date)continue;
+    // 搜索：name + title + detail 子串
+    if(q){
+      var hay=((l.name||'')+' '+(l.title||'')+' '+(l.detail||'')).toLowerCase();
+      if(hay.indexOf(q)<0)continue;
+    }
+    out.push(l);
   }
-  lb.innerHTML=h||'<div class="empty">暂无日志</div>';
+  // 排序：按 time（默认倒序 新→旧）
+  out.sort(function(a,b){
+    var ta=Date.parse((a.time||'').replace(/-/g,'/')), tb=Date.parse((b.time||'').replace(/-/g,'/'));
+    if(isNaN(ta))ta=0; if(isNaN(tb))tb=0;
+    return logState.sort==='desc'? tb-ta : ta-tb;
+  });
+  return out;
+}
+
+/* 统计条（P0-6）：按 type + 北京时间日期聚合到天；选中账号时仅统计该账号
+ * 日期标签与分桶 key 统一用零填充 MM-DD（与 Python log_utils.compute_stats 的
+ * strftime("%m-%d") 一致），否则标签 "7-10" 与时间字段子串 "07-10" 不匹配导致聚合失效。
+ * 窗口基准统一用北京时间（与 compute_stats 的 common.bjnow() 一致），分桶 key 取自
+ * time 字符串本身（本就是北京时间），故全链路按北京时间聚合。 */
+function bjNow(){
+  var d=new Date();
+  // local = UTC - offset(min) ；Beijing = UTC + 480(min) ⇒ Beijing = local + (offset + 480)
+  return new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+}
+function computeStatsJS(histData, days, now){
+  now=now||bjNow();
+  function pad(n){ return (n<10?'0':'')+n; }
+  var labels=[], idx={};
+  for(var i=days-1;i>=0;i--){
+    var d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+    var lab=pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    labels.push(lab); idx[lab]=days-1-i;
+  }
+  var buckets={new_post:new Array(days).fill(0),live_on:new Array(days).fill(0),error:new Array(days).fill(0),cookie_warn:new Array(days).fill(0)};
+  for(var k=0;k<histData.length;k++){
+    var e=histData[k];
+    var t=e.type||e.status;
+    if(!(t in buckets))continue;
+    var lab=(e.time||'').substring(5,10);
+    if(lab in idx) buckets[t][idx[lab]]++;
+  }
+  var totals={}; for(var b in buckets) totals[b]=buckets[b].reduce(function(a,c){return a+c;},0);
+  return {days:labels,new_post:buckets.new_post,live_on:buckets.live_on,error:buckets.error,cookie_warn:buckets.cookie_warn,totals:totals};
+}
+
+function renderStats(){
+  var box=document.getElementById('logStats'); if(!box)return;
+  // 选中账号时统计该账号（按账号视图迷你统计，P1-1）
+  var base = logState.account ? hist.filter(function(l){return (l.account||l.rid)==logState.account;}) : hist;
+  var s=computeStatsJS(base,7);
+  function bars(arr,colorVar){
+    var max=Math.max(1,Math.max.apply(null,arr));
+    var h='';
+    for(var i=0;i<arr.length;i++){
+      var hgt=Math.round(arr[i]/max*100);
+      h+='<div class="bar" title="'+s.days[i]+': '+arr[i]+'" style="height:'+hgt+'%;background:var('+colorVar+')"></div>';
+    }
+    return h;
+  }
+  var errWarn=s.error.map(function(a,i){return a+s.cookie_warn[i];});
+  box.innerHTML=
+    '<div class="stat-card"><div class="stat-t">近7天新作品</div><div class="stat-b">'+s.totals.new_post+'</div><div class="spark">'+bars(s.new_post,'--dy')+'</div></div>'+
+    '<div class="stat-card"><div class="stat-t">近7天开播</div><div class="stat-b">'+s.totals.live_on+'</div><div class="spark">'+bars(s.live_on,'--live')+'</div></div>'+
+    '<div class="stat-card"><div class="stat-t">近7天异常/风控</div><div class="stat-b">'+(s.totals.error+s.totals.cookie_warn)+'</div><div class="spark">'+bars(errWarn,'--yellow')+'</div></div>';
+}
+
+function populateLogAccounts(){
+  var sel=document.getElementById('logAccount'); if(!sel)return;
+  var map={};
+  for(var i=0;i<hist.length;i++){ var l=hist[i]; var rid=l.rid||l.account; if(rid) map[rid]=l.name||rid; }
+  for(var j=0;j<rooms.length;j++){ var r=rooms[j]; if(r.id) map[r.id]=r.name||r.id; }
+  for(var k=0;k<postRooms.length;k++){ var p=postRooms[k]; if(p.id) map[p.id]=p.name||p.id; }
+  var cur=sel.value;
+  sel.innerHTML='<option value="">全部账号</option>';
+  Object.keys(map).forEach(function(rid){
+    var o=document.createElement('option'); o.value=rid; o.textContent=map[rid]+' ('+rid+')'; sel.appendChild(o);
+  });
+  sel.value=cur;
+}
+
+function logRow(k,v){ return '<div class="ld-row"><span class="ld-k">'+k+'</span><span class="ld-v">'+v+'</span></div>'; }
+
+function renderLogItem(l, idx){
+  var m=typeMeta(l.type||l.status);
+  var cls=l.platform==='bilibili'?'bili':'dy';
+  if(m.c==='live')cls='live'; else if(m.c==='err')cls='err'; else if(m.c==='warn')cls='warn'; else if(m.c==='dy')cls='dy'; else cls='off';
+  var chg=l.changed?' <span class="chg">[变化]</span>':'';
+  var pt=PM[l.push]||'';
+  var timeStr=(l.time||'').substring(11,16);
+  var title=l.title?' · '+e(l.title):'';
+  var open=logExpanded[idx]?' open':'';
+  var detail=
+    '<div class="log-detail'+open+'" id="ld_'+idx+'">'+
+    logRow('时间', e(l.time))+
+    logRow('平台', e(l.platform))+
+    logRow('类型', m.i+' '+m.l+(l.type?(' ('+e(l.type)+')'):''))+
+    logRow('名称', e(l.name))+
+    logRow('标题', e(l.title))+
+    logRow('推送', e(l.push||'-'))+
+    logRow('详情', e(l.detail))+
+    logRow('rid', e(l.rid))+
+    '</div>';
+  return '<div class="log-item log-item-clickable'+open+'" onclick="toggleExpand('+idx+')">'+
+    '<span class="log-dot '+cls+'"></span>'+
+    '<span class="log-time">'+timeStr+'</span>'+
+    '<span class="log-txt">'+m.i+' <b>'+e(l.name)+'</b>'+chg+pt+title+'</span>'+
+    '<span class="chev">▾</span></div>'+detail;
+}
+
+function renderLogList(){
+  logFiltered=applyFilters();
+  var lb=document.getElementById('logBody');
+  var cnt=document.getElementById('logCount');
+  if(cnt)cnt.textContent='('+logFiltered.length+')';
+  if(!logFiltered.length){lb.innerHTML='<div class="empty">暂无符合条件的日志</div>';return;}
+  var n=Math.min(logState.visible, logFiltered.length);
+  var h='';
+  for(var i=0;i<n;i++){ h+=renderLogItem(logFiltered[i], i); }
+  if(n<logFiltered.length){
+    h+='<div class="loadmore" onclick="onLoadMore()">加载更早 ↓（剩余 '+(logFiltered.length-n)+' 条）</div>';
+  }
+  lb.innerHTML=h;
+}
+
+/* 点击展开/收起（P0-5） */
+function toggleExpand(idx){ logExpanded[idx]=!logExpanded[idx]; renderLogList(); }
+
+function renderLog(){
+  renderStats();
+  populateLogAccounts();
+  renderLogList();
+}
+
+/* ===== 筛选栏交互（P0-3） ===== */
+function setChipActive(containerId, attr, val){
+  var box=document.getElementById(containerId); if(!box)return;
+  var chips=box.querySelectorAll('.lchip');
+  chips.forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-'+attr)===val); });
+}
+function onLogSearch(){ logState.search=document.getElementById('logSearch').value; logState.visible=50; renderLogList(); }
+function onLogType(t){ logState.type=t; setChipActive('logTypeChips','type',t); renderLogList(); }
+function onLogPlatform(p){ logState.platform=p; setChipActive('logPfChips','pf',p); renderLogList(); }
+function onLogAccount(){ logState.account=document.getElementById('logAccount').value; logState.visible=50; renderLog(); }
+function onLogDate(){ logState.date=document.getElementById('logDate').value; logState.visible=50; renderLogList(); }
+function onLogSort(){ logState.sort= logState.sort==='desc'?'asc':'desc'; document.getElementById('logSort').textContent= logState.sort==='desc'?'↓ 新→旧':'↑ 旧→新'; renderLogList(); }
+function onLoadMore(){ logState.visible+=50; renderLogList(); }
+
+/* ===== ?view= 预选（四视图整合 Option A） =====
+ * 三个入口页（monitor-dashboard/feed/hero.html）均已改为轻量重定向壳，
+ * 统一跳转到本 canonical 主视图并带上 ?view=xxx：
+ *   dashboard → monitor.html?view=dashboard
+ *   feed      → monitor.html?view=feed
+ *   hero      → monitor.html?view=hero
+ */
+var VIEW_TARGETS={
+  'dashboard':'monitor.html?view=dashboard',
+  'feed':'monitor.html?view=feed',
+  'hero':'monitor.html?view=hero'
+};
+function readViewParam(){
+  try{
+    var p=new URLSearchParams(location.search);
+    var v=p.get('view');
+    if(v==='dashboard'||v==='feed'||v==='hero'){
+      show('log');                       // 三入口统一落到日志主视图
+      if(v==='feed'){                    // feed：新作品优先
+        logState.type='new_post'; setChipActive('logTypeChips','type','new_post');
+      }
+      // dashboard / hero：默认日志视图（无强制预置）
+    }
+  }catch(e){}
 }
 
 /* ===================== 房间管理：Worker 代理 API ===================== */
@@ -801,6 +1050,7 @@ function ld(){
       });
       return;
     }
+    readViewParam();
     renderLive();renderPosts();renderLog();
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
