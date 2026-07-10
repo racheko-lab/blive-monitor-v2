@@ -434,10 +434,10 @@ function ghHeaders(extra){
   return h;
 }
 
-/** 统一 fetch 封装：12s 超时 + 友好错误。 */
+/** 统一 fetch 封装：20s 超时 + 友好错误。 */
 function ghFetch(url, opts){
   var ctrl=new AbortController();
-  var timer=setTimeout(function(){ctrl.abort();}, 12000);
+  var timer=setTimeout(function(){ctrl.abort();}, 20000);
   return fetch(url, Object.assign({}, opts, {signal:ctrl.signal}))
     .then(function(r){
       clearTimeout(timer);
@@ -484,7 +484,10 @@ function ghPutFile(path, rooms, sha){
   });
 }
 
-/** 读-改-写（基于 sha 的并发安全，遇 409 重试 ≤2 次）。 */
+/** 读-改-写（基于 sha 的并发安全，遇 409 基于「最新」sha 重试，最多 5 次）。
+ *  关键：每次重试都会重新 ghGetFile 拿到远端最新 sha，因此能自愈“CI 刚 push 过
+ *  同一文件导致 base sha 过期”的 409。单次超时 20s、最多 5 次，足以覆盖 CI 那次
+ *  push 落地前的短暂窗口（通常几十秒内）。若仍失败，由调用方提示用户稍候再试。 */
 function ghWriteWithRetry(path, mutate){
   var attempt=0;
   function run(){
@@ -494,7 +497,7 @@ function ghWriteWithRetry(path, mutate){
       return ghPutFile(path, res.rooms, file.sha).then(function(newSha){
         return Object.assign({}, res, {changed:true, sha:newSha});
       }).catch(function(e){
-        if(e&&e.conflict&&attempt<2){ attempt++; return run(); }
+        if(e&&e.conflict&&attempt<5){ attempt++; return run(); }
         throw e;
       });
     });
@@ -632,9 +635,15 @@ function submitPostAdd(){
       }else{
         toast('已添加抖音号，将在下次检测自动解析 sec_uid…', true);
       }
-      triggerMonitor().catch(function(){});
     })
-    .catch(function(err){ toast(err && err.message ? err.message : '添加失败', false); });
+    .catch(function(err){
+      // 最常见失败：409（base sha 过期）。原因几乎都是 CI 的 check.yml 刚 push 过
+      // post_rooms.json（它会在检测出 sec_uid 后写回该文件），与本次直写竞争同一文件的
+      // blob sha。重试已基于最新 sha 自愈；若仍失败提示用户稍候再试（等 CI 那次 push 落地）。
+      var msg=err && err.message ? err.message : '添加失败';
+      if(/409|conflict|冲突/i.test(msg)) msg='并发写入冲突，请稍候几秒再点「添加」';
+      toast(msg, false);
+    });
 }
 /** 移除抖音号（带二次确认，乐观更新）。 */
 function removePostRoom(arg){
@@ -702,13 +711,17 @@ function submitAdd(){
          导致“添加/删除后必须刷新页面才看得到”）。本地列表即权威，渲染立即生效。 */
       rooms=res.rooms||[]; renderLive(); updateStatRooms();
       toggleAddForm(false);
-      toast('已添加监控，正在获取状态…', true);
-      /* 触发监控脚本立即抓取新房间状态，并在它跑完后自动刷新页面（省去最长 ~5 分钟等待） */
-      triggerMonitor().catch(function(){});
-      setTimeout(function(){ ld(); }, 75000);
-      setTimeout(function(){ ld(); }, 150000);
+      toast('已添加监控，将在下次检测（≤5 分钟）获取状态…', true);
+      /* 注：不再主动 triggerMonitor()。原因：CI 的 check.yml 在跑完后会把新解析到的状态写回
+         rooms.json / state.json 并 git push，与本次直写竞争同一文件的 blob sha → 409 冲突，
+         表现为“连点添加失败”。交给 cron（每 5 分钟）或“立即触发”按钮更稳妥，
+         且 ghWriteWithRetry 已增强为基于最新 sha 重试 ≤5 次自愈。 */
     })
-    .catch(function(err){ toast(err && err.message ? err.message : '添加失败', false); });
+    .catch(function(err){
+      var msg=err && err.message ? err.message : '添加失败';
+      if(/409|conflict|冲突/i.test(msg)) msg='并发写入冲突，请稍候几秒再点「添加」';
+      toast(msg, false);
+    });
 }
 
 /** 移除房间（带二次确认）。 */
