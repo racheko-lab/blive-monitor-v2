@@ -79,6 +79,7 @@ jobs:
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
           ENABLE_POST_CHECK: "true"
         run: python3 check_new_posts.py
 
