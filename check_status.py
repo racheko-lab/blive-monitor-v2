@@ -588,22 +588,68 @@ def _is_xhs_url(target: str) -> bool:
     return t.startswith("http://") or t.startswith("https://") or "xiaohongshu.com" in t or "xhslink.com" in t
 
 
-def _resolve_xhs_shortlink(target: str) -> str:
-    """解析小红书短链（xhslink.com）到真实直播间/主页 URL；非短链原样返回。"""
+# 小红书直播间/用户域（用于校验短链解析结果确实落在 xhs 站内）
+_XHS_HOSTS = ("xiaohongshu.com", "xhslink.com")
+
+
+def _is_xhs_host(url: str) -> bool:
+    """判断最终 URL 是否落在小红书站内（含短链域名）。"""
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower()
+        return any(h in host for h in _XHS_HOSTS)
+    except Exception:
+        return False
+
+
+def _resolve_xhs_shortlink(target: str) -> Tuple[str, bool]:
+    """解析小红书短链（xhslink.com）到真实直播间/主页 URL；非短链原样返回。
+
+    Returns:
+        (resolved_url, ok)：
+        - ok=True 表示解析成功且最终 URL 确认为 xhs 站内（可放心拿去渲染）；
+        - ok=False 表示短链失效/重定向到站外/网络异常，调用方应据此明确判为
+          「链接失效」而非含糊地当 offline（避免把 404 短链渲染出的风控页误判成下播）。
+
+    实测：主播下播或短链过期时 xhslink 会返回 404，原实现只 warning 后「按原值处理」
+    会把 404 链接拿去渲染 → 风控/空页 → 误判 offline 且白等一次渲染。这里改为显式返回失败。
+    """
     t = target.strip()
     if "xhslink.com" not in t:
-        return t
+        # 非短链：直接用，但也要确认是 xhs 站内
+        return t, _is_xhs_host(t)
     try:
         req = urllib.request.Request(t, headers={"User-Agent": XHS_UA})
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
-            return resp.geturl()
+            final = resp.geturl()
+            if resp.status >= 400:
+                logger.warning("小红书短链返回 HTTP %s (%s)，链接可能已失效", resp.status, t)
+                return t, False
+            if not _is_xhs_host(final):
+                logger.warning("小红书短链重定向到站外 (%s)，疑似失效或被劫持", final)
+                return t, False
+            return final, True
+    except urllib.error.HTTPError as e:
+        logger.warning("解析小红书短链失败 HTTP %s (%s)：链接可能已失效/主播下播", e.code, t)
+        return t, False
     except Exception as e:
-        logger.warning("解析小红书短链失败 (%s): %s，按原值处理", t, e)
-        return t
+        logger.warning("解析小红书短链失败 (%s): %s", t, e)
+        return t, False
+
+
+# 小红书数据中心 IP 风控关键词（渲染出这些 → 检测受挫，非真实下播）
+_XHS_RISK_KEYWORDS = (
+    "请完成安全验证", "滑动验证", "验证码", "captcha",
+    "系统检测到异常", "网络异常", "验证", "安全限制",
+)
 
 
 def _render_with_chromium(url: str) -> Optional[str]:
-    """用无头 Chromium 渲染页面并返回 DOM 字符串。无 chromium 或失败返回 None。"""
+    """用无头 Chromium 渲染页面并返回 DOM 字符串。无 chromium 或失败返回 None。
+
+    超时从 90s 收紧到 45s：数据中心 IP 访问 xhs 常被卡住甚至永不返回，
+    单房间渲染过长会拖垮整个检测轮次（阻断其余 B站/抖音房间）。45s 已是冗余上限。
+    """
     if not CHROMIUM_BIN:
         return None
     try:
@@ -623,12 +669,21 @@ def _render_with_chromium(url: str) -> Optional[str]:
             ],
             capture_output=True,
             text=True,
-            timeout=90,
+            timeout=45,
         )
         return proc.stdout
     except Exception as e:
         logger.warning("chromium 渲染失败 (%s): %s", url, e)
         return None
+
+
+def _xhs_dom_is_risk_blocked(html: str) -> bool:
+    """渲染出的 DOM 是否命中数据中心 IP 风控页（安全验证/滑块/captcha 等）。
+
+    命中说明本次渲染不可信，应判为 error（检测受挫）而非 offline（真实下播），
+    否则会被误当成「下播」而漏推真实开播、还污染状态文件。
+    """
+    return any(k in html for k in _XHS_RISK_KEYWORDS)
 
 
 def parse_xiaohongshu_room_dom(html: str, room_url: str) -> Dict[str, Any]:
@@ -638,10 +693,21 @@ def parse_xiaohongshu_room_dom(html: str, room_url: str) -> Dict[str, Any]:
     JS 把数据存进应用状态而非 script 标签）。但真实在播时 DOM 会渲染播放器，
     其 class 带 ``xgplayer-is-live`` / ``xhsplayer-skin-live``，页面标题为
     ``<昵称>的小红书直播间``。据此判定。
+
+    返回 status 含义：
+    - ``live``    : DOM 命中播放器在播信号，确为开播；
+    - ``error``   : 渲染出风控页（数据中心 IP 被拦），检测受挫，非真实下播；
+    - ``offline`` : 渲染成功且无在播信号，视为未开播（仅这种情况才判下播）。
     """
+    # 1) 风控页优先识别：渲染受挫 ≠ 下播，避免误判漏推
+    if html and _xhs_dom_is_risk_blocked(html):
+        return {"status": "error", "title": "", "online": 0, "live_url": "", "nickname": ""}
+
+    # 2) 在播信号（两种官方播放器 class 均需识别；xgplayer-playing 作兜底）
     is_live = (
         "xgplayer-is-live" in html
         or "xhsplayer-skin-live" in html
+        or "xgplayer-playing" in html
     )
     if not is_live:
         return {"status": "offline", "title": "", "online": 0, "live_url": "", "nickname": ""}
@@ -691,8 +757,13 @@ def fetch_xiaohongshu(target: str) -> Dict[str, Any]:
        安装 chromium，且直播间每次开播链接会变（需重新粘贴短链）。
     2) 若只是 profile uid：服务端无法判定直播，按 offline 降级（不误报，但也不生效）。
 
+    状态归因（关键，避免误判漏推）：
+    - ``live``    : 渲染 DOM 命中播放器在播信号，确为开播；
+    - ``error``   : 短链失效（主播下播/过期）或渲染出风控页/渲染超时——检测受挫，
+                    非真实下播，故不推送、不污染「下播」状态；
+    - ``offline`` : 渲染成功且明确无在播信号，或未配置 chromium 的环境降级。
+
     注意：数据中心 IP 访问部分页面会被风控（「安全限制」），但指定直播间 URL 通常可渲染。
-    无 chromium 的环境自动降级为 offline，不崩溃。
 
     Args:
         target: 小红书直播间链接/短链，或 profile uid
@@ -703,7 +774,22 @@ def fetch_xiaohongshu(target: str) -> Dict[str, Any]:
     now_str = bjnow().strftime("%Y-%m-%d %H:%M:%S")
 
     if _is_xhs_url(target):
-        room_url = _resolve_xhs_shortlink(target)
+        room_url, shortlink_ok = _resolve_xhs_shortlink(target)
+        if not shortlink_ok:
+            # 短链失效（404/站外/异常）：主播可能已下播或链接过期。判 error 而非 offline，
+            # 既不推送也不把真实开播误记为「下播」；下次填好新短链即可恢复。
+            logger.warning(
+                "小红书短链解析失败/失效 (%s)，跳过本轮检测（不判 offline 以免误标下播）。",
+                target,
+            )
+            return {
+                "status": "error",
+                "title": "直播间链接失效（短链可能过期/主播下播）",
+                "online": 0,
+                "live_url": room_url,
+                "nickname": "",
+                "time": now_str,
+            }
         dom = _render_with_chromium(room_url)
         if dom is not None:
             result = parse_xiaohongshu_room_dom(dom, room_url)
@@ -970,6 +1056,24 @@ def main() -> None:
             else:
                 logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
                 result = {"status": "offline", "title": "", "online": 0, "time": now_str}
+
+            # 检测受挫（短链失效/渲染风控页/渲染超时等）→ 沿用上次已知状态，
+            # 不把「检测失败」误记为「下播」，也避免 error→live 漏推恢复开播。
+            # 与 B站批量接口整体失败的处理思路一致（见 bili_status_on_batch_failure）。
+            if result["status"] == "error":
+                prev = prev_state.get(key)
+                prev_full = prev_status_full.get(key, {})
+                logger.warning(
+                    "[%s] %s 检测受挫，沿用上次状态: %s",
+                    name, platform, prev,
+                )
+                result = {
+                    "status": prev or "unknown",
+                    "title": prev_full.get("title", ""),
+                    "online": prev_full.get("online", 0),
+                    "area": prev_full.get("area", ""),
+                    "time": now_str,
+                }
 
         except Exception as e:
             logger.warning("[%s] 检测失败: %s", name, e)

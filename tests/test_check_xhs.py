@@ -221,3 +221,88 @@ def test_parse_room_dom_offline():
     assert r["status"] == "offline"
     assert r["live_url"] == ""
 
+
+def test_parse_room_dom_risk_blocked_is_error_not_offline():
+    # 数据中心 IP 风控页（安全验证/滑块/captcha 等）→ error，绝不能误判 offline 漏推
+    html = (
+        '<html><head><title>小红书</title></head>'
+        '<body><div class="captcha-box">请完成安全验证，滑动验证以继续访问</div></body></html>'
+    )
+    r = cs.parse_xiaohongshu_room_dom(html, "https://xhslink.com/m/xyz")
+    assert r["status"] == "error"
+    assert r["live_url"] == ""
+
+
+def test_parse_room_dom_xgplayer_playing_fallback_live():
+    # 仅 xgplayer-playing（无 is-live/skin-live 字面量时）也应判为 live（抗 class 微调）
+    html = (
+        '<html><head><title>某主播的小红书直播间</title></head>'
+        '<body><div class="xgplayer xgplayer-playing"></div></body></html>'
+    )
+    r = cs.parse_xiaohongshu_room_dom(html, "https://live.xiaohongshu.com/room/abc")
+    assert r["status"] == "live"
+    assert r["nickname"] == "某主播"
+
+
+def test_fetch_xhs_shortlink_invalid_returns_error(monkeypatch):
+    """短链失效（404/站外/异常）→ 本轮判 error 而非 offline，避免误标下播。"""
+    monkeypatch.setattr(cs, "_resolve_xhs_shortlink",
+                        lambda t: (t, False))
+    # 短链失败时根本不应进入渲染（省一次 chromium 调用）
+    called = {"n": 0}
+    monkeypatch.setattr(cs, "_render_with_chromium", lambda u: called.__setitem__("n", called["n"] + 1) or "")
+    r = cs.fetch_xiaohongshu("https://xhslink.com/m/dead")
+    assert r["status"] == "error"
+    assert called["n"] == 0  # 未渲染，直接判定失效
+
+
+def test_fetch_xhs_no_chromium_degrades_offline(monkeypatch):
+    """短链有效但无 chromium → 服务端无直播状态，安全降级 offline（不崩溃）。"""
+    monkeypatch.setattr(cs, "_resolve_xhs_shortlink",
+                        lambda t: ("https://live.xiaohongshu.com/room/abc", True))
+    monkeypatch.setattr(cs, "_render_with_chromium", lambda u: None)
+    r = cs.fetch_xiaohongshu("https://xhslink.com/m/ok")
+    assert r["status"] == "offline"
+    assert r["live_url"] == "https://live.xiaohongshu.com/room/abc"
+
+
+def test_fetch_xhs_shortlink_valid_renders_and_reports_dom(monkeypatch):
+    """短链有效 + 有 chromium → 进入 DOM 解析（live/offline/error 由渲染结果决定）。"""
+    monkeypatch.setattr(cs, "_resolve_xhs_shortlink",
+                        lambda t: ("https://live.xiaohongshu.com/room/abc", True))
+    monkeypatch.setattr(cs, "_render_with_chromium",
+                        lambda u: _wrap_room_dom(True, "渲染主播"))
+    r = cs.fetch_xiaohongshu("https://xhslink.com/m/ok")
+    assert r["status"] == "live"
+    assert r["nickname"] == "渲染主播"
+
+
+def test_main_xhs_error_inherits_prev_live(tmp_path, monkeypatch):
+    """xhs 检测受挫（短链失效→error）应沿用上次 live 状态，不误标下播、不漏推恢复开播。"""
+    rooms = [{"platform": "xhs", "id": "https://xhslink.com/m/dead", "name": "小红书测试号"}]
+    for f, content in (
+        ("rooms.json", json.dumps(rooms)),
+        ("state.json", json.dumps({"xhs_https://xhslink.com/m/dead": "live"})),
+        ("status.json", json.dumps({"updated": "", "rooms": [
+            {"platform": "xhs", "id": "https://xhslink.com/m/dead", "name": "小红书测试号",
+             "status": "live", "title": "旧标题", "online": 50, "area": ""}]})),
+    ):
+        (tmp_path / f).write_text(content, encoding="utf-8")
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(tmp_path / "rooms.json"))
+    monkeypatch.setattr(cs, "STATE_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(tmp_path / "history.json"))
+    monkeypatch.setattr(cs, "_resolve_xhs_shortlink", lambda t: (t, False))
+    calls = []
+    monkeypatch.setattr(cs, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+
+    cs.main()
+
+    st = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    # 沿用上次 live，不误标 error/offline
+    assert st.get("xhs_https://xhslink.com/m/dead") == "live"
+    # 检测受挫不推送
+    assert calls == []
+
