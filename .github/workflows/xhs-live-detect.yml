@@ -1,0 +1,50 @@
+name: 小红书开播检测(xhs-live)
+
+# 独立 workflow,与仓库内其他项目(check.yml 等)互不影响
+# 所有文件均在 xhs-live/ 子目录,状态文件 xhs-live/state.json 独立
+
+on:
+  schedule:
+    # 每 10 分钟检测一次(UTC)。GitHub Actions cron 不保证准时,可能延迟几分钟
+    - cron: '*/10 * * * *'
+  # 支持手动触发(Actions 页面点 Run workflow),方便首次测试
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  xhs-live-detect:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: xhs-live
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 执行开播检测
+        env:
+          XHS_USER_URL: ${{ secrets.XHS_USER_URL }}
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          BARK_SERVER: ${{ secrets.BARK_SERVER }}
+          STATE_FILE: state.json
+        run: python xhs_live_detector.py --once
+
+      - name: 提交状态文件(保留直播状态,避免重复推送)
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f xhs-live/state.json || true
+          git diff --staged --quiet || git commit -m "chore(xhs-live): 更新直播检测状态"
+          git push || echo "无变更或推送失败(可忽略)"
