@@ -104,6 +104,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 .addform{display:none;gap:8px;margin-top:8px;flex-wrap:wrap;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px}
 .ainput{flex:1;min-width:88px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
 .ainput:focus{outline:none;border-color:var(--bili)}
+/* ===== P0-4 列表文本搜索：搜索框（复用 .ainput 视觉——深色背景、圆角、聚焦描边） ===== */
+.searchbar{display:flex;gap:8px;margin:0 2px 10px;position:relative}
+.searchbar .searchbox{flex:1;min-width:0}
+.searchbox{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
+.searchbox:focus{outline:none;border-color:var(--bili)}
 .addok{padding:9px 16px;border-radius:9px;border:none;background:var(--bili);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
 .addcancel{padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer}
 /* 卡片移除按钮 */
@@ -184,6 +189,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
         <button class="chip" onclick="fil('douyin')">抖音</button>
       </div>
     </div>
+    <div class="searchbar">
+      <input id="liveSearch" class="searchbox" type="search" placeholder="搜索房间名 / ID" oninput="onLiveSearch(this.value)">
+      <button class="rmbtn" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
+    </div>
     <div id="addWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
       <div class="addform" id="addForm" style="display:none">
@@ -202,6 +211,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 
   <section class="view" id="view-posts">
     <div class="panel-head"><h2>🎬 抖音新作品</h2><span class="count" id="postsCount" style="font-size:11px;color:var(--text2)"></span></div>
+    <div class="searchbar">
+      <input id="postsSearch" class="searchbox" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
+      <button class="rmbtn" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
+    </div>
     <div id="postAddWrap" class="addwrap" style="display:none">
       <button class="addbtn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
       <div class="addform" id="postAddForm" style="display:none">
@@ -314,7 +327,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
 <script src="libsodium.js"></script>
 
 <script>
-var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all';
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
 /* build 2026-07-07: 添加/删除采用乐观更新（直接采用写回结果，不二次 GET），无需刷新页面即可生效 */
 
 /* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
@@ -344,9 +357,35 @@ function show(t){
   Object.keys(views).forEach(function(k){var el=document.getElementById(views[k]); if(el) el.classList.toggle('active',k===t);});
   var tabs=document.querySelectorAll('.tab');
   tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config'][i]===t);});
+  /* P0-4：切视图时把两个搜索框的显示值同步为全局 q（单 q 跨 tab 共享，不丢搜索词） */
+  var ls=document.getElementById('liveSearch'); if(ls) ls.value=q;
+  var ps=document.getElementById('postsSearch'); if(ps) ps.value=q;
 }
 
 function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
+
+/* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
+function onLiveSearch(v){
+  q = (v || '').trim();
+  renderLive();                 // 仅重渲染 #liveBody，不调 ld / 不发网络
+}
+function onPostsSearch(v){
+  q = (v || '').trim();
+  renderPosts();                // 仅重渲染 #postsBody，不调 ld / 不发网络
+}
+/* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
+function matchQ(r, q){
+  var s = (q || '').toLowerCase();
+  return (r.name || '').toLowerCase().indexOf(s) >= 0
+      || String(r.id || '').toLowerCase().indexOf(s) >= 0;
+}
+function matchPostQ(r, q){
+  var s = (q || '').toLowerCase();
+  var tt = postTrack['douyin_' + r.id] || {};
+  return (r.name || '').toLowerCase().indexOf(s) >= 0
+      || String(r.id || '').toLowerCase().indexOf(s) >= 0
+      || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
+}
 
 function renderLive(){
   var lb=document.getElementById('liveBody');
@@ -354,7 +393,8 @@ function renderLive(){
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
-  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
+  /* ★ P0-4 文本搜索：与 fl 顺序 AND 叠加（仅过滤已加载数据，绝不调用 ld） */
+  if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
   rs.sort(function(a,b){
@@ -362,7 +402,7 @@ function renderLive(){
     var ra=_rm.hasOwnProperty(ka)?_rm[ka]:1, rb=_rm.hasOwnProperty(kb)?_rm[kb]:1;
     return ra-rb;
   });
-  if(!rs.length){lb.innerHTML='<div class="empty">该平台暂无房间</div>';return;}
+  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
   var h='<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:11px">更新于 '+e(up)+'</div>';
   for(var i=0;i<rs.length;i++){
@@ -398,10 +438,18 @@ function renderPosts(){
   var body=document.getElementById('postsBody');
   var cnt=document.getElementById('postsCount');
   if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
-  if(cnt)cnt.textContent='共 '+postRooms.length+' 个';
+  var list=postRooms.slice();
+  /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
+  if(q) list=list.filter(function(r){return matchPostQ(r,q);});
+  if(!list.length){
+    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
+    if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
+    return;
+  }
+  if(cnt)cnt.textContent=q?('匹配 '+list.length+' / '+postRooms.length):('共 '+postRooms.length+' 个');
   var h='';
-  for(var i=0;i<postRooms.length;i++){
-    var r=postRooms[i],id=r.id;
+  for(var i=0;i<list.length;i++){
+    var r=list[i],id=r.id;
     var tt=postTrack['douyin_'+id]||{};
     // 显示名优先级：用户自定义名（且不同于裸 id）> 主页真实昵称 > 兜底 id
     var name=(r.name && r.name!==id) ? r.name : (tt.nickname || r.name || id);

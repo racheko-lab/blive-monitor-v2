@@ -98,6 +98,8 @@ def test_live_offline_unknown_rooms_link_behavior():
         "var stat = %s;\n"
         "var fl = 'all';\n"
         "var hasApi = true;\n"
+        + "var q = '';\n"  # P0-4：renderLive 现依赖全局搜索词 q（空串=不过滤）
+        + "var matchQ = function(r, q){ return true; };\n"  # 桩：q 为空时不会被调用，提供以防万一
         "%s\n"   # e()
         "%s\n"   # renderLive()
         "renderLive();\n"
@@ -216,6 +218,8 @@ def test_live_offline_room_classes_real_run():
         "var stat = %s;\n"
         "var fl = 'all';\n"
         "var hasApi = true;\n"
+        + "var q = '';\n"  # P0-4：renderLive 现依赖全局搜索词 q（空串=不过滤）
+        + "var matchQ = function(r, q){ return true; };\n"  # 桩：q 为空时不会被调用，提供以防万一
         "%s\n%s\n"
         "renderLive();\n"
         "console.log(JSON.stringify(liveBody.innerHTML));\n"
