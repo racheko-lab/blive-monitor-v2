@@ -310,20 +310,17 @@ var GH_REPO="racheko-lab/blive-monitor";
 var GH_BRANCH="master";
 /* GitHub REST API 直接写回 rooms.json；Token 由用户在页面设置并仅存于本机 localStorage。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
-/* 内置默认 Token：为了让页面“开箱即用”而预置。
-   ⚠️ 注意：它是“全量 repo/workflow”权限的 PAT，且本文件是公开 GitHub Pages 源码，
-   任何人查看源代码都能看到它。请尽快到 GitHub → Settings → Developer settings 撤销该 PAT，
-   并在「⚙️ 设置 Token」中填入你自己的“细粒度 Token（仅本仓库 Contents:write）”覆盖它。 */
-var GH_TOKEN_BUILTIN=("ghp_v4XmZ6xQ32Pq5TII"+"4sOcaBH500JCL44dHicP");
-/* 读取 Token：优先用本机 localStorage（用户自有、更安全）；否则回退到内置默认 Token。 */
+/* 前端不再内置任何 GitHub Token；写回 rooms.json 所需的 Token 由用户在「配置」页填入，仅存于本机 localStorage（见下方 getGhToken）。历史上硬编码在源码里的全权限 PAT 已泄露，已从本文件彻底移除。 */
+/* 读取 Token：仅返回用户在「配置」页填入并存于本机 localStorage 的 Token；无 Token 时返回空串，由调用方提示用户去「配置」页填入。 */
 function getGhToken(){
   try{
     var s=(localStorage.getItem('blive_gh_token')||'').trim();
     if(s) return s;
   }catch(e){}
-  return GH_TOKEN_BUILTIN;
+  return '';
 }
-/* 写操作 UI 常驻显示（内置 Token 已可直连） */
+/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 localStorage 中的用户 Token，
+   无 Token 时由对应操作提示用户去「配置」页填入，不再依赖任何内置 Token。 */
 var hasApi=true;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -781,10 +778,11 @@ function checkApi(){
     .then(function(ok){
       if(ok){
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
-        if(getGhToken()===GH_TOKEN_BUILTIN){
-          el.innerHTML='✅ GitHub API 可连接（使用<b>内置默认 Token</b>，全量权限，已暴露在公开源码中）。现已可增删监控；<b>建议尽快到 GitHub 撤销该 PAT 并在此填入你自己的细粒度 Token</b>。';
-        }else{
+        var _tok=getGhToken();
+        if(_tok){
           el.innerHTML='✅ GitHub API 可连接，已配置你自己的 Token，可正常增删监控。';
+        }else{
+          el.innerHTML='✅ GitHub API 可连接，但还<b>未配置 Token</b>。请先到「⚙️ 配置」页填入你自己的 GitHub 细粒度 Token（仅本仓库 Contents 读写权限为宜），才能增删监控。';
         }
       }else{
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#2a1416;color:#f85149;border:1px solid #5a2329';

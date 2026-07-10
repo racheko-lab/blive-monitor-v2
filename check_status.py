@@ -62,8 +62,7 @@ BILIBILI_STATUS_MAP = {
 }
 
 # 小红书直播开播检测已于 2026-07-10 移除（无头 Chromium 渲染直播间方案；平台每次开播
-# 短链会变、数据中心 IP 触发风控，维护成本高且误判/漏推难根除）。如需恢复参考
-# docs/blive-monitor-context.md §3 与 docs/live-monitor-detection-landscape.md。
+# 短链会变、数据中心 IP 触发风控，维护成本高且误判/漏推难根除）。当前小红书直播监控未支持。
 
 # ==================== 日志配置 ====================
 
