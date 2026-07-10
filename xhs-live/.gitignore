@@ -1,0 +1,9 @@
+# 本地配置含密钥,不提交(GitHub Actions 用 Secrets 注入)
+config.json
+
+# state.json 由 Actions 自动提交回仓库保留状态,但本地不提交
+state.json
+
+# Python 缓存
+__pycache__/
+*.pyc
