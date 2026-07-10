@@ -375,7 +375,7 @@ function renderLive(){
     if(s&&s.area)meta.push(e(s.area));
     if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
     var title=s&&s.title?('<div class="room-title">'+e(s.title)+'</div>'):'';
-    var act=(s&&st==='live')?'<a class="act" href="'+u+'" target="_blank">进入直播间 →</a>':'';
+    var act=(u!=='#')?'<a class="act" href="'+u+'" target="_blank">'+(st==='live'?'进入直播间 →':'查看直播间 →')+'</a>':'';
     var rmArg=JSON.stringify({platform:r.platform,id:r.id});
     var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
     h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span>'+rmbtn+'</div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
