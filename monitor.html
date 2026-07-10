@@ -144,7 +144,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
         <button class="chip active" onclick="fil('all')">全部</button>
         <button class="chip" onclick="fil('bilibili')">哔哩哔哩</button>
         <button class="chip" onclick="fil('douyin')">抖音</button>
-        <button class="chip" onclick="fil('xhs')">小红书</button>
       </div>
     </div>
     <div id="addWrap" class="addwrap" style="display:none">
@@ -153,7 +152,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC
         <select id="addPlatform" class="ainput" onchange="onAddPlatformChange()">
           <option value="bilibili">B站</option>
           <option value="douyin">抖音</option>
-          <option value="xhs">小红书</option>
         </select>
         <input id="addId" class="ainput" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
         <input id="addName" class="ainput" placeholder="名称（可选）" autocomplete="off">
@@ -290,7 +288,7 @@ function show(t){
   tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config'][i]===t);});
 }
 
-function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');cs[3].className='chip'+(f==='xhs'?' active':'');renderLive();}
+function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
 
 function renderLive(){
   var lb=document.getElementById('liveBody');
@@ -298,7 +296,7 @@ function renderLive(){
   var rs=rooms.slice();
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
-  else if(fl==='xhs')rs=rs.filter(function(r){return r.platform==='xhs';});
+  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
   rs.sort(function(a,b){
@@ -322,9 +320,9 @@ function renderLive(){
       stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
       sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
     }
-    var pl=r.platform==='bilibili'?'bili':(r.platform==='douyin'?'dy':'xhs');
-    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'小红书');
-    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'https://www.xiaohongshu.com/user/profile/'+r.id;
+    var pl=r.platform==='bilibili'?'bili':(r.platform==='douyin'?'dy':'');
+    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'');
+    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'#';
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
     if(s&&s.area)meta.push(e(s.area));
@@ -379,7 +377,7 @@ function renderLog(){
   var h='';
   for(var i=hist.length-1;i>=Math.max(0,hist.length-80);i--){
     var l=hist[i];
-    var cls=l.platform==='bilibili'?'bili':(l.platform==='xhs'?'xhs':'dy');
+    var cls=l.platform==='bilibili'?'bili':'dy';
     if(l.status==='live')cls='live';else if(l.status!=='offline')cls='dy';
     var stIcon={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[l.status]||'⚫';
     var chg=l.changed?' <span class="chg">[变化]</span>':'';
@@ -681,10 +679,7 @@ function toggleAddForm(force){
 function onAddPlatformChange(){
   var p=document.getElementById('addPlatform').value;
   var inp=document.getElementById('addId');
-  if(p==='xhs'){
-    inp.placeholder='小红书主页 URL 里 /user/profile/ 后的 uid（如 59f34d10…，不是公开小红书号）';
-    inp.inputMode='text'; inp.setAttribute('inputmode','text');
-  }else if(p==='douyin'){
+  if(p==='douyin'){
     inp.placeholder='抖音号 / 直播间号（必填）';
     inp.inputMode='text'; inp.setAttribute('inputmode','text');
   }else{
@@ -698,7 +693,7 @@ function submitAdd(){
   var platform=document.getElementById('addPlatform').value;
   var id=document.getElementById('addId').value.trim();
   var name=document.getElementById('addName').value.trim();
-  if(platform!=='bilibili' && platform!=='douyin' && platform!=='xhs'){ toast('平台不合法', false); return; }
+  if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
   if(!id){ toast('房间 ID 必填', false); return; }
   apiAddRoom({platform:platform, id:id, name:name})
     .then(function(res){

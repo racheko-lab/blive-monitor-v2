@@ -36,7 +36,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 判断 rooms.json 是否含 xhs 房间（需要无头 chromium 渲染直播间）
+      # 判断 rooms.json 是否含需无头浏览器的平台房间（当前仅抖音作品监控使用 playwright，
+      # 保留 xhs 判断以便未来恢复小红书检测时自动触发 chromium 安装）
       - name: Check xhs rooms
         id: xhslist
         run: |
@@ -51,7 +52,7 @@ jobs:
           n=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)
           if [ "$n" != "0" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi
 
-      # 缓存 Playwright 浏览器（xhs 直播监控 / 作品监控使用）
+      # 缓存 Playwright 浏览器（抖音作品监控使用）
       - name: Cache Playwright browsers
         if: ${{ steps.xhslist.outputs.enabled == 'true' || steps.postlist.outputs.enabled == 'true' }}
         uses: actions/cache@v4
@@ -59,7 +60,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-1.58.0
 
-      # 安装 Playwright + Chromium（xhs 直播监控或作品监控需要）
+      # 安装 Playwright + Chromium（抖音作品监控需要）
       - name: Install Playwright
         if: ${{ steps.xhslist.outputs.enabled == 'true' || steps.postlist.outputs.enabled == 'true' }}
         run: |
@@ -67,7 +68,7 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      # 运行直播检测（xhs 房间此时已可用 chromium 渲染直播间）
+      # 运行直播检测
       - name: Run check
         env:
           BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
