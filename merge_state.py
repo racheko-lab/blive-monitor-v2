@@ -44,8 +44,10 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional, Tuple
 
-# 合并时保留的历史日志上限
-HISTORY_MAX = 500
+# 历史日志上限：唯一来源在 log_utils.HISTORY_MAX（500），合并与运行时保持一致
+from log_utils import HISTORY_MAX
+# 状态文件原子写统一走 common.save_json_file（.tmp + os.replace），避免重复实现
+from common import save_json_file as save_json
 
 
 def git_show(repo: str, ref: str, filename: str) -> Optional[str]:
@@ -186,7 +188,11 @@ def merge_post_rooms(local: list, remote: list) -> list:
 
 
 def merge_history(local: list, remote: list) -> list:
-    """合并历史日志：取并集（按 time+name+platform 去重），保留最近 N 条。"""
+    """合并历史日志：取并集（按 time+name+platform 去重），保留最近 N 条。
+
+    条目以 dict 形式原样透传，因此新增的 ``rid`` 等字段自动随条目保留，
+    与 check_status.py 写入结构完全兼容（前端忽略未知字段）。
+    """
     if not isinstance(local, list):
         local = []
     if not isinstance(remote, list):
@@ -202,18 +208,10 @@ def merge_history(local: list, remote: list) -> list:
             continue
         seen.add(key)
         merged.append(entry)
-    # 保留最近 N 条
+    # 保留最近 N 条（N = HISTORY_MAX，单一来源）
     if len(merged) > HISTORY_MAX:
         merged = merged[-HISTORY_MAX:]
     return merged
-
-
-def save_json(filepath: str, data: Any) -> None:
-    """原子写 JSON 文件。"""
-    tmp = f"{filepath}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, filepath)
 
 
 def main() -> int:

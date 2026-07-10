@@ -1,11 +1,63 @@
 """check_new_posts 单元测试：导入可行性、模块复用 common、新作品基线判定（纯函数）。"""
 import json
+import os
 import sys
 import types
 
 import pytest
 
 import check_new_posts as cnp
+
+
+# ==================== 日志模块重构：注释修正 / 级联清理 / 补丁归一 ====================
+
+def test_no_two_layer_comment_in_source():
+    """D1：头部/内联『两层策略』注释应已改为『三层策略』。"""
+    src_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "check_new_posts.py"
+    )
+    text = open(src_path, encoding="utf-8").read()
+    assert "两层策略" not in text
+    assert "三层策略" in text
+
+
+def test_cnp_imports_state_prune_and_log_utils():
+    """T02/T04：脚本已收口到横切模块。"""
+    assert hasattr(cnp, "state_prune")
+    assert hasattr(cnp, "init_runtime_logging")
+
+
+def test_prune_tracking_orphans_equivalence():
+    """A5：prune_tracking_orphans 与原 772-801 内联补丁语义一致（删不在 active 的 key）。"""
+    tracking = {
+        "douyin_A": {"latest_aweme_id": "1"},
+        "douyin_B": {"latest_aweme_id": "2"},
+        "douyin_C": {"latest_aweme_id": "3"},
+    }
+    cur_keys = {"douyin_A", "douyin_C"}
+    out = cnp.state_prune.prune_tracking_orphans(tracking, cur_keys)
+    assert set(out.keys()) == {"douyin_A", "douyin_C"}
+
+
+def test_merge_post_rooms_fields_equivalence(tmp_path):
+    """A6：merge_post_rooms_fields 与原 772-801 内联补丁等价（原地更新 sec_uid/name）。"""
+    cfg = tmp_path / "post_rooms.json"
+    cfg.write_text(json.dumps([
+        {"id": "A", "name": "oldA", "sec_uid": ""},
+        {"id": "B", "name": "B", "sec_uid": "SB"},
+    ]), encoding="utf-8")
+    # resolved 模拟本轮解析结果（仅取确有 sec_uid 的账号）
+    post_rooms = [
+        {"id": "A", "name": "newA", "sec_uid": "SA"},
+        {"id": "B", "name": "B", "sec_uid": "SB"},
+    ]
+    resolved = {str(e["id"]): e for e in post_rooms if e.get("id") and e.get("sec_uid")}
+    changed = cnp.state_prune.merge_post_rooms_fields(str(cfg), resolved)
+    assert changed is True
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    by_id = {e["id"]: e for e in data}
+    assert by_id["A"]["sec_uid"] == "SA" and by_id["A"]["name"] == "newA"
+    assert by_id["B"]["sec_uid"] == "SB"  # B 的 sec_uid 也按 resolved 更新
 
 
 # ---------- 假 Playwright：让 main() 的惰性 import 可用，无需真实浏览器 ----------

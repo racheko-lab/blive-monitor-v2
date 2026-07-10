@@ -26,6 +26,10 @@ from common import bjnow, load_json_file, save_json_file, DEFAULT_USER_AGENT, BE
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+# 横切模块：运行时日志 + history 读写/上限（HISTORY_MAX 唯一来源）
+from log_utils import HISTORY_MAX, init_runtime_logging, load_history, append_history
+# 级联清理（history 孤儿）：固化阶段裁剪已删房间的残留日志
+import state_prune
 
 # ==================== 常量配置 ====================
 
@@ -37,8 +41,7 @@ HISTORY_FILE = os.path.join(REPO_DIR, "history.json")
 TRACKING_FILE = os.path.join(REPO_DIR, "tracking.json")
 ROOMS_FILE = os.path.join(REPO_DIR, "rooms.json")
 
-# 历史日志保留条数
-HISTORY_MAX_ENTRIES = 200
+# 历史日志保留条数：统一引用 log_utils.HISTORY_MAX（500，唯一来源），不再各自定义。
 
 # HTTP 请求默认配置（DEFAULT_USER_AGENT 定义在 common.py，两脚本共用）
 DEFAULT_TIMEOUT = 10
@@ -61,11 +64,9 @@ BILIBILI_STATUS_MAP = {
 
 # ==================== 日志配置 ====================
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
+# 统一走 log_utils 的运行时日志（控制台 + 文件轮转 + 结构化上下文）。
+# 其余 logger.info/warning/error 调用零改动（account 缺省空串，兼容既有输出解析）。
+init_runtime_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -695,6 +696,8 @@ def main() -> None:
                 "changed": changed,
                 "prev": prev_status if changed else None,
                 "push": push_result,
+                # 新增 rid：取值为房间 id，用于级联清理时精确匹配孤儿（向后兼容：前端忽略未知字段）
+                "rid": rid,
             }
         )
 
@@ -746,12 +749,22 @@ def main() -> None:
     )
     save_json_file(TRACKING_FILE, tracking)
 
-    # 更新历史日志
-    old_log: List[Dict[str, Any]] = load_json_file(HISTORY_FILE, [])
-    all_log = old_log + log_entries
-    if len(all_log) > HISTORY_MAX_ENTRIES:
-        all_log = all_log[-HISTORY_MAX_ENTRIES:]
-    save_json_file(HISTORY_FILE, all_log)
+    # 固化阶段：级联清理 history 孤儿（重读磁盘 rooms.json 构造 active_keys，避免与前端增删竞态）
+    # 重新从磁盘读取最新 rooms.json（本轮期间前端可能已增删房间），绝不用启动内存副本
+    rooms_now = load_json_file(ROOMS_FILE, []) or []
+    active_keys = {
+        f"{r.get('platform', 'bilibili')}|{r.get('id', '')}"
+        for r in rooms_now
+        if r.get("id")
+    }
+
+    # 追加本轮条目（每条已带 rid），保留最近 HISTORY_MAX 条（统一上限，单一来源）
+    append_history(HISTORY_FILE, log_entries, HISTORY_MAX)
+
+    # 读取刚写入的 history，按 active_keys 裁掉已删房间的孤儿记录，再原子写回
+    history = load_history(HISTORY_FILE)
+    history = state_prune.prune_history_orphans(history, active_keys)
+    save_json_file(HISTORY_FILE, history)
 
     # 裁剪去重账本（丢弃过期 live: key，post: key 永久保留）
     try:

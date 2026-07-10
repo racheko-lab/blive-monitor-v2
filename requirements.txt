@@ -3,5 +3,8 @@
 # 直播状态检测（check_status.py）仅使用 Python 标准库，无需额外依赖。
 # 抖音新作品检测（check_new_posts.py）需要无头 Chromium，故安装 playwright。
 #
+# 日志模块重构（log_utils.py / state_prune.py）同样仅用标准库
+# （logging / logging.handlers.RotatingFileHandler / json / os），无新增第三方依赖。
+#
 # Python 版本要求: 3.8+
 playwright==1.58.0

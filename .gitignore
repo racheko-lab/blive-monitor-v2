@@ -52,6 +52,8 @@ Thumbs.db
 
 # 日志
 *.log
+# 运行时日志目录（log_utils.init_runtime_logging 写入，供 CI 排障，不入库）
+logs/
 
 # 原子写临时文件（common.save_json_file 产生，勿提交）
 *.json.tmp

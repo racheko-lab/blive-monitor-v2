@@ -138,3 +138,21 @@ def test_history_capped():
     local = [{"time": f"2025-01-01 {i:02d}:00", "name": str(i), "platform": "douyin"} for i in range(600)]
     merged = ms.merge_history(local, [])
     assert len(merged) <= ms.HISTORY_MAX
+
+
+# ---------- history 合并透传 rid（日志模块重构） ----------
+
+def test_history_passthrough_rid():
+    """merge_history 以 dict 原样透传，新增 rid 字段随条目保留（与 check_status 写入结构兼容）。"""
+    local = [{"time": "t1", "name": "A", "platform": "douyin", "rid": "R1", "title": "x"}]
+    remote = [{"time": "t0", "name": "B", "platform": "bilibili", "rid": "R2", "title": "y"}]
+    merged = ms.merge_history(local, remote)
+    assert len(merged) == 2
+    assert all("rid" in e for e in merged)
+
+
+def test_history_max_imported_from_log_utils():
+    """HISTORY_MAX 单一来源：merge_state 引用 log_utils.HISTORY_MAX。"""
+    import log_utils
+    assert ms.HISTORY_MAX == 500
+    assert ms.HISTORY_MAX is log_utils.HISTORY_MAX

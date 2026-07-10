@@ -7,8 +7,11 @@
   本脚本只读 post_rooms.json（独立的抖音号列表），写 post_tracking.json。
 - 抖音的作品列表接口（aweme/v1/web/aweme/post/）现在强制要求 X-Bogus / a_bogus 签名 +
   WebID / 登录态，纯服务端 urllib 或无头浏览器裸调都会返回空列表（被风控）。
-  因此本脚本采用「两层策略 + 优雅降级」：
-    策略 1（首选，需登录 Cookie）：在无头浏览器里打开用户主页，拦截页面【自身】发出的、
+  因此本脚本采用「三层策略 + 优雅降级」：
+    策略 0（首选，免 Cookie）：移动端老接口 m.douyin.com/web/api/v2/aweme/post/
+            无需登录即返回真实作品列表（含 aweme_id/desc/视频或图文链接），
+            所有账号通用，作为精确检测的首选路径。
+    策略 1（需登录 Cookie）：在无头浏览器里打开用户主页，拦截页面【自身】发出的、
             已带签名的 aweme/post 请求响应（浏览器自动生成 a_bogus/msToken/webid，无需逆向）。
             配置 douyin_cookie 后该响应返回真实作品列表（含 create_time/desc），
             可精确推送「X 发布了新作品」并链接到具体作品。
@@ -38,6 +41,10 @@ from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+# 横切模块：运行时日志（init_runtime_logging）
+from log_utils import init_runtime_logging
+# 级联清理（post_tracking 孤儿 / post_rooms 字段合并，替代原内联应急补丁）
+import state_prune
 
 # ==================== 常量配置 ====================
 
@@ -62,11 +69,9 @@ MOBILE_VIEWPORT = {"width": 390, "height": 844}
 
 # ==================== 日志配置 ====================
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
+# 统一走 log_utils 的运行时日志（控制台 + 文件轮转 + 结构化上下文）。
+# 其余 logger.info/warning/error 调用零改动（account 缺省空串，兼容既有输出解析）。
+init_runtime_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -613,7 +618,7 @@ def main() -> None:
             tracking[key] = t
             changed = True
 
-            # 获取最新作品（两层策略）
+            # 获取最新作品（三层策略：m.douyin.com 免 Cookie 首选 / 桌面端需 Cookie / count 退化）
             aweme = get_latest_aweme(context, sec_uid)
             if not aweme:
                 logger.warning("  [%s] 获取作品失败/被风控（建议配置 douyin_cookie）", name)
@@ -769,40 +774,27 @@ def main() -> None:
             "或设置环境变量 DOUYIN_COOKIE 以突破风控。"
         )
 
-    # ===== 固化 sec_uid 时采用「字段合并」而非整体覆盖，避免与前端增删竞态 =====
-    # 重新读取磁盘上最新的 post_rooms.json（而非本轮回合开始时载入的内存副本）。
+    # ===== 固化阶段：级联清理 + 字段合并（替代原内联应急补丁，统一收口到 state_prune）=====
+    # 重读磁盘当前 post_rooms.json（不依赖启动内存副本），避免与前端增删竞态：
     # 若用启动时的内存副本整体覆盖写回，会把用户在「本轮期间」删除的账号又加回来、
     # 或丢失用户新增的账号；再经 merge_state.py 的并集合并后，被删账号会复活。
-    # 这里只做原地字段更新：对当前文件里仍存在的账号，用本轮解析到的 sec_uid/昵称更新；
-    # 绝不把内存副本里多出来的账号写回（即不复活已删除的账号）。
     current_rooms = load_json_file(CONFIG_FILE, []) or []
     cur_by_id = {str(e.get("id", "")): e for e in current_rooms if e.get("id")}
     # 本轮解析/写回过的账号（仅取确有 sec_uid 的）
     resolved = {str(e.get("id", "")): e for e in post_rooms if e.get("id") and e.get("sec_uid")}
-    rooms_changed = False
-    for rid, cur in cur_by_id.items():
-        r = resolved.get(rid)
-        if not r:
-            continue
-        if cur.get("sec_uid") != r.get("sec_uid"):
-            cur["sec_uid"] = r["sec_uid"]
-            rooms_changed = True
-        if r.get("name") and cur.get("name") != r.get("name"):
-            cur["name"] = r["name"]
-            rooms_changed = True
 
-    # 清理已不在监控列表中的账号状态（基于「当前文件」判定，确保用户删除的账号状态被清掉）
+    # 字段合并：仅对仍存在的账号原地更新 sec_uid/name（不复活已删账号）
+    rooms_changed = state_prune.merge_post_rooms_fields(CONFIG_FILE, resolved)
+
+    # 孤儿清理：基于「当前磁盘」账号集合，删除 post_tracking 中已移除账号的状态
     cur_keys = {f"douyin_{rid}" for rid in cur_by_id}
-    for k in [k for k in list(tracking.keys()) if k.startswith("douyin_") and k not in cur_keys]:
-        del tracking[k]
-        changed = True
+    tracking_before = len(tracking)
+    tracking = state_prune.prune_tracking_orphans(tracking, cur_keys)
 
-    # 仅当确有字段更新时才回写 post_rooms.json（避免无意义的提交）
     if rooms_changed:
-        save_json_file(CONFIG_FILE, current_rooms)
         logger.info("已将解析到的 sec_uid 合并写回 post_rooms.json（已保留前端增删，不复活已删账号）")
 
-    if changed:
+    if changed or len(tracking) != tracking_before:
         save_json_file(TRACKING_FILE, tracking)
 
     # 清理去重账本中的过期 live: key（post: key 永久保留）。

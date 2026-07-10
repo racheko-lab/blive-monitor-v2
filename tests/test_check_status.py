@@ -304,3 +304,48 @@ def test_main_detects_live_on_recovery(tmp_path, monkeypatch):
 
     status = json.loads(state_file.read_text(encoding="utf-8"))
     assert status.get("bilibili_123") == "live"
+
+
+# ==================== 日志模块重构：rid 字段 / 级联清理 / HISTORY_MAX 单一来源 ====================
+
+def test_history_max_imported_from_log_utils():
+    import log_utils
+    # 单一来源：check_status 与 log_utils 引用同一常量对象
+    assert cs.HISTORY_MAX == 500
+    assert cs.HISTORY_MAX is log_utils.HISTORY_MAX
+
+
+def test_log_entry_carries_rid_and_orphan_pruned(tmp_path, monkeypatch):
+    """固化阶段：history 条目带 rid，且已删房间（rooms 中不存在）的孤儿被级联清除。"""
+    rooms = [{"platform": "bilibili", "id": "123", "name": "A"}]
+    rooms_file = tmp_path / "rooms.json"
+    rooms_file.write_text(json.dumps(rooms), encoding="utf-8")
+
+    # 预置历史：一条已删房间孤儿（rid=999，rooms 无此房间）+ 一条仍存在的（rid=123）
+    history_file = tmp_path / "history.json"
+    history_file.write_text(json.dumps([
+        {"time": "2025-01-01 00:00", "name": "Ghost", "platform": "bilibili", "rid": "999", "status": "offline"},
+        {"time": "2025-01-01 00:01", "name": "A", "platform": "bilibili", "rid": "123", "status": "offline"},
+    ]), encoding="utf-8")
+
+    state_file = tmp_path / "state.json"
+    state_file.write_text(json.dumps({"bilibili_123": "offline"}), encoding="utf-8")
+
+    monkeypatch.setattr(cs, "ROOMS_FILE", str(rooms_file))
+    monkeypatch.setattr(cs, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(cs, "TRACKING_FILE", str(tmp_path / "tracking.json"))
+    monkeypatch.setattr(cs, "HISTORY_FILE", str(history_file))
+    monkeypatch.setattr(cs, "STATUS_FILE", str(tmp_path / "status.json"))
+    monkeypatch.setenv("BLIVE_CONFIG", "{}")
+    sample = {"code": 0, "data": {"by_room_ids": {"123": {"live_status": 1, "title": "x", "online": 1}}}}
+    monkeypatch.setattr(cs, "fetch_bilibili_batch", lambda ids: sample["data"]["by_room_ids"])
+
+    cs.main()
+
+    hist = json.loads(history_file.read_text(encoding="utf-8"))
+    # 所有条目都带 rid 字段（新增字段，向后兼容）
+    assert all("rid" in e for e in hist)
+    # 孤儿（rid=999，rooms 中不存在）被级联清除
+    assert not any(e.get("rid") == "999" for e in hist)
+    # 仍存在的房间（rid=123）历史保留，且包含本轮新写入条目
+    assert sum(1 for e in hist if e.get("rid") == "123") >= 1

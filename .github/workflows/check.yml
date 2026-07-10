@@ -135,6 +135,15 @@ jobs:
             git commit -m "📡 update state [skip ci]" || true
           done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
 
+      # 上传运行时日志便于排障（logs/ 默认被 .gitignore 忽略，仅作 artifact 留存，不影响监控/部署）
+      - name: Upload runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-logs
+          path: logs/
+          if-no-files-found: ignore
+
       # 构建 Pages 目录（同域名部署；状态已提交 Git 作可靠后备）
       - name: Build Pages
         run: |
