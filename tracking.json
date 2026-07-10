@@ -121,8 +121,9 @@
     "live_start": ""
   },
   "xhs_https://xhslink.com/m/4EEaOwFZSZY": {
-    "last_live": "",
-    "live_start": "2026-07-10 10:20:22",
-    "live_duration": "13min"
+    "last_live": "2026-07-10 10:20:22",
+    "live_start": "",
+    "live_duration": "13min",
+    "last_duration": "28min"
   }
 }
