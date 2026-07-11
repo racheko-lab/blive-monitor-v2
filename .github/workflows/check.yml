@@ -78,7 +78,14 @@ jobs:
       # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
       - name: Transcode covers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
-        run: python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+        run:           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+
+      # A1：定时摘要自动投递（在 history.json 已更新的同轮运行；失败不影响持久化/部署）
+      - name: Auto-deliver summary
+        continue-on-error: true
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: python3 auto_summary.py
 
       # 状态持久化到 Git —— 唯一真相来源，跨 run 可靠，不再依赖易失效的 actions/cache
       - name: Persist state & keepalive
@@ -96,19 +103,19 @@ jobs:
           # 必须随工作区最新版保留，否则 reset --hard 会回滚到远端旧版，导致前端一直
           # 显示「状态获取中」）
           TMPD=$(mktemp -d)
-          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json; do
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
             [ -f "$f" ] && cp "$f" "$TMPD/"
           done
           # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
           git reset --hard origin/master 2>/dev/null || true
           # 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）
-          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json; do
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
             [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
           done
           rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
           # status.json 为本轮检测产出，必须一并提交（否则前端读到旧状态）
-          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json assets/covers
+          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
@@ -120,15 +127,15 @@ jobs:
             git fetch origin master 2>&1 || true
             python3 merge_state.py origin/master
             TMPD=$(mktemp -d)
-            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json; do
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$f" ] && cp "$f" "$TMPD/"
             done
             git reset --hard origin/master 2>/dev/null || true
-            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json; do
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
             done
             rm -rf "$TMPD"
-            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json assets/covers
+            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
             git commit -m "📡 update state [skip ci]" || true
           done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
 

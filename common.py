@@ -6,9 +6,11 @@
 时间/JSON 读写等基础工具。
 """
 
+import calendar
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional
 
@@ -28,6 +30,31 @@ DEFAULT_USER_AGENT = (
 def bjnow() -> datetime:
     """获取当前北京时间（naive datetime）"""
     return datetime.now(BEIJING_TZ).replace(tzinfo=None)
+
+
+def parse_beijing(s: str) -> Optional[int]:
+    """北京时间字符串 -> 真实 UTC 秒（与 ``monitor.html`` 的 JS ``parseBeijing`` 逐字节一致）。
+
+    输入 ``s`` 形如 ``"YYYY-MM-DD HH:MM:SS"``（空格或 ``T`` 分隔均可）。
+    空串 / 非法格式 -> ``None``（上层据此判 loadfail）。
+
+    公式：``calendar.timegm((y,mo,d,h,mi,se,0,0,0)) - 8*3600``，
+    等价 JS ``new Date(y,mo-1,d,h,mi,se).getTime() - (offset+480)*60000``，
+    与运行环境时区无关（任意时区都得到该北京墙钟对应的真实 UTC 秒）。
+    例：``"2026-07-11 09:00:00"`` -> ``2026-07-11 01:00:00 UTC`` 的秒数。
+    """
+    if not s:
+        return None
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$", str(s))
+    if not m:
+        return None
+    y, mo, d, h, mi, se = (int(x) for x in m.groups())
+    try:
+        return calendar.timegm((y, mo, d, h, mi, se, 0, 0, 0)) - 8 * 3600
+    except (ValueError, OverflowError):
+        # 越界/畸形但正则放过的串（如 '2026-13-40 99:99:99'）归一为 None，
+        # 与 JS parseBeijing 对非法串返回 null 的行为一致。
+        return None
 
 
 def load_json_file(filepath: str, default: Optional[Any] = None) -> Any:
