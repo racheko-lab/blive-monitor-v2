@@ -1690,6 +1690,43 @@ body {
 
 /* kpiFresh 长 label 缩小字号避免溢出 */
 #kpiFresh { font-size: 12px; line-height: 1.2; }
+
+/* ===================== 阶段二 2c：新增样式（全部套 .blm-* 设计系统） ===================== */
+/* C2 趋势区间分段控件 */
+.blm-segmented { display: inline-flex; gap: 4px; background: var(--color-bg-surface-raised, #161b22); border: 1px solid var(--color-border-subtle, #2a2f3a); border-radius: 999px; padding: 3px; margin-bottom: 10px; }
+.blm-seg-item { border: 0; background: transparent; color: var(--color-text-secondary, #9aa4b2); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.blm-seg-item.active { background: var(--brand-primary); color: #fff; }
+.blm-seg-item:hover:not(.active) { color: var(--color-text-primary, #e6edf3); }
+
+/* C2 趋势数据不足提示 */
+.blm-chart-note { padding: 18px; text-align: center; color: var(--color-text-tertiary, #6e7681); font-size: 13px; background: var(--color-bg-surface-raised, #161b22); border: 1px dashed var(--color-border-default, #30363d); border-radius: 12px; }
+
+/* C1 开播时长卡片 */
+#kpiDuration { font-size: 12px; line-height: 1.5; }
+.blm-duration-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.blm-duration-item .dk { color: var(--color-text-tertiary, #6e7681); }
+.blm-duration-item .dv { color: var(--color-text-primary, #e6edf3); font-weight: 700; }
+.blm-duration-ongoing { color: var(--brand-primary); font-size: 11px; margin-top: 4px; }
+
+/* C3 详情弹层（复用 .blm-modal 结构，扩展关闭/内容样式） */
+.blm-modal-close { margin-left: auto; border: 0; background: transparent; color: var(--color-text-tertiary, #6e7681); font-size: 16px; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px; }
+.blm-modal-close:hover { color: var(--color-text-primary, #e6edf3); background: var(--color-bg-surface-raised, #161b22); }
+.blm-detail-section { margin: 14px 0; }
+.blm-detail-section h4 { margin: 0 0 8px; font-size: 13px; color: var(--color-text-secondary, #9aa4b2); display: flex; align-items: center; gap: 6px; }
+.blm-detail-section h4::before { content: ""; width: 3px; height: 12px; background: var(--brand-primary); border-radius: 2px; display: inline-block; }
+.blm-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.blm-detail-grid .dk { color: var(--color-text-tertiary, #6e7681); font-size: 12px; }
+.blm-detail-grid .dv { color: var(--color-text-primary, #e6edf3); font-size: 13px; font-weight: 600; word-break: break-all; }
+.blm-detail-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--brand-primary-light, rgba(255,77,106,0.12)); color: var(--brand-primary); font-size: 11px; font-weight: 700; margin-right: 4px; }
+.blm-detail-mini-bars { display: flex; align-items: flex-end; gap: 2px; height: 60px; }
+.blm-detail-mini-bar { flex: 1; background: var(--brand-primary); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+.blm-detail-mini-bar span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--color-text-tertiary, #6e7681); }
+.blm-detail-mini-label { font-size: 10px; color: var(--color-text-tertiary, #6e7681); text-align: center; margin-top: 4px; }
+.blm-dash-export { margin-left: auto; }
+
+/* 房间卡详情按钮（复用 .blm-room-edit 视觉语言） */
+.blm-room-detail { border: 0; background: transparent; color: var(--color-text-tertiary, #6e7681); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
+.blm-room-detail:hover { color: var(--brand-primary); background: var(--brand-primary-light, rgba(255,77,106,0.12)); }
 </style>
 </head>
 <body>
@@ -2183,6 +2220,7 @@ body {
             </svg>
             健康仪表盘
           </h2>
+          <button class="blm-btn blm-btn-secondary blm-dash-export" id="btnExportCsv" onclick="exportReport('csv')">导出 CSV</button>
         </div>
 
         <div class="blm-dash-grid">
@@ -2191,6 +2229,7 @@ body {
           <div class="blm-dash-card"><div class="blm-dash-label">今日开播</div><div class="blm-dash-value blm-mono"><span id="kpiToday">0</span></div></div>
           <div class="blm-dash-card"><div class="blm-dash-label">通知异常</div><div class="blm-dash-value blm-mono"><span id="kpiNotify">0</span></div></div>
           <div class="blm-dash-card full-width"><div class="blm-dash-label">数据新鲜度</div><div class="blm-dash-value" id="kpiFresh">—</div></div>
+          <div class="blm-dash-card full-width"><div class="blm-dash-label">开播时长（累计 / 平均 / 近30天）</div><div class="blm-dash-value" id="kpiDuration">—</div></div>
         </div>
 
         <div class="blm-dash-chart">
@@ -2201,6 +2240,11 @@ body {
               <rect x="11" y="2" width="3" height="12" rx="0.5" fill="var(--brand-primary)" opacity="0.7"/>
             </svg>
             开播趋势（近 7 天）
+          </div>
+          <div class="blm-segmented" id="trendRange">
+            <button class="blm-seg-item active" onclick="applyTrendRange(7)">7天</button>
+            <button class="blm-seg-item" onclick="applyTrendRange(30)">30天</button>
+            <button class="blm-seg-item" onclick="applyTrendRange(90)">90天</button>
           </div>
           <div id="dashTrend"></div>
         </div>
@@ -2313,6 +2357,22 @@ body {
         <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
           <button class="blm-btn blm-btn-secondary" onclick="closeRoomEdit()">取消</button>
           <button class="blm-btn blm-btn-primary" onclick="saveRoomEdit()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 阶段二 2c C3：单房间详情弹层（overlay，不新增 tab，不动 show() 5-tab 索引） -->
+    <div id="roomDetail" class="blm-modal" style="display:none">
+      <div class="blm-modal-mask" onclick="closeRoomDetail()"></div>
+      <div class="blm-modal-card">
+        <div class="blm-modal-title">
+          <span id="roomDetailTitle">房间详情</span>
+          <button class="blm-modal-close" title="关闭" onclick="closeRoomDetail()">✕</button>
+        </div>
+        <div id="roomDetailBody"></div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="blm-btn blm-btn-secondary" id="btnExportCsvDetail" onclick="exportReport('csv')">导出 CSV</button>
+          <button class="blm-btn blm-btn-primary" onclick="closeRoomDetail()">关闭</button>
         </div>
       </div>
     </div>
@@ -2455,7 +2515,8 @@ function renderLive(){
     h+='<div class="blm-room-card'+(isLive?' live':'')+(_paused?' paused':'')+'">'+
          selHtml+
          '<div class="blm-room-top"><div class="blm-room-info"><div class="blm-room-name-row"><span class="blm-platform-badge '+pl+'">'+pln+'</span><span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+badge+_pauseBadge+'</div></div><div class="blm-room-actions">'+rmbtn+'</div></div>'+
-         titleHtml+metaHtml+linkHtml+
+         titleHtml+metaHtml+         linkHtml+
+         '<button class="blm-room-detail" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')">ⓘ</button>'+
          '<button class="blm-room-edit" title="编辑" onclick=\'editRoom('+rmArg+')\'>✎</button>'+
        '</div>';
   }
@@ -2535,6 +2596,7 @@ function renderPosts(){
              '<span class="blm-work-time">'+time+'</span>'+
              '<a class="blm-room-link" href="'+linkLine+'" target="_blank" style="padding:4px 10px;font-size:11px">'+linkLabel+'</a>'+
              rmbtn+
+             '<button class="blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
              '<button class="blm-room-edit" title="编辑" onclick=\'editRoom({id:"'+e(id)+'")\'>✎</button>'+
            '</div>'+
          '</div>'+
@@ -2790,7 +2852,8 @@ function renderDashboard(){
   var todayLive = liveOnToday(hist);                 // 今日北京时间口径
   var notifyCnt = notifyAnomalyCount(hist);
   // 趋势：复用 computeStatsJS 的北京日分桶，live_on[] 与 days[] 对齐（oldest→newest）
-  var s = computeStatsJS((hist||[]), 7);
+  // C2：区间由全局 trendDays 控制（applyTrendRange 切换 7/30/90）
+  var s = computeStatsJS((hist||[]), trendDays);
   var trend = s.live_on, days = s.days;
   // 排行 / 平台 / 通知
   var rank = liveOnRank(hist, DASH_TOP_N);
@@ -2813,14 +2876,22 @@ function renderDashboard(){
     kFresh.style.color = fc;
   }
 
+  // —— 开播时长卡片（C1，renderDurationCard 内部调用 computeLiveDurationAll）——
+  renderDurationCard();
+
   // —— 趋势 CSS 条形（复用 .blm-chart-bar，高度按最大值归一；标 MM-DD 标签）——
+  // C2：daysCovered（hist 不同 YYYY-MM-DD 数）< trendDays 时显示「数据不足 N 天」提示，不报错。
   var dt=document.getElementById('dashTrend');
   if(dt){
-    var max = Math.max(1, Math.max.apply(null, trend));
-    var barsHtml = trend.map(function(v,i){
-      return '<div class="blm-chart-bar-group"><div class="blm-chart-bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%"></div><div class="blm-chart-label">'+e(days[i])+'</div></div>';
-    }).join('');
-    dt.innerHTML = '<div class="blm-chart-bars">'+barsHtml+'</div>';
+    if(daysCovered(hist) < trendDays){
+      dt.innerHTML = '<div class="blm-chart-note">数据不足 '+trendDays+' 天（当前仅 '+daysCovered(hist)+' 天）。切换 7 天可见完整趋势。</div>';
+    } else {
+      var max = Math.max(1, Math.max.apply(null, trend));
+      var barsHtml = trend.map(function(v,i){
+        return '<div class="blm-chart-bar-group"><div class="blm-chart-bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%"></div><div class="blm-chart-label">'+e(days[i])+'</div></div>';
+      }).join('');
+      dt.innerHTML = '<div class="blm-chart-bars">'+barsHtml+'</div>';
+    }
   }
 
   // —— 排行列表 ——
@@ -3054,26 +3125,463 @@ function ghPutFile(path, rooms, sha){
   });
 }
 
-/** 读-改-写（基于 sha 的并发安全，遇 409 基于「最新」sha 重试，最多 5 次）。
- *  关键：每次重试都会重新 ghGetFile 拿到远端最新 sha，因此能自愈"CI 刚 push 过
- *  同一文件导致 base sha 过期"的 409。单次超时 20s、最多 5 次，足以覆盖 CI 那次
- *  push 落地前的短暂窗口（通常几十秒内）。若仍失败，由调用方提示用户稍候再试。 */
+/* ===================== 阶段二 2c：开播时长 / 更长趋势 / 详情弹层 / 写回增强 / 报表导出 ===================== */
+
+/** 全局趋势区间（天）。C2：applyTrendRange 修改它，renderDashboard 复用 computeStatsJS(hist, trendDays)。 */
+var trendDays = 7;
+
+/** 房间 key 归一：hist 用 rid/account，rooms/postRooms 用 id，统一为 'platform|id'。 */
+function roomKeyOf(evOrRoom){
+  var p = evOrRoom.platform || '';
+  var id = String(evOrRoom.rid != null ? evOrRoom.rid
+            : (evOrRoom.account != null ? evOrRoom.account : evOrRoom.id));
+  return p + '|' + id;
+}
+
+/** 秒数格式化：Xh Ym / Ym Zs / Zs。 */
+function fmtDuration(sec){
+  sec = Math.max(0, Math.round(sec || 0));
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if(h > 0) return h + 'h' + (m > 0 ? (' ' + m + 'm') : '');
+  if(m > 0) return m + 'm' + (s > 0 ? (' ' + s + 's') : '');
+  return s + 's';
+}
+
+/* ---------- C1 开播时长统计 ---------- */
+
+/**
+ * 计算单个房间的开播时长（北京时口径）。
+ * @param {Array} hist 历史事件数组（含 type=live_on/live_off）
+ * @param {string} key 'platform|rid' 房间 key
+ * @param {{now?:Date, last30Days?:number}} [opts] 参考当前时间 / 近 30 天窗口
+ * @return {{totalSec:number, avgSec:number, last30Sec:number, completedSec:number,
+ *           completedCount:number, sessionCount:number, ongoing:boolean,
+ *           sessions:Array}} 时长聚合
+ */
+function computeLiveDuration(hist, key, opts){
+  opts = opts || {};
+  var now = opts.now || bjNow();
+  var last30ms = (opts.last30Days != null ? opts.last30Days : 30) * 86400000;
+  var events = (hist || []).filter(function(l){
+    var t = l.type || l.status;
+    return t === 'live_on' || t === 'live_off';
+  }).filter(function(l){ return roomKeyOf(l) === key; })
+    .slice().sort(function(a, b){ return (a.time || '') < (b.time || '') ? -1 : ((a.time || '') > (b.time || '') ? 1 : 0); });
+
+  var sessions = [], stack = [];
+  for(var i = 0; i < events.length; i++){
+    var ev = events[i];
+    var tp = ev.type || ev.status;
+    if(tp === 'live_on'){
+      stack.push({ startSec: parseBeijing(ev.time) });
+    } else if(tp === 'live_off'){
+      var on = stack.pop();
+      if(on && on.startSec != null){
+        var endSec = parseBeijing(ev.time);
+        if(endSec >= on.startSec){
+          sessions.push({ startSec: on.startSec, endSec: endSec, durSec: Math.round((endSec - on.startSec) / 1000), ongoing: false });
+        }
+      }
+    }
+  }
+  // 栈底剩余未配对 live_on => 进行中（endSec=现在）
+  var ongoing = false;
+  for(var j = 0; j < stack.length; j++){
+    var s0 = stack[j].startSec;
+    if(s0 != null){
+      var e1 = now.getTime();
+      sessions.push({ startSec: s0, endSec: e1, durSec: Math.max(0, Math.round((e1 - s0) / 1000)), ongoing: true });
+      ongoing = true;
+    }
+  }
+
+  var totalSec = 0, completedSec = 0, completedCount = 0, last30Sec = 0;
+  for(var k = 0; k < sessions.length; k++){
+    var ss = sessions[k];
+    totalSec += ss.durSec;
+    if(ss.ongoing){
+      // 进行中不计入均值，但计入累计与近30天（若起始在近30天内）
+    } else {
+      completedSec += ss.durSec;
+      completedCount += 1;
+    }
+    if(ss.startSec != null && (now.getTime() - ss.startSec) <= last30ms){
+      last30Sec += ss.durSec;
+    }
+  }
+  return {
+    totalSec: totalSec,
+    avgSec: completedCount ? Math.round(completedSec / completedCount) : 0,
+    last30Sec: last30Sec,
+    completedSec: completedSec,
+    completedCount: completedCount,
+    sessionCount: sessions.length,
+    ongoing: ongoing,
+    sessions: sessions
+  };
+}
+
+/**
+ * 跨所有房间的开播时长聚合（供仪表盘 kpiDuration）。
+ * 累计 = 各房间总和（含进行中）；平均 = 全部已完成场次均值；近30天 = 全部房间近30天之和。
+ */
+function computeLiveDurationAll(hist){
+  var keySet = {};
+  (hist || []).forEach(function(l){
+    var t = l.type || l.status;
+    if(t === 'live_on' || t === 'live_off') keySet[roomKeyOf(l)] = true;
+  });
+  var totalSec = 0, last30Sec = 0, completedSec = 0, completedCount = 0, ongoing = false, sessionCount = 0;
+  for(var key in keySet){
+    if(!Object.prototype.hasOwnProperty.call(keySet, key)) continue;
+    var d = computeLiveDuration(hist, key);
+    totalSec += d.totalSec;
+    last30Sec += d.last30Sec;
+    completedSec += d.completedSec;
+    completedCount += d.completedCount;
+    sessionCount += d.sessionCount;
+    if(d.ongoing) ongoing = true;
+  }
+  return {
+    totalSec: totalSec,
+    avgSec: completedCount ? Math.round(completedSec / completedCount) : 0,
+    last30Sec: last30Sec,
+    completedSec: completedSec,
+    completedCount: completedCount,
+    sessionCount: sessionCount,
+    ongoing: ongoing,
+    sessions: []
+  };
+}
+
+/** 渲染仪表盘 kpiDuration 卡片（累计 / 平均 / 近30天；有进行中标注「·进行中」）。 */
+function renderDurationCard(){
+  var el = document.getElementById('kpiDuration');
+  if(!el) return;
+  var d = computeLiveDurationAll(hist);
+  var html =
+    '<div class="blm-duration-item"><span class="dk">累计</span><span class="dv">'
+      + e(fmtDuration(d.totalSec))
+      + (d.ongoing ? ' <span class="blm-duration-ongoing">·进行中</span>' : '')
+      + '</span></div>'
+    + '<div class="blm-duration-item"><span class="dk">平均(已完成)</span><span class="dv">' + e(fmtDuration(d.avgSec)) + '</span></div>'
+    + '<div class="blm-duration-item"><span class="dk">近30天</span><span class="dv">' + e(fmtDuration(d.last30Sec)) + '</span></div>';
+  el.innerHTML = html;
+}
+
+/* ---------- C2 更长趋势 ---------- */
+
+/** hist 中不同 YYYY-MM-DD 的数量（数据覆盖天数）。 */
+function daysCovered(histData){
+  var set = {};
+  (histData || []).forEach(function(l){ if(l && l.time) set[String(l.time).substring(0, 10)] = true; });
+  return Object.keys(set).length;
+}
+
+/**
+ * 切换趋势区间（7/30/90 天）。更新全局 trendDays，重渲染 #dashTrend（复用 computeStatsJS）。
+ * renderDashboard 内部已处理 daysCovered < trendDays 时显示「数据不足 N 天」提示。
+ */
+function applyTrendRange(N){
+  trendDays = (N === 7 || N === 30 || N === 90) ? N : 7;
+  // 更新分段控件高亮
+  try{
+    var seg = document.getElementById('trendRange');
+    if(seg){
+      var items = seg.querySelectorAll('.blm-seg-item');
+      var vals = [7, 30, 90];
+      items.forEach(function(b, i){
+        b.classList.toggle('active', vals[i] === trendDays);
+      });
+    }
+  }catch(_e){}
+  if(document.getElementById('view-dashboard')) renderDashboard();
+}
+
+/* ---------- C3 单房间详情弹层（overlay，不新增 tab，不动 show() 5-tab 索引） ---------- */
+
+/** 打开单房间详情弹层：定位房间 + 渲染 + 显示。key 为 'platform|id'（抖音号平台为 douyin）。 */
+function openRoomDetail(key){
+  var parts = String(key || '').split('|');
+  var platform = parts[0] || '';
+  var id = parts[1] || '';
+  var room = null;
+  if(platform === 'douyin' && postRooms){
+    room = (postRooms.filter(function(r){ return String(r.id) === String(id); }))[0] || null;
+  } else if(rooms){
+    room = (rooms.filter(function(r){ return r.platform === platform && String(r.id) === String(id); }))[0] || null;
+  }
+  window.__roomDetailKey = key;
+  window.__roomDetailRoom = room;
+  renderRoomDetail(key);
+  var m = document.getElementById('roomDetail');
+  if(m) m.style.display = 'block';
+}
+
+/** 关闭详情弹层（mask 点击 / 关闭按钮 / Esc 通用）。 */
+function closeRoomDetail(){
+  var m = document.getElementById('roomDetail');
+  if(m) m.style.display = 'none';
+}
+
+/** 渲染详情弹层内容：基础信息 + 近期时间线(复用 .blm-log-item) + 开播时长(C1) + mini 趋势(.blm-chart-bar)。 */
+function renderRoomDetail(key){
+  var box = document.getElementById('roomDetailBody');
+  if(!box) return;
+  var parts = String(key || '').split('|');
+  var platform = parts[0] || '';
+  var id = parts[1] || '';
+  var room = window.__roomDetailRoom;
+  var name = room ? (room.name || id) : id;
+  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : '其他');
+
+  var titleEl = document.getElementById('roomDetailTitle');
+  if(titleEl) titleEl.textContent = name + ' · ' + platName;
+
+  // 状态标签
+  var stLabel = '—';
+  if(stat && stat.rooms){
+    for(var si = 0; si < stat.rooms.length; si++){
+      var sr = stat.rooms[si];
+      if(sr.platform === platform && String(sr.id) === String(id)){
+        stLabel = ({live:'直播中', replay:'回放中', offline:'未开播', error:'检测失败'})[sr.status] || '未开播';
+        break;
+      }
+    }
+  }
+
+  // 基础信息
+  var info = '<div class="blm-detail-section"><h4>基础信息</h4><div class="blm-detail-grid">'
+    + '<div><div class="dk">平台</div><div class="dv">' + e(platName) + '</div></div>'
+    + '<div><div class="dk">ID</div><div class="dv">' + e(id) + '</div></div>'
+    + '<div><div class="dk">名称</div><div class="dv">' + e(name) + '</div></div>'
+    + '<div><div class="dk">标签</div><div class="dv">' + (room && room.tags && room.tags.length ? e(room.tags.join(',')) : '—') + '</div></div>'
+    + '<div><div class="dk">状态</div><div class="dv"><span class="blm-detail-badge">' + e(stLabel) + '</span></div></div>'
+    + '</div></div>';
+
+  // 开播时长（C1 复用）
+  var dur = computeLiveDuration(hist, key);
+  var durHtml = '<div class="blm-detail-section"><h4>开播时长</h4><div class="blm-detail-grid">'
+    + '<div><div class="dk">累计</div><div class="dv">' + e(fmtDuration(dur.totalSec)) + (dur.ongoing ? ' <span class="blm-duration-ongoing">·进行中</span>' : '') + '</div></div>'
+    + '<div><div class="dk">平均(已完成)</div><div class="dv">' + e(fmtDuration(dur.avgSec)) + '</div></div>'
+    + '<div><div class="dk">近30天</div><div class="dv">' + e(fmtDuration(dur.last30Sec)) + '</div></div>'
+    + '<div><div class="dk">场次</div><div class="dv">' + dur.sessionCount + '</div></div>'
+    + '</div></div>';
+
+  // 近期时间线（复用既有 .blm-log-item / .blm-log-dot / .blm-log-content 设计系统）
+  var hr = (hist || []).filter(function(l){ return roomKeyOf(l) === key; });
+  var tl = hr.slice().sort(function(a, b){ return (a.time || '') > (b.time || '') ? -1 : 1; }).slice(0, 12);
+  var tlHtml = '<div class="blm-detail-section"><h4>近期时间线</h4>'
+    + (tl.length ? tl.map(function(l){
+        var tp = l.type || l.status;
+        var tlabel = {live_on:'开播', live_off:'下播', new_post:'新作品', error:'异常', cookie_warn:'风控'}[tp] || tp;
+        var cls = 'off';
+        if(tp === 'live_on') cls = 'live';
+        else if(tp === 'new_post') cls = 'dy';
+        else if(tp === 'error' || tp === 'cookie_warn') cls = 'warn';
+        return '<div class="blm-log-item">'
+          + '<span class="blm-log-time">' + e((l.time || '').substring(5, 16)) + '</span>'
+          + '<span class="blm-log-dot ' + cls + '"></span>'
+          + '<div class="blm-log-content"><span class="blm-log-room">' + e(tlabel) + ' ' + e(l.name || '') + '</span>'
+          + (l.title ? '<span class="blm-log-stream-title">' + e(l.title) + '</span>' : '') + '</div>'
+          + '</div>';
+      }).join('') : '<div class="empty" style="padding:12px">暂无事件</div>')
+    + '</div>';
+
+  // mini 趋势（复用 .blm-chart-bar，computeStatsJS 走 30 天分桶）
+  var s = computeStatsJS(hr, 30);
+  var mx = Math.max(1, Math.max.apply(null, s.live_on));
+  var miniBars = s.live_on.map(function(v, i){
+    var hpct = Math.round(v / mx * 100);
+    return '<div class="blm-detail-mini-bar" style="height:' + hpct + '%" title="' + e(s.days[i] + ': ' + v) + '">'
+      + (v > 0 ? '<span>' + v + '</span>' : '') + '</div>';
+  }).join('');
+  var miniHtml = '<div class="blm-detail-section"><h4>开播趋势（近30天）</h4>'
+    + '<div class="blm-detail-mini-bars">' + miniBars + '</div>'
+    + '<div class="blm-detail-mini-label">' + e(s.days[0]) + ' ~ ' + e(s.days[s.days.length - 1]) + ' · 共 ' + s.totals.live_on + ' 场</div>'
+    + '</div>';
+
+  box.innerHTML = info + durHtml + tlHtml + miniHtml;
+}
+
+/* ---------- C4 报表导出 CSV ---------- */
+
+/** CSV 字段转义（逗号/引号/换行加引号，引号翻倍）。 */
+function csvField(v){
+  var s = (v === undefined || v === null) ? '' : String(v);
+  if(/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+/**
+ * 导出监控报表 CSV（纯前端 Blob 下载；PNG 留后续）。
+ * 字段：name,platform,id,tags,enabled,累计时长秒,平均时长秒,近30天时长秒,liveOn7,newPost7,liveOn30,newPost30,status。
+ * 含 live 房间与 post（抖音号）房间。
+ */
+function exportReport(format){
+  if(format !== 'csv') return; // PNG 留后续波次
+  var histData = hist || [];
+  var rows = [];
+  var header = ['name','platform','id','tags','enabled','累计时长秒','平均时长秒','近30天时长秒','liveOn7','newPost7','liveOn30','newPost30','status'];
+  rows.push(header.join(','));
+
+  function statusOf(platform, id){
+    if(stat && stat.rooms){
+      for(var i = 0; i < stat.rooms.length; i++){
+        var r = stat.rooms[i];
+        if(r.platform === platform && String(r.id) === String(id)) return r.status || '';
+      }
+    }
+    return '';
+  }
+  function addRoomRow(platform, id, nm, tags, enabled){
+    var key = platform + '|' + id;
+    var dur = computeLiveDuration(histData, key);
+    var hr = histData.filter(function(l){ return roomKeyOf(l) === key; });
+    var s7 = computeStatsJS(hr, 7);
+    var s30 = computeStatsJS(hr, 30);
+    rows.push([
+      csvField(nm), csvField(platform), csvField(id),
+      csvField((tags || []).join('|')), csvField(enabled === false ? '否' : '是'),
+      dur.totalSec, dur.avgSec, dur.last30Sec,
+      s7.totals.live_on, s7.totals.new_post, s30.totals.live_on, s30.totals.new_post,
+      csvField(statusOf(platform, id))
+    ].join(','));
+  }
+  (rooms || []).forEach(function(r){ addRoomRow(r.platform, String(r.id), r.name || String(r.id), r.tags, r.enabled); });
+  (postRooms || []).forEach(function(r){ addRoomRow('douyin', String(r.id), r.name || String(r.id), r.tags, r.enabled); });
+
+  var csv = '﻿' + rows.join('\r\n'); // BOM 便于 Excel 中文
+  try{
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = bjNow(); function p(n){ return (n < 10 ? '0' : '') + n; }
+    a.href = url;
+    a.download = 'blive-monitor-report-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(_e){} }, 1500);
+  }catch(_e){
+    // Blob/URL 不可用时的降级：data URI 下载
+    var a2 = document.createElement('a');
+    a2.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a2.download = 'blive-monitor-report.csv';
+    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+  }
+}
+
+/* ---------- D2 写回冲突增强（ghWriteWithRetry 签名/返回形状不变，仅内部增强） ---------- */
+
+/**
+ * 字段级合并：本地 mutate 意图（local）与远端最新 base（remote）按 platform|id（或 id）并集调和。
+ * 优先级：
+ *   - 仅一方有 -> 保留该方；
+ *   - tags / enabled            : 以 local 为准（本地 mutate 意图优先）；
+ *   - sec_uid / name（非空时）  : 以 remote 为准（CI 写回字段优先；remote 为空取 local）；
+ *   - 其余字段                  : remote 优先，local 显式非空覆盖 remote。
+ * 返回 {rooms:[...], changed:bool}。供 ghWriteWithRetry 重试兜底，且与 Python 参考实现一致。
+ */
+function enhancedMerge(local, remote){
+  local = local || [];
+  remote = remote || [];
+  function keyOf(r){
+    var id = String(r.id != null ? r.id : '');
+    return (r.platform ? r.platform + '|' : '') + id;
+  }
+  // post_rooms（无 platform）按 id 建索引
+  var idOnly = local.every(function(r){ return !r.platform; }) && remote.every(function(r){ return !r.platform; });
+  function k(r){ return idOnly ? String(r.id != null ? r.id : '') : keyOf(r); }
+  var mapL = {}, mapR = {}, out = [], seen = {};
+  local.forEach(function(r){ mapL[k(r)] = r; });
+  remote.forEach(function(r){ mapR[k(r)] = r; });
+  function pick(l, r){
+    if(l && !r) return l;
+    if(!l && r) return r;
+    var m = {}, fields = {};
+    Object.keys(l).forEach(function(x){ fields[x] = 1; });
+    Object.keys(r).forEach(function(x){ fields[x] = 1; });
+    Object.keys(fields).forEach(function(field){
+      var lv = l[field], rv = r[field];
+      var rvNonEmpty = (rv !== undefined && rv !== null && String(rv).trim() !== '');
+      var lvNonEmpty = (lv !== undefined && lv !== null && String(lv).trim() !== '');
+      if(field === 'tags' || field === 'enabled'){
+        m[field] = (lv !== undefined) ? lv : rv;                 // 本地优先
+      } else if(field === 'sec_uid' || field === 'name'){
+        m[field] = rvNonEmpty ? rv : lv;                         // 远端非空优先
+      } else {
+        m[field] = rvNonEmpty ? rv : (lvNonEmpty ? lv : rv);     // 其余 remote 优先，local 显式非空覆盖
+      }
+    });
+    return m;
+  }
+  local.forEach(function(r){
+    var key = k(r);
+    if(!seen[key]){ seen[key] = true; out.push(pick(r, mapR[key])); }
+  });
+  remote.forEach(function(r){
+    var key = k(r);
+    if(!seen[key]){ seen[key] = true; out.push(pick(mapL[key], r)); }
+  });
+  var changed = (out.length !== remote.length) || (JSON.stringify(out) !== JSON.stringify(remote));
+  return { rooms: out, changed: changed };
+}
+
+/** 判断错误是否可重试（冲突 409/404 / 5xx / 网络错误）。 */
+function isRetryableError(e){
+  if(!e) return false;
+  if(e.conflict) return true;
+  var msg = e.message || '';
+  if(/HTTP\s*5\d\d/i.test(msg)) return true;                                   // 5xx
+  if(/network|timeout|fetch|abort|failed to fetch|ECONN|ETIMEDOUT/i.test(msg)) return true; // 网络
+  return false;
+}
+
+/**
+ * 读-改-写（基于 sha 的并发安全）。
+ * 签名与返回形状严格保持：(path, mutate) => Promise<{rooms, changed, sha}>。
+ * 内部增强（相对 2a/2b）：
+ *   ① 409 / 5xx / 网络错误均退避重试（≤5 次，退避 0.5→1→2→4s 封顶 8s）；
+ *   ② 每次重试先 ghGetFile 拿远端最新 base，再重跑 mutate（=不丢并发/CI 改动）；
+ *   ③ 重试时以字段级 enhancedMerge(local, remote) 兜底（tags/enabled 本地优先、sec_uid/name 远端优先）。
+ * 首成功路径与旧版完全一致（不套 merge，保证 saveRoomEdit 等领域行为零回归）。
+ */
 function ghWriteWithRetry(path, mutate){
-  var attempt=0;
-  function run(){
+  var attempt = 0;
+  var MAX = 5;
+  var backoff = [500, 1000, 2000, 4000, 8000]; // 退避序列，封顶 8s
+  function run(useMerge){
     return ghGetFile(path).then(function(file){
-      var res=mutate(file.rooms);
-      if(!res.changed) return Object.assign({}, res, {sha:file.sha});
-      return ghPutFile(path, res.rooms, file.sha).then(function(newSha){
-        return Object.assign({}, res, {changed:true, sha:newSha});
+      var res = mutate(file.rooms);
+      if(!res.changed) return Object.assign({}, res, { sha: file.sha });
+      var payload = res.rooms;
+      // 仅在重试（冲突/5xx/网络）时套字段级合并兜底，避免改变首成功路径行为
+      if(useMerge){
+        var merged = enhancedMerge(res.rooms, file.rooms);
+        payload = merged.rooms;
+      }
+      return ghPutFile(path, payload, file.sha).then(function(newSha){
+        return Object.assign({}, res, { rooms: payload, changed: true, sha: newSha });
       }).catch(function(e){
-        if(e&&e.conflict&&attempt<5){ attempt++; return run(); }
+        if(isRetryableError(e) && attempt < MAX){
+          attempt += 1;
+          var wait = backoff[Math.min(attempt - 1, backoff.length - 1)];
+          return new Promise(function(resolve){ setTimeout(resolve, wait); })
+            .then(function(){ return run(true); });
+        }
         throw e;
       });
     });
   }
-  return run();
+  return run(false);
 }
+
+/** Esc 键关闭弹层（详情 / 编辑），与 mask / 关闭按钮一致。 */
+document.addEventListener('keydown', function(ev){
+  if(ev && ev.key === 'Escape'){
+    try{ closeRoomDetail(); }catch(_e){}
+    try{ closeRoomEdit(); }catch(_e){}
+  }
+});
 
 /** 诊断：检测 api.github.com 是否可从浏览器访问。 */
 function checkApi(){
