@@ -23,25 +23,33 @@ class DetectionService:
         self.config_store = config_store or ConfigStore()
 
     # ==================== live ====================
-    def run_live(self) -> None:
+    def run_live(self, adapters: Optional[Any] = None) -> None:
         """一轮直播检测。"""
         import check_status  # 延迟导入，避免顶层循环依赖 / 启动开销
+        from backend.adapters import AdapterRegistry
 
         cfg_all = self.config_store.get_config()
         persist = LivePersist()
+        if adapters is None:
+            adapters = AdapterRegistry.from_config(cfg_all)
         logger.info("[DetectionService] 开始直播检测")
-        check_status.run_live_check(cfg_all=cfg_all, persist=persist, now=None)
+        check_status.run_live_check(cfg_all=cfg_all, persist=persist, now=None, adapters=adapters)
         logger.info("[DetectionService] 直播检测完成")
 
     # ==================== post ====================
-    def run_post(self, context: Optional[Any] = None) -> None:
+    def run_post(self, context: Optional[Any] = None, adapters: Optional[Any] = None) -> None:
         """一轮新作检测（需 Playwright 上下文；context 可由 scheduler 注入复用）。"""
         import check_new_posts
+        from backend.adapters import AdapterRegistry
 
         cfg_all = self.config_store.get_config()
         persist = PostPersist()
+        if adapters is None:
+            adapters = AdapterRegistry.from_config(cfg_all)
         logger.info("[DetectionService] 开始新作检测")
-        check_new_posts.run_post_check(cfg_all=cfg_all, persist=persist, now=None, context=context)
+        check_new_posts.run_post_check(
+            cfg_all=cfg_all, persist=persist, now=None, context=context, adapters=adapters
+        )
         logger.info("[DetectionService] 新作检测完成")
 
     # ==================== summary ====================

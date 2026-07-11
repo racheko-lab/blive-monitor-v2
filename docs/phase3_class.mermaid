@@ -1,0 +1,163 @@
+classDiagram
+    %% ============ 归一化模型（backend/adapters/base.py） ============
+    class RoomModel {
+        +str platform
+        +str room_id
+        +str name
+        +str title
+        +bool live_status   %% True=直播中（归一化 BOOL）
+        +str url
+        +str cover
+        +list~str~ tags
+        +int online
+        +str area
+        +dict extra         %% 平台专属基线 -> Room.meta
+    }
+    class PostModel {
+        +str platform
+        +str post_id
+        +str author
+        +str url
+        +str cover
+        +str published_at   %% 北京时间字符串
+        +str title
+        +dict extra         %% 平台专属(类型/conf/sec_uid)
+    }
+
+    %% ============ 适配器抽象基类 ============
+    class PlatformAdapter {
+        <<abstract>>
+        +str platform
+        +int poll_interval
+        +dict rate_limit
+        +bool supports_live
+        +bool supports_posts
+        +__init__(credentials, poll_interval, rate_limit)
+        +fetch_room_status(room_id) RoomModel
+        +fetch_new_posts(author_or_room, since, baseline) list~PostModel~
+        +fetch_room_status_batch(room_ids) dict   %% 可选，bilibili 实现
+    }
+    PlatformAdapter ..> RoomModel : "产出"
+    PlatformAdapter ..> PostModel : "产出"
+
+    %% ============ 具体适配器（P0） ============
+    class BilibiliAdapter {
+        +platform = "bilibili"
+        +supports_live = true
+        +supports_posts = false
+        +fetch_room_status_batch(ids) dict   %% 封装 fetch_bilibili_batch
+    }
+    class DouyinAdapter {
+        +platform = "douyin"
+        +supports_live = true
+        +supports_posts = true
+        +fetch_room_status(rid) RoomModel       %% 封装 fetch_douyin
+        +fetch_new_posts(rid, since, baseline)   %% 封装 get_latest_aweme + sec_uid 解析
+    }
+    class KuaishouAdapter {
+        +platform = "kuaishou"
+        +poll_interval = 300
+        +fetch_room_status(rid) RoomModel       %% live_api + SSR/Playwright
+        +fetch_new_posts(author, since, baseline)
+    }
+    class ChannelsAdapter {
+        +platform = "channels"
+        +poll_interval = 600
+        +mode: open_platform | playwright
+        +fetch_room_status(rid) RoomModel
+        +fetch_new_posts(author, since, baseline)
+    }
+    class XhsAdapter {
+        +platform = "xhs"
+        +poll_interval = 900
+        +supports_live = false                   %% 仅新作
+        +fetch_new_posts(author, since, baseline)  %% 签名API(x-s/x-t) | Playwright 拦XHR
+    }
+    class TaobaoLiveAdapter {
+        +platform = "taobao_live"
+        +poll_interval = 300
+        +supports_posts = false                  %% 仅直播
+        +fetch_room_status(rid) RoomModel        %% SSR liveStatus | Playwright
+    }
+
+    PlatformAdapter <|-- BilibiliAdapter
+    PlatformAdapter <|-- DouyinAdapter
+    PlatformAdapter <|-- KuaishouAdapter
+    PlatformAdapter <|-- ChannelsAdapter
+    PlatformAdapter <|-- XhsAdapter
+    PlatformAdapter <|-- TaobaoLiveAdapter
+
+    %% ============ 注册表 ============
+    class AdapterRegistry {
+        +register(adapter) void
+        +get(platform) PlatformAdapter
+        +from_config(cfg_all) AdapterRegistry   %% 读 config.platforms + 内置 bili/douyin
+        -_map: dict~str,PlatformAdapter~
+    }
+    AdapterRegistry ..> PlatformAdapter : "持有"
+
+    %% ============ 阶段四既有（消费方，不变） ============
+    class DetectionService {
+        +run_live(adapters) void
+        +run_post(adapters, context) void
+    }
+    class "check_status.run_live_check" {
+        +run_live_check(cfg_all, persist, adapters)
+    }
+    class "check_new_posts.run_post_check" {
+        +run_post_check(cfg_all, persist, adapters, context)
+    }
+    class LivePersist {
+        +list_rooms() / set_room_status() / append_event()
+        +dedup_should_notify() / notify_log()
+    }
+    class PostPersist {
+        +list_rooms() / set_room_status() / append_event()
+        +dedup_should_notify() / notify_log()
+    }
+    class Persistence {
+        +set_room_status(...)
+        +upsert_post(...)
+    }
+    class "push_utils.dispatch_event" {
+        +dispatch_event(cfg_all, ctx, title, desp)
+    }
+
+    %% —— 接线关系 ——
+    DetectionService ..> AdapterRegistry : "注入 adapters"
+    DetectionService ..> "check_status.run_live_check" : "调用"
+    DetectionService ..> "check_new_posts.run_post_check" : "调用"
+    "check_status.run_live_check" ..> AdapterRegistry : "adapters.get(platform)"
+    "check_new_posts.run_post_check" ..> AdapterRegistry : "adapters.get(platform)"
+    "check_status.run_live_check" ..> LivePersist : "落库/去重/通知账本"
+    "check_new_posts.run_post_check" ..> PostPersist : "落库/去重/通知账本"
+    LivePersist ..> Persistence : "DB 写"
+    PostPersist ..> Persistence : "DB 写"
+    "check_status.run_live_check" ..> "push_utils.dispatch_event" : "推送(不变)"
+    "check_new_posts.run_post_check" ..> "push_utils.dispatch_event" : "推送(不变)"
+
+    %% —— 归一化模型 -> 阶段四 ORM（逐字段对齐） ——
+    RoomModel ..> Room : "映射 platform/room_id/name/title/live_status/online/area/cover; extra->meta"
+    PostModel ..> Post : "映射 platform/post_id/author/url/cover/published_at"
+    Persistence ..> Room : "读写"
+    Persistence ..> Post : "读写"
+
+    class Room {
+        +str platform / external_id / kind
+        +str live_status   %% 字符串 live/offline/error
+        +str current_title / online / area / cover
+        +JSON meta
+    }
+    class Post {
+        +str platform / post_id / author / url / cover / published_at
+    }
+
+    %% —— bilibili/douyin 适配器复用既有纯函数（不变） ——
+    BilibiliAdapter ..> "check_status.fetch_bilibili_batch" : "封装复用"
+    DouyinAdapter ..> "check_status.fetch_douyin" : "封装复用"
+    DouyinAdapter ..> "check_new_posts.get_latest_aweme" : "封装复用"
+    DouyinAdapter ..> "check_new_posts.resolve_sec_uid" : "封装复用"
+
+    note for XhsAdapter "直播 NotSupported：\nfetch_room_status 抛 NotImplementedError\n编排层按 supports_live 跳过"
+    note for TaobaoLiveAdapter "新作 NotSupported：\nfetch_new_posts 抛 NotImplementedError\n编排层按 supports_posts 跳过"
+    note for PlatformAdapter "硬约束：适配器内部\n绝不写 JSON/DB；\n只 fetch+归一化 return 模型"

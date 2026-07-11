@@ -38,6 +38,10 @@ class PostPersist:
         # run_post_check 总是以 kind='post' 调用（kwargs 已含 kind，直接透传）
         return self.persistence.set_room_status(**kwargs)
 
+    def upsert_post(self, data: Dict[str, Any]) -> Any:
+        """落库一条新作（阶段三 T03：编排层按适配器返回归一化 PostModel 写入 posts 表）。"""
+        return self.persistence.upsert_post(data)
+
     def append_event(self, entry: Dict[str, Any]) -> bool:
         return self.history.append_event(entry)
 

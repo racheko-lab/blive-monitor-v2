@@ -1,0 +1,131 @@
+%% ============ ① 一轮直播检测（registry 遍历，adapter 输出归一化） ============
+sequenceDiagram
+    autonumber
+    participant SCH as Scheduler(APScheduler)
+    participant DS as DetectionService
+    participant REG as AdapterRegistry
+    participant CHK as run_live_check(编排层)
+    participant ADP as PlatformAdapter(具体平台)
+    participant CMN as common
+    participant PERS as LivePersist/Persistence
+    participant PU as push_utils.dispatch_event
+    participant DB as SQLite(WAL+写锁)
+
+    SCH->>DS: run_live(adapters)
+    DS->>DS: adapters = AdapterRegistry.from_config(cfg_all)
+    DS->>CHK: run_live_check(cfg_all, persist, adapters)
+    CHK->>PERS: list_rooms(kind='live', enabled=True)
+    PERS->>DB: SELECT rooms ...
+    DB-->>PERS: Room[](含 meta 基线)
+    CHK->>REG: 按 platform 分组取 adapter
+    Note over CHK,REG: bilibili 命中 fetch_room_status_batch 批量预取
+    loop 每个启用房间
+        CHK->>REG: adapter = adapters.get(room.platform)
+        alt adapter 不存在 或 not supports_live
+            Note over CHK: 记录日志跳过（等价原 未知平台 分支）
+        else 支持直播
+            CHK->>ADP: fetch_room_status(rid)  -> RoomModel
+            ADP-->>CHK: RoomModel{platform,room_id,live_status:bool,title,online,area,cover,extra}
+            Note over CHK: 映射 live_status BOOL -> "live"/"offline"
+            CHK->>CMN: room_enabled / should_skip_by_silence
+            alt 状态变化需推送 (should_push)
+                CHK->>PU: dispatch_event(cfg_all, ctx, title, desp)
+                PU-->>CHK: SendResult(ok, attempts, last_error)
+            end
+            CHK->>PERS: set_room_status(..., extra->meta_update)  %% 持写锁
+            PERS->>DB: UPDATE rooms(live_status,current_title,online,area,cover,meta)
+            CHK->>PERS: append_event(entry)  %% HistoryStore 节流
+            PERS->>DB: INSERT events_history
+            opt 推送成功
+                CHK->>PERS: dedup_record + notify_log
+                PERS->>DB: UPSERT notify_dedup / INSERT notify_log
+            end
+        end
+    end
+    CHK-->>DS: 本轮完成
+
+%% ============ ② 一轮新作检测（xhs 仅新作 / taobao 跳过 / 通用比较） ============
+sequenceDiagram
+    autonumber
+    participant SCH as Scheduler
+    participant DS as DetectionService
+    participant REG as AdapterRegistry
+    participant PCHK as run_post_check(编排层)
+    participant XADP as XhsAdapter(仅新作)
+    participant KADP as KuaishouAdapter(直播+新作)
+    participant TADP as TaobaoLiveAdapter
+    participant PERS as PostPersist/Persistence
+    participant PU as push_utils.dispatch_event
+    participant DB as SQLite
+
+    SCH->>DS: run_post(adapters, context)
+    DS->>PCHK: run_post_check(cfg_all, persist, adapters, context)
+    PCHK->>PERS: list_rooms(kind='post', enabled=True)
+    PERS->>DB: SELECT rooms(kind='post')
+    DB-->>PERS: Room[]
+    loop 每个启用 post 房间
+        PCHK->>REG: adapter = adapters.get(room.platform)
+        alt not adapter.supports_posts   %% 如 taobao_live
+            PCHK->>PERS: append_event(system: 平台不支持新作, 跳过)
+        else 支持新作
+            PCHK->>PERS: get_tracking(platform, rid)  -> baseline(含 sec_uid)
+            PCHK->>XADP: fetch_new_posts(rid, since, baseline=meta)
+            XADP-->>PCHK: PostModel[]{post_id,author,url,cover,published_at,title,extra}
+            Note over PCHK: 通用「新于基线」比较\n(meta.latest_post_id / latest_published_at)
+            loop 每条新于基线的 PostModel
+                PCHK->>PU: dispatch_event(event='new_post')
+                PU-->>PCHK: SendResult
+                PCHK->>PERS: upsert_post(PostModel)  %% 持写锁
+                PERS->>DB: INSERT posts
+                opt 推送成功
+                    PCHK->>PERS: dedup_record + notify_log
+                    PERS->>DB: UPSERT notify_dedup / INSERT notify_log
+                end
+            end
+            PCHK->>PERS: set_room_status(meta_update=最新基线+adapter回写extra)
+        end
+    end
+    PCHK-->>DS: 本轮完成
+
+%% ============ ③ 单平台/单房间失败隔离 ============
+sequenceDiagram
+    autonumber
+    participant CHK as run_live_check / run_post_check
+    participant ADP as 某平台 Adapter
+    participant PERS as LivePersist/PostPersist
+    participant DB as SQLite
+
+    loop 逐房间
+        CHK->>ADP: fetch_room_status / fetch_new_posts
+        alt Adapter 抛异常(风控/超时/签名失效)
+            ADP-->>CHK: Exception
+            CHK->>CHK: try/except -> status="error"(直播) 或 cookie_warn/system(新作)
+            CHK->>PERS: append_event(错误事件)  %% 仅记录，不中断
+            Note over CHK,DB: 其余平台/房间继续；单点失效不影响全局
+        else 正常
+            ADP-->>CHK: RoomModel / PostModel[]
+            CHK->>PERS: 正常落库+推送
+        end
+    end
+
+%% ============ ④ AdapterRegistry 构建（from_config，接入 config.platforms） ============
+sequenceDiagram
+    autonumber
+    participant DS as DetectionService
+    participant CS as ConfigStore
+    participant REG as AdapterRegistry
+    participant CFG as BLIVE_CONFIG['platforms']
+
+    DS->>CS: get_config()
+    CS->>DB: SELECT ConfigKV('blive_config')
+    DB-->>CS: value(含 platforms 段)
+    CS-->>DS: cfg_all
+    DS->>REG: from_config(cfg_all)
+    REG->>REG: register(BilibiliAdapter())   %% 内置常驻
+    REG->>REG: register(DouyinAdapter())      %% 内置常驻
+    loop platforms 段中 enabled=true 的条目
+        REG->>CFG: 读 {kuaishou|channels|xhs|taobao_live}.{enabled,credentials,poll_interval,rate_limit}
+        REG->>REG: register(对应 Adapter(credentials,poll_interval,rate_limit))
+    end
+    REG-->>DS: 可用 adapter 表
+    Note over REG: 既有 bilibili/douyin 不依赖 platforms 段，始终注册

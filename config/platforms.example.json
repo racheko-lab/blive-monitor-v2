@@ -1,0 +1,44 @@
+{
+  "platforms": {
+    "kuaishou": {
+      "enabled": true,
+      "credentials": {
+        "did": "<匿名设备id，可随机生成>",
+        "client_key": "3c7cd4d734b53483",
+        "cookie": ""
+      },
+      "poll_interval": 300,
+      "rate_limit": { "max_requests": 20, "window_sec": 60, "backoff_sec": 30 }
+    },
+    "channels": {
+      "enabled": false,
+      "mode": "open_platform",
+      "credentials": {
+        "app_id": "",
+        "app_secret": "",
+        "access_token": "",
+        "cookie": ""
+      },
+      "poll_interval": 600,
+      "rate_limit": { "max_requests": 10, "window_sec": 60, "backoff_sec": 60 }
+    },
+    "xhs": {
+      "enabled": true,
+      "mode": "notes_only",
+      "credentials": {
+        "cookie": "<小红书登录cookie>",
+        "signer": "xhspro"
+      },
+      "poll_interval": 900,
+      "rate_limit": { "max_requests": 8, "window_sec": 60, "backoff_sec": 120 }
+    },
+    "taobao_live": {
+      "enabled": false,
+      "credentials": {
+        "cookie": "<淘宝登录cookie>"
+      },
+      "poll_interval": 300,
+      "rate_limit": { "max_requests": 15, "window_sec": 60, "backoff_sec": 30 }
+    }
+  }
+}

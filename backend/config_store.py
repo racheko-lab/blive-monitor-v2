@@ -89,6 +89,14 @@ class ConfigStore:
         """兼容 legacy 单通道：返回 BLIVE_CONFIG['push']（可能为空 dict）。"""
         return self.get_config().get("push") or {}
 
+    def get_platform_cfg(self, platform: str) -> Dict[str, Any]:
+        """取某平台的多平台适配器配置（BLIVE_CONFIG['platforms'][platform]）。
+
+        阶段三 T04：AdapterRegistry.from_config 据此构建/跳过各平台适配器。
+        缺省返回空 dict（等价于「未配置/未启用」）。
+        """
+        return self.get_config().get("platforms", {}).get(platform, {}) or {}
+
     # ==================== summary / silence 状态 ====================
     def _upsert_kv_state(self, model, key: str, value: Dict[str, Any]) -> Dict[str, Any]:
         with db.WRITER_LOCK:

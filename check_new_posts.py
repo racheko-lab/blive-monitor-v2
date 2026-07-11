@@ -967,7 +967,7 @@ def main() -> None:
 
 
 def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] = None,
-                   context: Any = None) -> None:
+                   context: Any = None, adapters: Any = None) -> None:
     """后端驱动的新作品检测编排（不写 JSON，全部经 ``persist`` 落库）。
 
     复用本模块纯函数（get_latest_aweme / should_notify_new_post / should_update_baseline /
@@ -997,8 +997,15 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
 
     post_rooms = persist.list_rooms() or []
     if not post_rooms:
-        logger.info("[run_post_check] post_rooms 为空，没有需要监控新作品的抖音号")
+        logger.info("[run_post_check] post_rooms 为空，没有需要监控新作品的账号")
         return
+
+    # 适配器注册表（阶段三 T03）：缺省从 cfg_all['platforms'] + 内置 bilibili/douyin 构建。
+    if adapters is None:
+        from backend.adapters import AdapterRegistry
+
+        adapters = AdapterRegistry.from_config(cfg_all or {})
+    from backend.adapters.base import AdapterGated, AdapterSkip
 
     def _content_hash(channel_id, event_type, content):
         import hashlib
@@ -1013,6 +1020,69 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
             "level": level if level is not None else level_from_type(etype),
             "detail": (detail or "")[:200], "account": rid,
         })
+
+    def _process_post(post, platform, rid, name, entry):
+        """通用新作推送：逐条判定去重 -> 渲染标题/正文 -> 路由推送 -> 写事件/账本。
+
+        复用 common / push_utils 的路由与推送（一字不改）；适配器已按基线过滤出
+        「新于基线」的作品，此处仅做跨轮去重 + 推送 + 落库。
+        """
+        conf = post.extra.get("conf", "api")
+        kind = post.extra.get("type", "视频")
+        dkey = post.extra.get("dedup_key") or f"post:{platform}:{post.post_id}"
+        if conf == "count":
+            title = f"🔔 {name} 可能发布了新作品"
+            prev_count = post.extra.get("prev_count")
+            new_count = post.extra.get("new_count")
+            desp = (
+                f"## 🔔 {name} 可能发布了新作品\n\n**作品数变化**: {prev_count} → {new_count}\n\n"
+                f"接口被风控/未登录，无法获取具体作品，请到主页确认：\n"
+                f"👉 [打开 {name} 的主页]({post.url})\n\n---\n检测时间: {now_str}"
+            )
+            detail = f"作品数 {prev_count}→{new_count}"
+        else:
+            title = f"🆕 {name} 发布了新作品"
+            desc = post.title or "[无描述]"
+            desp = (
+                f"## 🆕 {name} 发布了新作品\n\n**类型**: {kind}\n\n"
+                f"**描述**: {desc}\n\n👉 [查看作品]({post.url})\n\n---\n检测时间: {now_str}"
+            )
+            detail = f"{desc}  {post.url}".strip()
+        # 去重：适配器已按基线过滤「新作品」，此处防跨轮重复推送
+        if not persist.dedup_should_notify(dkey, cooldown=float("inf")):
+            logger.info("  [%s] 去重跳过：作品 %s 已推送过", name, post.post_id)
+            return
+        if should_skip_by_silence(bjnow(), silence_cfg):
+            logger.info("  [%s] 当前处于静默时段，暂缓新作品推送", name)
+            return
+        try:
+            ctx = {
+                "platform": platform,
+                "tag": (entry.get("tags") or [None])[0] if entry.get("tags") else None,
+                "event": "new_post",
+            }
+            pcfg = channel_to_push_cfg(common.resolve_channel(cfg_all or {}, ctx))
+            channel = (pcfg.get("type") or "unknown").lower()
+            res = dispatch_event(cfg_all or {}, ctx, title, desp)
+            logger.info("    → 推送%s", "成功" if res.ok else "失败")
+            content_hash = _content_hash(channel, "new_post", title + desp)
+            if res.ok:
+                _append(rid, name, platform, "new_post", detail=detail)
+                persist.dedup_record(dkey)
+                persist.notify_log(channel_id=channel, event_type="new_post",
+                                   content_hash=content_hash, status="ok")
+            elif res.last_error == "config: empty push_cfg":
+                pass
+            else:
+                last_err = (res.last_error or "未知错误")[:200]
+                logger.error("通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                             channel, res.attempts, res.last_error, title)
+                _append(rid, name, platform, "error",
+                        detail=f"通知发送失败（{channel}）：{last_err}", push="pushed_fail")
+                persist.notify_log(channel_id=channel, event_type="new_post",
+                                   content_hash=content_hash, status="fail")
+        except Exception as e:  # noqa: BLE001
+            logger.error("    → 推送异常: %s", e)
 
     # 浏览器上下文（按需创建；无头、与 main() 同启动参数）
     own_context = False
@@ -1043,6 +1113,7 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
         for entry in post_rooms:
             rid = entry.get("external_id", "") or entry.get("id", "")
             name = entry.get("name", rid)
+            platform = entry.get("platform", "douyin")
             if not room_enabled(entry):
                 logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
                 continue
@@ -1051,6 +1122,61 @@ def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] 
                 _append("", "(缺id)", "douyin", "system",
                         detail="账号配置不完整（缺 id），已跳过")
                 continue
+            adapter = adapters.get(platform) if adapters else None
+            if platform != "douyin":
+                # 阶段三 T03：非抖音平台经适配器取新作（注册表驱动，能力标志跳过不支持者）
+                if adapter is None or not getattr(adapter, "supports_posts", True):
+                    logger.info("  [%s] 平台(%s)不支持新作检测，跳过", name, platform)
+                    _append(rid, name, platform, "system", detail="平台不支持新作检测，已跳过")
+                    continue
+                key = f"{platform}_{rid}"
+                meta = dict(persist.get_tracking(platform, rid) or {})
+                # 需要浏览器的平台：注入凭证（context 由 scheduler 或本函数创建）
+                ctx = context
+                if getattr(adapter, "needs_context", False) and ctx is not None:
+                    try:
+                        adapter.apply_credentials(ctx)
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning("[%s] 注入凭证失败: %s", platform, e)
+                try:
+                    posts = adapter.fetch_new_posts(rid, since=None, baseline=meta, context=ctx)
+                except AdapterSkip as e:
+                    logger.info("  [%s] 跳过新作检测: %s", name, e.detail or e.reason)
+                    _append(rid, name, platform, "system", detail=e.detail or f"跳过: {e.reason}")
+                    persist.set_room_status(platform=platform, external_id=rid, kind="post",
+                                            name=name, meta_update=meta)
+                    continue
+                except AdapterGated as e:
+                    logger.warning("  [%s] 新作接口被风控/需凭证: %s", name, e.detail)
+                    _append(rid, name, platform, "cookie_warn",
+                            detail=e.detail or "接口被风控，需凭证")
+                    gated_hint = True
+                    persist.set_room_status(platform=platform, external_id=rid, kind="post",
+                                            name=name, meta_update=meta)
+                    continue
+                except Exception as e:  # noqa: BLE001
+                    logger.error("  [%s] 获取新作异常: %s", name, e)
+                    _append(rid, name, platform, "error", detail=f"获取新作异常: {e}")
+                    gated_hint = True
+                    persist.set_room_status(platform=platform, external_id=rid, kind="post",
+                                            name=name, meta_update=meta)
+                    continue
+                # 通用「新作」处理：逐条推送 + 事件 + 去重 + 落库
+                for post in (posts or []):
+                    _process_post(post, platform, rid, name, entry)
+                persist.set_room_status(platform=platform, external_id=rid, kind="post",
+                                        name=name, meta_update=meta)
+                for post in (posts or []):
+                    persist.upsert_post({
+                        "platform": post.platform,
+                        "post_id": post.post_id,
+                        "author": post.author,
+                        "url": post.url,
+                        "cover": post.cover,
+                        "published_at": post.published_at,
+                    })
+                continue
+            # 抖音：沿用既有内联检测逻辑（零重写，复用 resolve_sec_uid / get_latest_aweme 等）
             key = f"douyin_{rid}"
             t = dict(persist.get_tracking("douyin", rid) or {})
 

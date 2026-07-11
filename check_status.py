@@ -925,7 +925,30 @@ def _event_content_hash(channel_id: str, event_type: str, content: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
-def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datetime] = None) -> None:
+def _room_model_to_result(model, now_str: str) -> Dict[str, Any]:
+    """把适配器归一化 ``RoomModel`` 映射回 ``run_live_check`` 内部使用的 result dict。
+
+    live_status 为 BOOL，经 ``extra['status_str']``（若存在，如 bilibili 的
+    live/offline/replay）映射为字符串；否则退化为 "live"/"offline"。其余字段逐一对齐。
+    """
+    status_str = model.extra.get("status_str")
+    if not status_str:
+        status_str = "live" if model.live_status else "offline"
+    return {
+        "status": status_str,
+        "title": model.title,
+        "online": model.online,
+        "area": model.area,
+        "sec_uid": model.extra.get("sec_uid", ""),
+        "nickname": model.name,
+        "time": now_str,
+        "url": model.url,
+        "cover": model.cover,
+    }
+
+
+def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datetime] = None,
+                   adapters: Any = None) -> None:
     """后端驱动的直播检测编排（不写 JSON，全部经 ``persist`` 落库）。
 
     复用本模块纯函数（fetch_bilibili_batch / fetch_douyin / should_push /
@@ -957,6 +980,13 @@ def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datet
         logger.info("[run_live_check] 没有配置监控房间")
         return
 
+    # 适配器注册表（阶段三 T03）：缺省从 cfg_all['platforms'] + 内置 bilibili/douyin 构建。
+    # 编排层由此「遍历注册表」而非按平台 if/else 内联分支。
+    if adapters is None:
+        from backend.adapters import AdapterRegistry
+
+        adapters = AdapterRegistry.from_config(cfg_all or {})
+
     # 上一轮状态 & 基线（本轮更新前读取）
     prev_state = {
         f"{r['platform']}_{r['external_id']}": persist.get_prev_status(r["platform"], r["external_id"])
@@ -967,16 +997,18 @@ def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datet
         for r in rooms
     }
 
-    # Step 1: B站批量
-    bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
-    bili_data: Dict[str, Dict[str, Any]] = {}
+    # Step 1: B站批量预取（经 BilibiliAdapter.fetch_room_status_batch，保留批量效率；
+    # 内置 pure function fetch_bilibili_batch 仍被适配器内部调用，既有 monkeypatch 测试继续生效）。
+    bili_adapter = adapters.get("bilibili") if adapters else None
+    bili_cache: Dict[str, Any] = {}
     bili_batch_failed = False
-    if bili_rooms:
+    bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
+    if bili_rooms and bili_adapter is not None and hasattr(bili_adapter, "fetch_room_status_batch"):
         try:
             bili_ids = [str(r["external_id"]) for r, _ in bili_rooms]
-            bili_data = fetch_bilibili_batch(bili_ids)
-            logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_data))
-        except Exception as e:
+            bili_cache = bili_adapter.fetch_room_status_batch(bili_ids)
+            logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_cache))
+        except Exception as e:  # noqa: BLE001
             logger.error("B站批量查询失败: %s", e)
             bili_batch_failed = True
 
@@ -995,37 +1027,30 @@ def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datet
         push_result: Optional[str] = None
 
         try:
-            if platform == "bilibili":
-                d = bili_data.get(str(rid))
-                if not d:
+            adapter = adapters.get(platform) if adapters else None
+            if adapter is None or not getattr(adapter, "supports_live", True):
+                logger.warning("[%s] 未知/不支持直播的平台，跳过检测: %s", name, platform)
+                result = {"status": "offline", "title": "", "online": 0, "time": now_str}
+            elif platform == "bilibili":
+                # 命中批量缓存；缺失处理沿用既有「沿用上次状态 / 报错」语义
+                model = bili_cache.get(str(rid))
+                if model is None:
                     if bili_batch_failed:
                         prev = prev_state.get(key)
-                        prev_full = {}  # 后端无 status.json 全量缓存，沿用 prev_status 即可
                         logger.warning("[%s] B站批量查询失败，沿用上次状态: %s", name, prev)
                         result = {
                             "status": bili_status_on_batch_failure(prev),
-                            "title": prev_full.get("title", ""),
-                            "online": prev_full.get("online", 0),
-                            "area": prev_full.get("area", ""),
+                            "title": "",
+                            "online": 0,
+                            "area": "",
                         }
                     else:
                         raise Exception(f"批量接口未返回房间 {rid} 的数据")
                 else:
-                    status_code = d.get("live_status", 0)
-                    result = {
-                        "status": BILIBILI_STATUS_MAP.get(status_code, "unknown"),
-                        "title": d.get("title", ""),
-                        "online": d.get("online", 0),
-                        "area": (
-                            f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
-                            or ""
-                        ),
-                    }
-            elif platform == "douyin":
-                result = fetch_douyin(rid)
+                    result = _room_model_to_result(model, now_str)
             else:
-                logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
-                result = {"status": "offline", "title": "", "online": 0, "time": now_str}
+                model = adapter.fetch_room_status(rid)
+                result = _room_model_to_result(model, now_str)
 
         except Exception as e:
             logger.warning("[%s] 检测失败: %s", name, e)
