@@ -47,7 +47,8 @@ from common import (
 )
 import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event 同源）
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
-from push_utils import SendResult, dispatch_push, load_push_cfg, channel_to_push_cfg
+# 统一路由入口直接复用 push_utils.dispatch_event（与 check_status/auto_summary 同范式，不再本地薄封装）
+from push_utils import SendResult, load_push_cfg, channel_to_push_cfg, dispatch_event
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 # 横切模块：运行时日志（init_runtime_logging）+ 统一 history 读写/上限/节流
@@ -624,41 +625,6 @@ def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
             "当前 tracking 基线仍可防同作品重推，但若 tracking 也丢失则可能重复推送。",
             accounts_with_baseline,
         )
-
-
-def dispatch_event(cfg_all: Dict[str, Any], ctx: Dict[str, Any], title: str, desp: str) -> "SendResult":
-    """统一推送入口（新作品通知专用薄封装）。
-
-    与 ``push_utils.dispatch_event`` 逻辑完全一致（resolve_channel 选通道 ->
-    channel_to_push_cfg 压平 -> 发送），但发送走**本模块级** ``dispatch_push``，
-    以保持与既有测试 monkeypatch 拦截点（``cnp.dispatch_push``）兼容。
-
-    未配置通道（pcfg 无 type）：记 info 跳过、返回 ok=False（last_error=
-    "config: empty push_cfg"），不刷伪失败 error 日志。
-
-    Args:
-        cfg_all: BLIVE_CONFIG 完整 dict。
-        ctx: 路由维度上下文 ``{platform, tag, event}``。
-        title: 推送标题。
-        desp: 推送正文。
-
-    Returns:
-        聚合后的 ``SendResult``。
-    """
-    ch = common.resolve_channel(cfg_all, ctx)
-    pcfg = channel_to_push_cfg(ch)
-    if not pcfg or not pcfg.get("type"):
-        logger.info(
-            "推送未配置（无有效通道），跳过本次事件推送（event=%s）",
-            ctx.get("event"),
-        )
-        return SendResult(
-            ok=False,
-            attempts=0,
-            last_error="config: empty push_cfg",
-            status_code=None,
-        )
-    return dispatch_push(pcfg, title, desp)
 
 
 def main() -> None:

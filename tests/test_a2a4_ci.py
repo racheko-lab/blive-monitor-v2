@@ -411,12 +411,12 @@ def test_check_status_no_config_no_sendkey(tmp_path, monkeypatch):
 
 
 # =====================================================================
-# check_new_posts 路由（每作品独立路由；保持 cnp.dispatch_push 拦截点）
+# check_new_posts 路由（每作品独立路由；拦截点已迁移到 push_utils.dispatch_push）
 # =====================================================================
 def test_check_new_posts_dispatch_event_legacy(monkeypatch):
     """legacy（仅 push）→ dispatch_event 退化为 dispatch_push(legacy push_cfg)。"""
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", _fake_dispatch(calls))
+    monkeypatch.setattr(push_utils, "dispatch_push", _fake_dispatch(calls))
     cfg = {"push": {"type": "wecom", "webhook": "x"}}
     res = cnp.dispatch_event(cfg, {"platform": "douyin", "tag": None, "event": "new_post"}, "t", "d")
     assert res.ok is True
@@ -427,7 +427,7 @@ def test_check_new_posts_dispatch_event_legacy(monkeypatch):
 def test_check_new_posts_dispatch_event_routing(monkeypatch):
     """多通道：new_post 事件路由到 bark，其余（若配置）走默认。"""
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", _fake_dispatch(calls))
+    monkeypatch.setattr(push_utils, "dispatch_push", _fake_dispatch(calls))
     cfg = {
         "channels": [
             {"id": "bark", "type": "bark", "fields": {"url": "u"}},
@@ -445,7 +445,7 @@ def test_check_new_posts_dispatch_event_routing(monkeypatch):
 def test_check_new_posts_dispatch_event_tag_routing(monkeypatch):
     """new_post 按 tag 路由：tags=['vip'] → bark。"""
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", _fake_dispatch(calls))
+    monkeypatch.setattr(push_utils, "dispatch_push", _fake_dispatch(calls))
     cfg = {
         "channels": [
             {"id": "bark", "type": "bark", "fields": {"url": "u"}},
@@ -463,7 +463,7 @@ def test_check_new_posts_dispatch_event_tag_routing(monkeypatch):
 def test_check_new_posts_dispatch_event_no_config(monkeypatch):
     """未配置通道：返回 ok=False 且不调用 dispatch_push（不刷伪失败）。"""
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", _fake_dispatch(calls))
+    monkeypatch.setattr(push_utils, "dispatch_push", _fake_dispatch(calls))
     res = cnp.dispatch_event({}, {"platform": "douyin", "tag": None, "event": "new_post"}, "t", "d")
     assert res.ok is False
     assert res.last_error == "config: empty push_cfg"

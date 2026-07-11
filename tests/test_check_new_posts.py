@@ -7,6 +7,7 @@ import types
 import pytest
 
 import check_new_posts as cnp
+import push_utils
 
 
 # ==================== 日志模块重构：注释修正 / 级联清理 / 补丁归一 ====================
@@ -117,7 +118,8 @@ def test_module_imports_common():
 
 
 def test_push_utils_imported():
-    assert hasattr(cnp, "dispatch_push")
+    # 收敛后 cnp 不再本地定义 dispatch_event，统一复用 push_utils.dispatch_event（防回潮）
+    assert cnp.dispatch_event is push_utils.dispatch_event
     assert hasattr(cnp, "load_push_cfg")
 
 
@@ -166,7 +168,7 @@ def test_main_first_run_establishes_baseline_no_notify(tmp_path, monkeypatch):
     _install_fake_playwright()
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}])
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -186,7 +188,7 @@ def test_main_detects_new_post_and_notifies(tmp_path, monkeypatch):
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -206,7 +208,7 @@ def test_main_feed_lag_keeps_baseline(tmp_path, monkeypatch):
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1700000000}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "777", "desc": "旧视频", "video_url": "https://v/777",
         "is_note": False, "nickname": "阿伟", "create_time": 1699999000,
@@ -229,7 +231,7 @@ def test_main_cleans_up_removed_accounts(tmp_path, monkeypatch):
                    "douyin_OLD123": {"sec_uid": "MS4wOLD", "latest_aweme_id": "1", "latest_ct": 1},
                },
                push_cfg="{}")
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "x", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -285,7 +287,7 @@ def test_latest_cover_persisted(tmp_path, monkeypatch):
     _install_fake_playwright()
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -304,7 +306,7 @@ def test_latest_cover_not_overwritten_by_none(tmp_path, monkeypatch):
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000,
                                             "latest_cover": "https://p1.douyin.com/coverFirst.jpg"}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     # 再次抓取：接口返回的作品没有 cover（退化/异常），守卫应跳过写入，保留已有好封面
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
@@ -477,7 +479,7 @@ def test_main_count_mode_speculates(tmp_path, monkeypatch):
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
                                             "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: _count_aweme(12))
 
     cnp.main()
@@ -496,7 +498,7 @@ def test_main_count_mode_no_notify_when_unchanged(tmp_path, monkeypatch):
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
                                             "latest_aweme_id": "count:12", "latest_ct": 12, "latest_count": 12}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: _count_aweme(12))
 
     cnp.main()
@@ -509,7 +511,7 @@ def test_main_count_mode_first_run_no_notify(tmp_path, monkeypatch):
     _install_fake_playwright()
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}], tracking=None)
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: _count_aweme(12))
 
     cnp.main()
@@ -527,7 +529,7 @@ def test_main_mode_switch_no_false_notify(tmp_path, monkeypatch):
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "api",
                                             "latest_aweme_id": "888", "latest_ct": 1700000000}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     # 之前是 api 基线，现在环境无 Cookie → 退化到 count 推测
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: _count_aweme(999))
 
@@ -564,7 +566,7 @@ def test_main_applies_cookie_via_env(tmp_path, monkeypatch):
     tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
                tracking=None, push_cfg="{}")
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "x", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -665,7 +667,7 @@ def test_main_poison_guard_skips_wrong_account(tmp_path, monkeypatch):
     tf = _seed(tmp_path, monkeypatch, [{"id": "weiren_handle", "name": "阿伟"}],
                tracking=None)
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     # get_latest_aweme 实际打开的是陌生人主页（unique_id 与期望 handle 不符）
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         **_count_aweme(12), "actual_unique_id": "stranger_xyz",
@@ -690,7 +692,7 @@ def test_main_poison_guard_skipped_for_sec_uid_id(tmp_path, monkeypatch):
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
                                             "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     # 即便是「错误」账号的 unique_id，因为 rid 是 sec_uid 形态（可信），防护不触发
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         **_count_aweme(12), "actual_unique_id": "stranger_xyz",
@@ -717,7 +719,7 @@ def test_new_post_written_to_history(tmp_path, monkeypatch):
     _install_fake_playwright()
     _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
           tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
         "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
@@ -737,7 +739,7 @@ def test_cookie_warn_written_when_gated(tmp_path, monkeypatch):
     _install_fake_playwright()
     _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
           tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: None)
     cnp.main()
     hist = _hist_types(tmp_path)
@@ -752,7 +754,7 @@ def test_error_written_on_fetch_exception(tmp_path, monkeypatch):
     _install_fake_playwright()
     _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
           tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
 
     def boom(ctx, sec):
         raise RuntimeError("网络超时")
@@ -771,7 +773,7 @@ def test_cookie_warn_throttled_within_window(tmp_path, monkeypatch):
     _install_fake_playwright()
     _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
           tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: None)
     cnp.main()
     cw1 = sum(1 for e in _hist_types(tmp_path) if e.get("type") == "cookie_warn")
@@ -786,7 +788,7 @@ def test_system_written_when_sec_uid_missing(tmp_path, monkeypatch):
     # 无 sec_uid、且 resolve_sec_uid 返回空（模拟解析失败）
     _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
           tracking={"douyin_MS4wABC": {"latest_aweme_id": "888", "latest_ct": 1699999000}})
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: True)
     monkeypatch.setattr(cnp, "resolve_sec_uid", lambda ctx, rid: "")  # 解析失败
     cnp.main()
     hist = _hist_types(tmp_path)
@@ -804,7 +806,7 @@ def test_main_poison_guard_ok_when_handle_matches(tmp_path, monkeypatch):
                tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "mode": "count",
                                             "latest_aweme_id": "count:10", "latest_ct": 10, "latest_count": 10}})
     calls = []
-    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
+    monkeypatch.setattr(push_utils, "dispatch_push", lambda cfg, t, d: calls.append(t) or True)
     monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
         **_count_aweme(12), "actual_unique_id": "MS4wABC",
     })
