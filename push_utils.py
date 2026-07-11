@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
 # A2/A4 预留：多通道选通道 + 模板拼接（CI 多通道消费留后续协调，本波不被 dispatch_push 调用）
+import common  # dispatch_event 内部按路由选通道（common.resolve_channel / common.render_template）
 from common import resolve_channel, render_template  # noqa: F401  (re-export，供 push_utils 命名空间下引用)
 
 logger = logging.getLogger(__name__)
@@ -457,6 +458,75 @@ def dispatch_push_ok(push_cfg: Dict[str, Any], title: str, desp: str) -> bool:
         ``True`` 表示最终推送成功；``False`` 表示失败。
     """
     return dispatch_push(push_cfg, title, desp).ok
+
+
+def channel_to_push_cfg(ch: Dict[str, Any]) -> Dict[str, Any]:
+    """把 ``resolve_channel`` 返回的通道 dict 压成 ``dispatch_push`` 接受的扁平配置。
+
+    通道 dict 两种形状（来自 ``common.resolve_channel``）：
+      - 新通道：``{"id": "c1", "type": "wecom", "fields": {"webhook": "..."}}``
+        → 输出 ``{"type": ch["type"], **fields}``（字段拍平到顶层）。
+      - legacy 退化：``cfg['push']`` 即扁平 ``{"type": "wecom", "webhook": "..."}``
+        （无 ``fields`` 键）→ 原样 ``dict(ch)`` 透传。
+
+    空 ``ch``（``{}`` / ``None``）→ 返回 ``{}``（``dispatch_push`` 内部判空返回失败
+    ``SendResult``，不抛）。
+
+    Args:
+        ch: ``resolve_channel`` 返回的通道 dict（可能含 ``fields`` 或已扁平）。
+
+    Returns:
+        扁平推送配置 dict（含 "type"），或 ``{}`` 表示未配置。
+    """
+    if not ch:
+        return {}
+    if isinstance(ch, dict) and "fields" in ch:
+        fields = ch.get("fields") or {}
+        if not isinstance(fields, dict):
+            fields = {}
+        out: Dict[str, Any] = {"type": ch.get("type")}
+        out.update(fields)
+        return out
+    # 已扁平（legacy 退化 / 无 fields 键）→ 原样透传
+    return dict(ch)
+
+
+def dispatch_event(
+    cfg_all: Dict[str, Any], ctx: Dict[str, Any], title: str, desp: str
+) -> "SendResult":
+    """统一推送入口：按路由选通道 → 压平 → 分发推送（含重试）。
+
+    供 check_status / auto_summary / check_new_posts 统一调用；内部完成路由解析与
+    配置压平，调用方只需传入完整 ``cfg_all``（BLIVE_CONFIG 全量 dict）与事件 ``ctx``。
+
+    未配置守卫（保 legacy 跳过语义，设计 §4.6）：
+      若解析出的通道压平后无 ``type``（即 cfg 既无 ``channels``/``routes``
+      也无 ``push``），记 ``push='no_sendkey'`` 并 ``logger.info`` 跳过，**不调用**
+      发送、不产生伪失败 ``error`` 日志，返回 ``ok=False`` 的 ``SendResult``。
+
+    Args:
+        cfg_all: BLIVE_CONFIG 完整 dict（含可能的 routes/channels/templates/push）。
+        ctx: 路由维度上下文 ``{platform, tag, event}``。
+        title: 推送标题。
+        desp: 推送正文。
+
+    Returns:
+        聚合后的 ``SendResult``（成功 ``ok=True``；未配置 ``ok=False`` 且无 error 日志）。
+    """
+    ch = common.resolve_channel(cfg_all, ctx)
+    pcfg = channel_to_push_cfg(ch)
+    if not pcfg or not pcfg.get("type"):
+        logger.info(
+            "推送未配置（无有效通道），跳过本次事件推送（event=%s）",
+            ctx.get("event"),
+        )
+        return SendResult(
+            ok=False,
+            attempts=0,
+            last_error="config: empty push_cfg",
+            status_code=None,
+        )
+    return dispatch_push(pcfg, title, desp)
 
 
 def load_push_cfg(raw_config: str, fallback_sendkey: str = "") -> Dict[str, Any]:

@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+    participant CS as check_status (main)
+    participant R as common.resolve_channel
+    participant PU as push_utils
+    participant DP as dispatch_push
+    participant DD as notify_dedup
+
+    Note over CS,DD: 前置：抓取状态、should_push 判定 → 收集 newly_live[{name,platform,rid,result,tags}]
+    CS->>CS: should_skip_by_silence(now, silence_cfg)?
+    alt 静默时段
+        CS->>CS: 把 queued 标记改为 silenced（不发送）
+    else 非静默 且 newly_live 非空
+        loop 每房间 s ∈ newly_live
+            CS->>R: resolve_channel(cfg_all, {platform:s.platform, tag:primary_tag(s), event:'live_on'})
+            R-->>CS: ch (新通道 {id,type,fields} 或 legacy {type,...})
+            CS->>CS: 按 ch.id 分组；组内用 templates['live_on'] 渲染正文(或 legacy format_push_desp)
+        end
+        loop 每组（同一通道 ch.id）
+            CS->>PU: dispatch_event(cfg_all, repr_ctx, title, desp)
+            PU->>R: resolve_channel(cfg_all, repr_ctx)
+            R-->>PU: ch
+            PU->>PU: channel_to_push_cfg(ch) → {type, **fields}
+            PU->>DP: dispatch_push(pcfg, title, desp)
+            DP-->>PU: SendResult(ok, attempts, last_error)
+            PU-->>CS: SendResult
+            alt res.ok
+                loop 组内每房间 s
+                    CS->>DD: dedup_record("live:{platform}_{rid}")
+                end
+            else 失败
+                CS->>CS: 写 error 级日志(channel + last_error)，下轮可补推
+            end
+        end
+    end
+
+    Note over CS,DD: legacy 退化路径（cfg_all 无 channels/routes/templates）
+    Note left of R: resolve_channel 返回 cfg['push']（扁平）
+    Note left of PU: channel_to_push_cfg 透传 → dispatch_push(legacy_push_cfg)
+    Note over CS,DP: 单通道 → 仅 1 组 = 全量房间 → title/desp 与当前 monolithic 逐字节一致

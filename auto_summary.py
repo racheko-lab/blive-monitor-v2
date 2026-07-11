@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from common import bjnow, load_json_file, save_json_file, parse_beijing
+import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event 同源）
 import push_utils
 
 logger = logging.getLogger(__name__)
@@ -252,17 +253,18 @@ def main() -> None:
         if not ok:
             sys.exit(0)
 
-        # 推送配置必须存在且有效，否则视为 no-op（不写冷却，避免误配置刷屏）
-        push_cfg = push_utils.load_push_cfg(raw)
-        if not push_cfg or not push_cfg.get("type"):
-            logging.warning("推送未配置（无有效 push 段），跳过摘要投递")
+        # 多通道路由：按 {event:'summary'} 选通道；无有效通道则 no-op（不写冷却，避免误配置刷屏）
+        ch = common.resolve_channel(cfg_all, {"event": "summary"})
+        pcfg = push_utils.channel_to_push_cfg(ch)
+        if not pcfg or not pcfg.get("type"):
+            logging.warning("推送未配置（无有效通道），跳过摘要投递")
             sys.exit(0)
 
         hist = load_json_file(HISTORY_FILENAME, default=[])
         summary = compute_summary(hist, since)
         title, desp = format_summary(summary, freq, summary["rangeText"])
 
-        res = push_utils.dispatch_push(push_cfg, title, desp)
+        res = push_utils.dispatch_event(cfg_all, {"event": "summary"}, title, desp)
         if res.ok:
             # 成功：回写 lastSent，并清除失败冷却字段
             new_state = {

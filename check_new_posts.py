@@ -45,8 +45,9 @@ from common import (
     load_silence_cfg,
     should_skip_by_silence,
 )
+import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event 同源）
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
-from push_utils import dispatch_push, load_push_cfg
+from push_utils import SendResult, dispatch_push, load_push_cfg, channel_to_push_cfg
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 # 横切模块：运行时日志（init_runtime_logging）+ 统一 history 读写/上限/节流
@@ -625,6 +626,41 @@ def _dedup_health_check(tracking: Dict[str, Dict[str, Any]]) -> None:
         )
 
 
+def dispatch_event(cfg_all: Dict[str, Any], ctx: Dict[str, Any], title: str, desp: str) -> "SendResult":
+    """统一推送入口（新作品通知专用薄封装）。
+
+    与 ``push_utils.dispatch_event`` 逻辑完全一致（resolve_channel 选通道 ->
+    channel_to_push_cfg 压平 -> 发送），但发送走**本模块级** ``dispatch_push``，
+    以保持与既有测试 monkeypatch 拦截点（``cnp.dispatch_push``）兼容。
+
+    未配置通道（pcfg 无 type）：记 info 跳过、返回 ok=False（last_error=
+    "config: empty push_cfg"），不刷伪失败 error 日志。
+
+    Args:
+        cfg_all: BLIVE_CONFIG 完整 dict。
+        ctx: 路由维度上下文 ``{platform, tag, event}``。
+        title: 推送标题。
+        desp: 推送正文。
+
+    Returns:
+        聚合后的 ``SendResult``。
+    """
+    ch = common.resolve_channel(cfg_all, ctx)
+    pcfg = channel_to_push_cfg(ch)
+    if not pcfg or not pcfg.get("type"):
+        logger.info(
+            "推送未配置（无有效通道），跳过本次事件推送（event=%s）",
+            ctx.get("event"),
+        )
+        return SendResult(
+            ok=False,
+            attempts=0,
+            last_error="config: empty push_cfg",
+            status_code=None,
+        )
+    return dispatch_push(pcfg, title, desp)
+
+
 def main() -> None:
     """主函数"""
     if os.environ.get("ENABLE_POST_CHECK", "").lower() != "true":
@@ -634,6 +670,8 @@ def main() -> None:
     # 加载配置（推送渠道）：优先 BLIVE_CONFIG 环境变量，兼容旧 sendkey 写法
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
     push_cfg = load_push_cfg(raw_config)
+    # 完整配置（参与多通道路由）：供 dispatch_event 消费（A2）；legacy 单通道下等价于仅含 push 段
+    cfg_all = json.loads(raw_config) if raw_config else {}
     # A3 静默时段：从 BLIVE_CONFIG.silence 解析（无则 {}，不静默）
     silence_cfg = load_silence_cfg(raw_config)
 
@@ -862,19 +900,29 @@ def main() -> None:
                 if should_skip_by_silence(bjnow(), silence_cfg):
                     # A3 静默时段：仅跳过推送，作品基线已正常记录
                     logger.info("  [%s] 当前处于静默时段，暂缓新作品推送", name)
-                elif push_cfg:
+                else:
                     try:
-                        res = dispatch_push(push_cfg, title, desp)
+                        # 统一路由 + 发送（每新作品独立路由到其通道，不跨房间聚合）
+                        ctx = {
+                            "platform": "douyin",
+                            "tag": (entry.get("tags") or [None])[0] if entry.get("tags") else None,
+                            "event": "new_post",
+                        }
+                        pcfg = channel_to_push_cfg(common.resolve_channel(cfg_all, ctx))
+                        channel = (pcfg.get("type") or "unknown").lower()
+                        res = dispatch_event(cfg_all, ctx, title, desp)
                         logger.info("    → 推送%s", "成功" if res.ok else "失败")
                         if res.ok:
                             # 仅推送成功后才记录去重（失败不标记，下一轮可补推）
                             if dedup_key:
                                 dedup_record(dedup_key)
+                        elif res.last_error == "config: empty push_cfg":
+                            # 未配置通道：等价 legacy 无 push 分支，静默跳过（不刷 error）
+                            pass
                         else:
                             # 失败：写 error 级统一日志事件（含渠道+原因），下一个 CI 周期可补推。
                             # runtime.log 经 logger.error 始终落盘（不受 30min 节流）；
                             # append_event 内 error 类事件会经 dedupe_by_throttle 落 history.json（受节流防刷屏）。
-                            channel = (push_cfg.get("type") or "unknown").lower()
                             last_err = (res.last_error or "未知错误")[:200]
                             logger.error(
                                 "通知推送失败 channel=%s attempts=%d last_error=%s: %s",

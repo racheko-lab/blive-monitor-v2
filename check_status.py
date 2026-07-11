@@ -31,8 +31,9 @@ from common import (
     load_silence_cfg,
     should_skip_by_silence,
 )
+import common  # A2/A4 统一路由：common.resolve_channel / common.render_template（dispatch_event 同源）
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
-from push_utils import dispatch_push, load_push_cfg
+from push_utils import load_push_cfg, dispatch_event, channel_to_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
 from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
 # 横切模块：运行时日志 + history 读写/上限（HISTORY_MAX 唯一来源）
@@ -102,11 +103,14 @@ def load_config() -> Dict[str, Any]:
     push_cfg = load_push_cfg(raw_config)
     # A3 静默时段：从 BLIVE_CONFIG.silence 解析（无则 {}，不静默）
     silence_cfg = load_silence_cfg(raw_config)
+    # 完整配置（参与多通道路由 / 模板渲染）：供 dispatch_event 消费（A2/A4）
+    cfg_all = json.loads(raw_config) if raw_config else {}
 
     return {
         "push_cfg": push_cfg,
         "silence": silence_cfg,
         "rooms": rooms,
+        "cfg_all": cfg_all,
     }
 
 
@@ -493,6 +497,40 @@ def format_push_desp(
     return "\n".join(lines)
 
 
+def render_body(s: Dict[str, Any], event: str, cfg_all: Dict[str, Any]) -> str:
+    """构建单房间推送正文（desp）。
+
+    模板优先（A4）：若 ``cfg_all['templates'][event]`` 存在，用 ``common.render_template``
+    渲染模板正文（占位符 ``{name}{title}{platform}{time}{url}``）；否则降级为
+    ``format_push_desp``（legacy 路径，与改造前逐字节一致）。
+
+    Args:
+        s: newly_live 中的单房间记录（含 name/platform/rid/result/tags）。
+        event: 事件类型（如 ``"live_on"``）。
+        cfg_all: BLIVE_CONFIG 完整 dict（用于读取 templates）。
+
+    Returns:
+        渲染后的正文字符串。
+    """
+    tpl = (cfg_all.get("templates") or {}).get(event)
+    if tpl:
+        platform = s.get("platform", "bilibili")
+        rid = s.get("rid", "")
+        if platform == "bilibili":
+            url = f"https://live.bilibili.com/{rid}"
+        else:
+            url = f"https://live.douyin.com/{rid}"
+        tpl_ctx = {
+            "name": s["name"],
+            "title": s["result"].get("title", ""),
+            "platform": platform,
+            "time": bjnow().strftime("%Y-%m-%d %H:%M:%S"),
+            "url": url,
+        }
+        return common.render_template(tpl, tpl_ctx)
+    return format_push_desp(s["name"], s["platform"], s["rid"], s["result"])
+
+
 # ==================== 直播时长计算 ====================
 
 def calculate_duration(start_str: str, now_dt: datetime) -> str:
@@ -524,6 +562,8 @@ def main() -> None:
     cfg = load_config()
     rooms = cfg.get("rooms", [])
     push_cfg = cfg.get("push_cfg", {})
+    # 完整配置：多通道路由 / 模板渲染（A2/A4）；legacy 单通道下等价于仅含 push 段
+    cfg_all = cfg.get("cfg_all", {})
     # A3 静默（仅用于推送前拦截；不影响状态抓取）
     silence_cfg = cfg.get("silence", {})
 
@@ -695,6 +735,8 @@ def main() -> None:
                         "platform": platform,
                         "rid": rid,
                         "result": result,
+                        # 携带房间主 tag（A2 路由维度；无则 None，与 resolve_channel 标量匹配一致）
+                        "tags": room.get("tags"),
                     }
                 )
                 push_result = "queued"
@@ -728,79 +770,115 @@ def main() -> None:
             }
         )
 
-    # Step 3: 合并推送（多通道：serverchan/wecom/pushplus/bark/telegram）
-    # A3 静默时段：推送前拦截（仅跳过推送，不影响状态抓取与看板）
+    # Step 3: 合并推送（多通道分组投递：按通道路由聚合；同通道房间合为一条消息）
+    # A3 静默时段：推送前拦截（仅跳过推送，不影响状态抓取与看板）——位置不变
     if should_skip_by_silence(now, silence_cfg):
         logger.info("当前处于静默时段，暂缓推送（状态已正常抓取，看板不受影响）")
         for le in log_entries:
             if le["push"] == "queued":
                 le["push"] = "silenced"
-    elif newly_live and push_cfg:
+    elif newly_live:
         try:
-            if len(newly_live) == 1:
-                s = newly_live[0]
-                title = format_push_title(s["name"], s["result"])
-                desp = format_push_desp(s["name"], s["platform"], s["rid"], s["result"])
-            else:
-                names = "、".join(s["name"] for s in newly_live)
-                title = f"🔴 {len(newly_live)}位主播开播：{names}"
-                desp_lines = [
-                    format_push_desp(s["name"], s["platform"], s["rid"], s["result"])
-                    for s in newly_live
-                ]
-                desp = "\n\n---\n\n".join(desp_lines)
-
-            res = dispatch_push(push_cfg, title, desp)
-            push_tag = "pushed_ok" if res.ok else "pushed_fail"
-            channel = (push_cfg.get("type") or "unknown").lower()
-            logger.info("推送%s: %s", "成功" if res.ok else "失败", title)
-
-            if res.ok:
-                # 推送成功后才记录去重（失败则不标记，下一轮可补推）
-                for s in newly_live:
-                    dedup_record(f"live:{s['platform']}_{s['rid']}")
-            else:
-                # 失败：写 error 级统一日志事件（含渠道+原因），下一轮 CI 可补推。
-                # runtime.log 经 logger.error 始终落盘（不受 30min 节流）；
-                # 注入 log_entries 的 error 事件会经 dedupe_by_throttle 落 history.json（受节流防刷屏）。
-                primary = newly_live[0]
-                last_err = (res.last_error or "未知错误")[:200]
-                logger.error(
-                    "通知推送失败 channel=%s attempts=%d last_error=%s: %s",
-                    channel, res.attempts, res.last_error, title,
-                )
-                log_entries.append(
-                    {
-                        "time": now_str,
-                        "name": primary["name"],
-                        "platform": primary["platform"],
-                        "status": "error",
-                        "title": title,
-                        "changed": False,
-                        "prev": None,
-                        "push": "pushed_fail",
-                        "rid": primary["rid"],
-                        "type": "error",
-                        "level": "error",
-                        "detail": f"通知发送失败（{channel}）：{last_err}",
-                        "account": primary["rid"],
-                    }
-                )
-
-            # 更新日志里的推送标记
+            # ---- 分组：按路由选通道；同通道房间归一组（路由确定性：每房间单通道）----
+            groups: Dict[str, Dict[str, Any]] = {}
+            # 预建 queued 日志条目索引（platform_rid -> [log_entry]），按组结果精准标记
+            queued_index: Dict[str, List[Dict[str, Any]]] = {}
             for le in log_entries:
-                if le["push"] == "queued":
-                    le["push"] = push_tag
+                if le.get("push") == "queued":
+                    queued_index.setdefault(
+                        f"{le.get('platform')}_{le.get('rid')}", []
+                    ).append(le)
+
+            for s in newly_live:
+                room_ctx = {
+                    "platform": s.get("platform", "bilibili"),
+                    "tag": (s.get("tags") or [None])[0] if s.get("tags") else None,
+                    "event": "live_on",
+                }
+                ch = common.resolve_channel(cfg_all, room_ctx)
+                gid = ch.get("id") or "default"
+                g = groups.setdefault(gid, {"rooms": [], "ctx": room_ctx, "pcfg": None})
+                g["rooms"].append(s)
+                if g["pcfg"] is None:
+                    g["pcfg"] = channel_to_push_cfg(ch)
+
+            for gid, g in groups.items():
+                group_rooms = g["rooms"]
+                group_ctx = g["ctx"]
+                pcfg = g["pcfg"]
+
+                # 未配置通道：等价 legacy 无 push 分支（info 跳过 + no_sendkey，不刷 error）
+                if not pcfg or not pcfg.get("type"):
+                    logger.info(
+                        "%d 个房间状态变化，但未配置推送渠道", len(group_rooms)
+                    )
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "no_sendkey"
+                    continue
+
+                # ---- 构建分组 title / desp（模板正文可选，legacy 路径逐字节一致）----
+                if len(group_rooms) == 1:
+                    s = group_rooms[0]
+                    title = format_push_title(s["name"], s["result"])
+                    desp = render_body(s, "live_on", cfg_all)
+                else:
+                    names = "、".join(s["name"] for s in group_rooms)
+                    title = f"🔴 {len(group_rooms)}位主播开播：{names}"
+                    desp = "\n\n---\n\n".join(
+                        render_body(s, "live_on", cfg_all) for s in group_rooms
+                    )
+
+                res = dispatch_event(cfg_all, group_ctx, title, desp)
+                channel = (pcfg.get("type") or "unknown").lower()
+                logger.info("推送%s: %s", "成功" if res.ok else "失败", title)
+
+                if res.ok:
+                    # 推送成功后才记录去重（失败则不标记，下一轮可补推；房间级去重不变）
+                    for s in group_rooms:
+                        dedup_record(f"live:{s['platform']}_{s['rid']}")
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "pushed_ok"
+                elif res.last_error == "config: empty push_cfg":
+                    # 兜底（分组短路已覆盖）：仍标记未配置，不刷 error
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "no_sendkey"
+                else:
+                    # 失败：写 error 级统一日志事件（含渠道+原因），下一轮 CI 可补推。
+                    # runtime.log 经 logger.error 始终落盘（不受 30min 节流）；
+                    # 注入 log_entries 的 error 事件会经 dedupe_by_throttle 落 history.json（受节流防刷屏）。
+                    primary = group_rooms[0]
+                    last_err = (res.last_error or "未知错误")[:200]
+                    logger.error(
+                        "通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                        channel, res.attempts, res.last_error, title,
+                    )
+                    log_entries.append(
+                        {
+                            "time": now_str,
+                            "name": primary["name"],
+                            "platform": primary["platform"],
+                            "status": "error",
+                            "title": title,
+                            "changed": False,
+                            "prev": None,
+                            "push": "pushed_fail",
+                            "rid": primary["rid"],
+                            "type": "error",
+                            "level": "error",
+                            "detail": f"通知发送失败（{channel}）：{last_err}",
+                            "account": primary["rid"],
+                        }
+                    )
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "pushed_fail"
         except Exception as e:
             logger.error("推送异常: %s", e)
             for le in log_entries:
                 if le["push"] == "queued":
                     le["push"] = "push_error"
-    elif newly_live:
-        logger.info("%d 个房间状态变化，但未配置推送渠道", len(newly_live))
-        for le in log_entries:
-            if le["push"] == "queued":
-                le["push"] = "no_sendkey"
 
     # 保存状态文件
     save_json_file(STATE_FILE, new_state)
