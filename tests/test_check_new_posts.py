@@ -248,8 +248,8 @@ POPULATED = {
     "status_code": 0,
     "aweme_list": [
         {"aweme_id": "777", "desc": "旧", "create_time": 100, "author": {"nickname": "阿伟"}},
-        {"aweme_id": "999", "desc": "新视频", "create_time": 200, "author": {"nickname": "阿伟"}, "video": {"play_addr": {}}},
-        {"aweme_id": "888", "desc": "图文", "create_time": 150, "images": [{"url": "x"}]},
+        {"aweme_id": "999", "desc": "新视频", "create_time": 200, "author": {"nickname": "阿伟"}, "video": {"origin_cover": {"url_list": ["https://p1.douyin.com/cover999.jpg"]}}},
+        {"aweme_id": "888", "desc": "图文", "create_time": 150, "images": [{"url_list": ["https://p1.douyin.com/note888.jpg"]}]},
     ],
     "has_more": 1,
 }
@@ -266,6 +266,9 @@ def test_parse_aweme_list_populated():
     note = next(i for i in items if i["aweme_id"] == "888")
     assert note["is_note"] is True
     assert note["video_url"] == "https://www.douyin.com/note/888"
+    # 封面提取：视频取 origin_cover，图文取 images[0].url_list
+    assert latest["cover"] == "https://p1.douyin.com/cover999.jpg"
+    assert note["cover"] == "https://p1.douyin.com/note888.jpg"
 
 
 def test_parse_aweme_list_gated():
@@ -275,6 +278,43 @@ def test_parse_aweme_list_gated():
     assert cnp.parse_aweme_list("") == []
     # 损坏 JSON
     assert cnp.parse_aweme_list("{bad") == []
+
+
+def test_latest_cover_persisted(tmp_path, monkeypatch):
+    """api 模式下拿到真实封面即落库 latest_cover（即便基线未变也刷新，让所有账号尽快显示真实封面）。"""
+    _install_fake_playwright()
+    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
+        "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
+        "cover": "https://p1.douyin.com/coverX.jpg",
+    })
+
+    cnp.main()
+
+    tracking = json.loads(tf.read_text(encoding="utf-8"))
+    assert tracking["douyin_MS4wABC"]["latest_cover"] == "https://p1.douyin.com/coverX.jpg"
+
+
+def test_latest_cover_not_overwritten_by_none(tmp_path, monkeypatch):
+    """守卫逻辑：先有真实封面，再传一个无 cover 的 aweme（同账号），封面应保留原值不被 None 覆盖。"""
+    _install_fake_playwright()
+    tf = _seed(tmp_path, monkeypatch, [{"id": "MS4wABC", "name": "阿伟"}],
+               tracking={"douyin_MS4wABC": {"sec_uid": "MS4wABC", "latest_aweme_id": "888", "latest_ct": 1699999000,
+                                            "latest_cover": "https://p1.douyin.com/coverFirst.jpg"}})
+    monkeypatch.setattr(cnp, "dispatch_push", lambda cfg, t, d: True)
+    # 再次抓取：接口返回的作品没有 cover（退化/异常），守卫应跳过写入，保留已有好封面
+    monkeypatch.setattr(cnp, "get_latest_aweme", lambda ctx, sec: {
+        "aweme_id": "999", "desc": "新视频", "video_url": "https://v/999",
+        "is_note": False, "nickname": "阿伟", "create_time": 1700000000,
+    })
+
+    cnp.main()
+
+    tracking = json.loads(tf.read_text(encoding="utf-8"))
+    assert tracking["douyin_MS4wABC"]["latest_cover"] == "https://p1.douyin.com/coverFirst.jpg"
 
 
 def test_parse_aweme_count():

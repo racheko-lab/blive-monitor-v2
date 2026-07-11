@@ -306,6 +306,20 @@ def resolve_sec_uid(context, entry_id: str) -> Optional[str]:
 
 # ==================== 解析辅助（纯函数，便于单测） ====================
 
+def _extract_cover(w: Dict[str, Any]) -> Optional[str]:
+    """从 aweme 作品对象提取封面 URL；视频取 origin_cover/animated_cover，图文取 images。无则返回 None。"""
+    v = w.get("video") or {}
+    c = v.get("origin_cover") or v.get("animated_cover") or {}
+    urls = c.get("url_list") or []
+    if urls:
+        return urls[0]
+    imgs = w.get("images") or []
+    if imgs:
+        im = imgs[0] or {}
+        return (im.get("url_list") or [None])[0] or im.get("url")
+    return None
+
+
 def parse_aweme_list(json_text: str) -> List[Dict[str, Any]]:
     """从 aweme/post 响应体解析作品列表，返回标准化 dict 列表。
 
@@ -336,6 +350,7 @@ def parse_aweme_list(json_text: str) -> List[Dict[str, Any]]:
             "is_note": is_note,
             "nickname": (w.get("author") or {}).get("nickname", "") or "",
             "create_time": int(w.get("create_time", 0) or 0),
+            "cover": _extract_cover(w),
         })
     return out
 
@@ -780,6 +795,10 @@ def main() -> None:
                     dedup_key = post_dkey
                 elif candidate:
                     logger.info("  [%s] 去重跳过：作品 %s 已推送过，不重复", name, aweme["aweme_id"])
+                # 真实封面回填：api 模式拿到真实作品即写入（即使基线未变也刷新，
+                # 让所有已监控账号在下次 CI 尽快显示真实封面，而非一直占位）
+                if aweme.get("cover"):
+                    t["latest_cover"] = aweme["cover"]
             else:  # conf == "count"：推测，仅当作品数确实增加且已有基线才提示
                 if prev_mode and prev_mode != cur_mode:
                     # 模式切换（如从无 Cookie 计数推测切到有 Cookie 真实接口，或反之）：
