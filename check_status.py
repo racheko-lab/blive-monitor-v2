@@ -917,5 +917,325 @@ def main() -> None:
     logger.info("检测完成，状态已更新")
 
 
+def _event_content_hash(channel_id: str, event_type: str, content: str) -> str:
+    """推送内容指纹：``hash(channel_id|event_type|content)``（供 notify_log 去重审计）。"""
+    import hashlib
+
+    raw = f"{channel_id}|{event_type}|{content}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datetime] = None) -> None:
+    """后端驱动的直播检测编排（不写 JSON，全部经 ``persist`` 落库）。
+
+    复用本模块纯函数（fetch_bilibili_batch / fetch_douyin / should_push /
+    format_push_* / render_body / calculate_duration）与 common / push_utils 的
+    路由/模板/推送逻辑（一字不改）；编排逻辑与原 ``main()`` 等价，但「写 state.json /
+    status.json / history.json」改为调用 ``persist`` 回调：
+
+        persist.list_rooms()                         -> [{platform,external_id,name,enabled,tags,meta}]
+        persist.get_prev_status(platform, rid)       -> str|None（上一轮 live_status）
+        persist.get_tracking(platform, rid)          -> dict（meta 基线）
+        persist.set_room_status(..., status_item, meta_update) -> 写 Room 状态列+基线
+        persist.append_event(entry)                  -> 写 events_history（返回是否写入）
+        persist.dedup_should_notify(key, cooldown)   -> bool
+        persist.dedup_record(key)                    -> 标记去重（仅推送成功后）
+        persist.notify_log(channel_id, event_type, content_hash, status) -> 写通知账本
+
+    Args:
+        cfg_all: BLIVE_CONFIG 完整 dict（参与多通道路由/模板/静默判定）。
+        persist: 后端持久化门面（见 backend/jobs/live_check.LivePersist）。
+        now: 可注入当前北京时间（测试用）；缺省 ``bjnow()``。
+    """
+    if now is None:
+        now = bjnow()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    silence_cfg = (cfg_all or {}).get("silence") or {}
+
+    rooms = persist.list_rooms() or []
+    if not rooms:
+        logger.info("[run_live_check] 没有配置监控房间")
+        return
+
+    # 上一轮状态 & 基线（本轮更新前读取）
+    prev_state = {
+        f"{r['platform']}_{r['external_id']}": persist.get_prev_status(r["platform"], r["external_id"])
+        for r in rooms
+    }
+    tracking = {
+        f"{r['platform']}_{r['external_id']}": dict(persist.get_tracking(r["platform"], r["external_id"]) or {})
+        for r in rooms
+    }
+
+    # Step 1: B站批量
+    bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
+    bili_data: Dict[str, Dict[str, Any]] = {}
+    bili_batch_failed = False
+    if bili_rooms:
+        try:
+            bili_ids = [str(r["external_id"]) for r, _ in bili_rooms]
+            bili_data = fetch_bilibili_batch(bili_ids)
+            logger.info("B站批量查询成功，获取 %d 个房间数据", len(bili_data))
+        except Exception as e:
+            logger.error("B站批量查询失败: %s", e)
+            bili_batch_failed = True
+
+    log_entries: List[Dict[str, Any]] = []
+    newly_live: List[Dict[str, Any]] = []
+    rows: List[Dict[str, Any]] = []
+
+    for room in rooms:
+        platform = room.get("platform", "bilibili")
+        rid = str(room.get("external_id", ""))
+        name = room.get("name", f"{platform}-{rid}")
+        key = f"{platform}_{rid}"
+        if not room_enabled(room):
+            logger.info("[%s] 已暂停（enabled=false），跳过检测", name)
+            continue
+        push_result: Optional[str] = None
+
+        try:
+            if platform == "bilibili":
+                d = bili_data.get(str(rid))
+                if not d:
+                    if bili_batch_failed:
+                        prev = prev_state.get(key)
+                        prev_full = {}  # 后端无 status.json 全量缓存，沿用 prev_status 即可
+                        logger.warning("[%s] B站批量查询失败，沿用上次状态: %s", name, prev)
+                        result = {
+                            "status": bili_status_on_batch_failure(prev),
+                            "title": prev_full.get("title", ""),
+                            "online": prev_full.get("online", 0),
+                            "area": prev_full.get("area", ""),
+                        }
+                    else:
+                        raise Exception(f"批量接口未返回房间 {rid} 的数据")
+                else:
+                    status_code = d.get("live_status", 0)
+                    result = {
+                        "status": BILIBILI_STATUS_MAP.get(status_code, "unknown"),
+                        "title": d.get("title", ""),
+                        "online": d.get("online", 0),
+                        "area": (
+                            f"{d.get('parent_area_name', '')}·{d.get('area_name', '')}".strip("·")
+                            or ""
+                        ),
+                    }
+            elif platform == "douyin":
+                result = fetch_douyin(rid)
+            else:
+                logger.warning("[%s] 未知平台，跳过检测: %s", name, platform)
+                result = {"status": "offline", "title": "", "online": 0, "time": now_str}
+
+        except Exception as e:
+            logger.warning("[%s] 检测失败: %s", name, e)
+            result = {
+                "status": "error",
+                "title": str(e),
+                "online": 0,
+                "area": "",
+                "time": now_str,
+            }
+            push_result = "error"
+
+        display_name = name
+        if platform == "douyin" and result.get("nickname") and result["nickname"] != name:
+            display_name = result["nickname"]
+
+        logger.info("  [%s] %s - %s", display_name, result["status"], result.get("title", "")[:30])
+
+        # 开播追踪基线
+        t = tracking.get(key, {})
+        last_live = t.get("last_live", "")
+        live_start_str = t.get("live_start", "")
+        live_duration = ""
+        if result["status"] == "live":
+            if not live_start_str:
+                live_start_str = now_str
+            else:
+                live_duration = calculate_duration(live_start_str, now)
+        elif live_start_str:
+            last_live = live_start_str
+            t["last_duration"] = calculate_duration(live_start_str, now)
+            live_start_str = ""
+        t["last_live"] = last_live
+        t["live_start"] = live_start_str
+        if live_duration:
+            t["live_duration"] = live_duration
+        if platform == "douyin" and result.get("sec_uid"):
+            t["sec_uid"] = result["sec_uid"]
+        tracking[key] = t
+
+        status_item = {
+            "platform": platform,
+            "id": rid,
+            "name": display_name,
+            "status": result["status"],
+            "title": result.get("title", ""),
+            "online": result.get("online", 0),
+            "area": result.get("area", ""),
+            "time": result.get("time", now_str),
+            "sec_uid": result.get("sec_uid", ""),
+            "last_live": last_live,
+            "live_duration": live_duration,
+        }
+
+        prev_status = prev_state.get(key)
+        changed = prev_status is not None and prev_status != result["status"]
+
+        if should_push(prev_status, result["status"]):
+            dkey = f"live:{key}"
+            if persist.dedup_should_notify(dkey):
+                newly_live.append({
+                    "name": display_name,
+                    "platform": platform,
+                    "rid": rid,
+                    "result": result,
+                    "tags": room.get("tags"),
+                })
+                push_result = "queued"
+            else:
+                logger.info("[%s] 去重跳过：开播通知 %s 在冷却期内已发送", display_name, dkey)
+                push_result = "deduped"
+
+        entry_type = type_from_status(result["status"])
+        entry = {
+            "time": now_str,
+            "name": display_name,
+            "platform": platform,
+            "status": result["status"],
+            "title": result.get("title", ""),
+            "changed": changed,
+            "prev": prev_status if changed else None,
+            "push": push_result,
+            "rid": rid,
+            "type": entry_type,
+            "level": level_from_type(entry_type),
+            "detail": "",
+            "account": rid,
+        }
+        log_entries.append(entry)
+        rows.append({
+            "platform": platform,
+            "rid": rid,
+            "name": display_name,
+            "result": result,
+            "status_item": status_item,
+            "meta": t,
+            "entry": entry,
+        })
+
+    # Step 3: 合并推送（多通道分组投递）
+    if should_skip_by_silence(now, silence_cfg):
+        logger.info("当前处于静默时段，暂缓推送（状态已正常抓取，看板不受影响）")
+        for le in log_entries:
+            if le["push"] == "queued":
+                le["push"] = "silenced"
+    elif newly_live:
+        try:
+            groups: Dict[str, Dict[str, Any]] = {}
+            queued_index: Dict[str, List[Dict[str, Any]]] = {}
+            for le in log_entries:
+                if le.get("push") == "queued":
+                    queued_index.setdefault(f"{le.get('platform')}_{le.get('rid')}", []).append(le)
+
+            for s in newly_live:
+                room_ctx = {
+                    "platform": s.get("platform", "bilibili"),
+                    "tag": (s.get("tags") or [None])[0] if s.get("tags") else None,
+                    "event": "live_on",
+                }
+                ch = common.resolve_channel(cfg_all or {}, room_ctx)
+                gid = ch.get("id") or "default"
+                g = groups.setdefault(gid, {"rooms": [], "ctx": room_ctx, "pcfg": None})
+                g["rooms"].append(s)
+                if g["pcfg"] is None:
+                    g["pcfg"] = channel_to_push_cfg(ch)
+
+            for gid, g in groups.items():
+                group_rooms = g["rooms"]
+                group_ctx = g["ctx"]
+                pcfg = g["pcfg"]
+                if not pcfg or not pcfg.get("type"):
+                    logger.info("%d 个房间状态变化，但未配置推送渠道", len(group_rooms))
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "no_sendkey"
+                    continue
+
+                if len(group_rooms) == 1:
+                    s = group_rooms[0]
+                    title = format_push_title(s["name"], s["result"])
+                    desp = render_body(s, "live_on", cfg_all or {})
+                else:
+                    names = "、".join(s["name"] for s in group_rooms)
+                    title = f"🔴 {len(group_rooms)}位主播开播：{names}"
+                    desp = "\n\n---\n\n".join(render_body(s, "live_on", cfg_all or {}) for s in group_rooms)
+
+                res = dispatch_event(cfg_all or {}, group_ctx, title, desp)
+                channel = (pcfg.get("type") or "unknown").lower()
+                logger.info("推送%s: %s", "成功" if res.ok else "失败", title)
+                content_hash = _event_content_hash(channel, "live_on", title + desp)
+
+                if res.ok:
+                    for s in group_rooms:
+                        persist.dedup_record(f"live:{s['platform']}_{s['rid']}")
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "pushed_ok"
+                    persist.notify_log(channel_id=channel, event_type="live_on",
+                                       content_hash=content_hash, status="ok")
+                elif res.last_error == "config: empty push_cfg":
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "no_sendkey"
+                else:
+                    primary = group_rooms[0]
+                    last_err = (res.last_error or "未知错误")[:200]
+                    logger.error("通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                                 channel, res.attempts, res.last_error, title)
+                    log_entries.append({
+                        "time": now_str,
+                        "name": primary["name"],
+                        "platform": primary["platform"],
+                        "status": "error",
+                        "title": title,
+                        "changed": False,
+                        "prev": None,
+                        "push": "pushed_fail",
+                        "rid": primary["rid"],
+                        "type": "error",
+                        "level": "error",
+                        "detail": f"通知发送失败（{channel}）：{last_err}",
+                        "account": primary["rid"],
+                    })
+                    persist.notify_log(channel_id=channel, event_type="live_on",
+                                       content_hash=content_hash, status="fail")
+                    for s in group_rooms:
+                        for le in queued_index.get(f"{s['platform']}_{s['rid']}", []):
+                            le["push"] = "pushed_fail"
+        except Exception as e:
+            logger.error("推送异常: %s", e)
+            for le in log_entries:
+                if le["push"] == "queued":
+                    le["push"] = "push_error"
+
+    # 落库：状态列 + 基线 + 事件
+    for row in rows:
+        persist.set_room_status(
+            platform=row["platform"],
+            external_id=row["rid"],
+            kind="live",
+            name=row["name"],
+            result=row["result"],
+            meta_update=row["meta"],
+            now_str=now_str,
+            status_item=row["status_item"],
+        )
+    for entry in log_entries:
+        persist.append_event(entry)
+
+    logger.info("[run_live_check] 检测完成")
+
+
 if __name__ == "__main__":
     main()

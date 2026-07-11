@@ -966,5 +966,275 @@ def main() -> None:
     logger.info("新作品检测完成")
 
 
+def run_post_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[Any] = None,
+                   context: Any = None) -> None:
+    """后端驱动的新作品检测编排（不写 JSON，全部经 ``persist`` 落库）。
+
+    复用本模块纯函数（get_latest_aweme / should_notify_new_post / should_update_baseline /
+    resolve_sec_uid / 解析辅助）与 common / push_utils 的路由/模板/推送逻辑（一字不改）；
+    「写 post_tracking.json / history.json / notify_dedup.json」改为调用 ``persist`` 回调。
+
+    ``persist`` 协议（见 backend/jobs/post_check.PostPersist）：
+        persist.list_rooms()                          -> [{platform,external_id,name,enabled,tags,meta}]
+        persist.get_tracking(platform, rid)           -> dict（meta 基线）
+        persist.set_room_status(platform, rid, kind='post', meta_update=...) -> 写 Room.meta
+        persist.append_event(entry)                   -> 写 events_history
+        persist.dedup_should_notify(key, cooldown)    -> bool
+        persist.dedup_record(key)                     -> 标记去重（仅推送成功后）
+        persist.notify_log(channel_id, event_type, content_hash, status)
+
+    Args:
+        cfg_all: BLIVE_CONFIG 完整 dict。
+        persist: 后端持久化门面。
+        now: 当前北京时间（测试用）；缺省 ``bjnow()``。
+        context: Playwright BrowserContext（可选）；为 None 时本函数内部创建
+            （需 playwright + 已安装 Chromium）。仅供后端 scheduler 注入复用。
+    """
+    if now is None:
+        now = bjnow()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    silence_cfg = load_silence_cfg(json.dumps(cfg_all) if cfg_all else "{}")
+
+    post_rooms = persist.list_rooms() or []
+    if not post_rooms:
+        logger.info("[run_post_check] post_rooms 为空，没有需要监控新作品的抖音号")
+        return
+
+    def _content_hash(channel_id, event_type, content):
+        import hashlib
+        return hashlib.sha256(f"{channel_id}|{event_type}|{content}".encode("utf-8")).hexdigest()[:32]
+
+    def _append(rid, name, platform, etype, detail="", level=None, push=None):
+        persist.append_event({
+            "time": bjnow().strftime("%Y-%m-%d %H:%M:%S"),
+            "name": name, "platform": platform, "status": etype, "title": "",
+            "changed": False, "prev": None, "push": push,
+            "rid": rid, "type": etype,
+            "level": level if level is not None else level_from_type(etype),
+            "detail": (detail or "")[:200], "account": rid,
+        })
+
+    # 浏览器上下文（按需创建；无头、与 main() 同启动参数）
+    own_context = False
+    if context is None:
+        try:
+            from playwright.sync_api import sync_playwright
+            pw = sync_playwright().__enter__()
+            browser = pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage",
+                      "--disable-blink-features=AutomationControlled", "--disable-gpu"],
+            )
+            context = browser.new_context(
+                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/125.0.0.0 Safari/537.36"),
+                viewport={"width": 1280, "height": 900}, locale="zh-CN",
+            )
+            cookie = load_douyin_cookie()
+            apply_douyin_cookie(context, cookie)
+            own_context = True
+        except Exception as e:
+            logger.error("[run_post_check] 无法创建浏览器上下文，新作品检测跳过: %s", e)
+            return
+
+    try:
+        gated_hint = False
+        for entry in post_rooms:
+            rid = entry.get("external_id", "") or entry.get("id", "")
+            name = entry.get("name", rid)
+            if not room_enabled(entry):
+                logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
+                continue
+            if not rid:
+                logger.warning("  post_rooms 中存在缺 id 的条目，已跳过")
+                _append("", "(缺id)", "douyin", "system",
+                        detail="账号配置不完整（缺 id），已跳过")
+                continue
+            key = f"douyin_{rid}"
+            t = dict(persist.get_tracking("douyin", rid) or {})
+
+            stored_sec = t.get("sec_uid") or entry.get("sec_uid")
+            if stored_sec:
+                sec_uid = stored_sec
+                sec_trusted = True
+            else:
+                sec_uid = resolve_sec_uid(context, rid)
+                sec_trusted = False
+            if not sec_uid:
+                logger.warning("  [%s] 无法获取 sec_uid，跳过", name)
+                _append(rid, name, "douyin", "system",
+                        detail="账号配置不完整（缺 sec_uid），已跳过")
+                continue
+            t["sec_uid"] = sec_uid
+
+            try:
+                aweme = get_latest_aweme(context, sec_uid)
+            except Exception as exc:
+                logger.error("  [%s] 获取作品异常: %s", name, exc)
+                _append(rid, name, "douyin", "error", detail=f"获取作品异常: {exc}")
+                gated_hint = True
+                persist.set_room_status(platform="douyin", external_id=rid, kind="post",
+                                       name=name, meta_update=t)
+                continue
+            if not aweme:
+                logger.warning("  [%s] 获取作品失败/被风控（建议配置 douyin_cookie）", name)
+                _append(rid, name, "douyin", "cookie_warn",
+                        detail="抖音接口被风控，配置 douyin_cookie 可获取具体作品")
+                gated_hint = True
+                persist.set_room_status(platform="douyin", external_id=rid, kind="post",
+                                       name=name, meta_update=t)
+                continue
+
+            actual_uid = aweme.get("actual_unique_id")
+            if actual_uid and looks_like_handle(rid) and actual_uid != rid:
+                if sec_trusted:
+                    logger.warning("  [%s] ⚠️ 已存 sec_uid 指向账号(实际=%s)与填写 id(%s)不一致，"
+                                   "仍信任已存值继续监控", name, actual_uid, rid)
+                else:
+                    logger.warning("  [%s] ⚠️ 解析的 sec_uid 指向了错误账号(实际=%s≠%s)，"
+                                   "疑似被推荐流污染，本次跳过并清除该 sec_uid", name, actual_uid, rid)
+                    t.pop("sec_uid", None)
+                    persist.set_room_status(platform="douyin", external_id=rid, kind="post",
+                                           name=name, meta_update=t)
+                    continue
+
+            if aweme.get("nickname") and (name == rid or not entry.get("name") or entry.get("name") == rid):
+                name = aweme["nickname"]
+                entry["name"] = name
+
+            conf = aweme.get("_conf", "api")
+            desc = aweme.get("desc", "") or "[无描述]"
+            kind = "图文" if aweme.get("is_note") else "视频"
+            prev_id = t.get("latest_aweme_id", "")
+            prev_ct = int(t.get("latest_ct", 0) or 0)
+            new_ct = int(aweme.get("create_time", 0) or 0)
+            logger.info("  [%s] 取到最新作品[%s]: %s (上次基线: %s)", name, conf,
+                        aweme["aweme_id"], prev_id or "无")
+
+            prev_mode = t.get("mode") or (
+                "count" if (prev_id or "").startswith("count:") else ("api" if prev_id else "")
+            )
+            cur_mode = conf
+
+            notify = False
+            do_update = True
+            dedup_key = None
+
+            if conf == "api":
+                candidate = should_notify_new_post(prev_id, prev_ct, aweme["aweme_id"], new_ct)
+                do_update = should_update_baseline(prev_id, prev_ct, aweme["aweme_id"], new_ct)
+                if candidate:
+                    _append(rid, name, "douyin", "new_post",
+                            detail=f"{desc}  {aweme.get('video_url', '')}".strip())
+                post_dkey = f"post:{sec_uid}:{aweme['aweme_id']}"
+                if candidate and persist.dedup_should_notify(post_dkey, cooldown=float("inf")):
+                    notify = True
+                    dedup_key = post_dkey
+                elif candidate:
+                    logger.info("  [%s] 去重跳过：作品 %s 已推送过，不重复", name, aweme["aweme_id"])
+                if aweme.get("cover"):
+                    t["latest_cover"] = aweme["cover"]
+            else:
+                if prev_mode and prev_mode != cur_mode:
+                    notify = False
+                    do_update = True
+                else:
+                    prev_count = int(t.get("latest_count", 0) or 0)
+                    candidate = bool(prev_count) and new_ct > prev_count
+                    count_dkey = f"post:{sec_uid}:count:{new_ct}"
+                    if candidate:
+                        _append(rid, name, "douyin", "new_post",
+                                detail=f"作品数 {prev_count}→{new_ct}")
+                    if candidate and persist.dedup_should_notify(count_dkey, cooldown=float("inf")):
+                        notify = True
+                        dedup_key = count_dkey
+                    elif candidate:
+                        logger.info("  [%s] 去重跳过：作品数 %d 已推送过", name, new_ct)
+                    do_update = True
+
+            if notify:
+                if conf == "api":
+                    logger.info("  [%s] 🆕 新作品(%s): %s", name, kind, desc[:40])
+                    title = f"🆕 {name} 发布了新作品"
+                    desp = (f"## 🆕 {name} 发布了新作品\n\n**类型**: {kind}\n\n"
+                            f"**描述**: {desc}\n\n👉 [查看作品]({aweme['video_url']})\n\n"
+                            f"---\n检测时间: {now_str}")
+                else:
+                    prev_count = int(t.get("latest_count", 0) or 0)
+                    logger.info("  [%s] 🔔 作品数 %d→%d，推测可能有新作品", name, prev_count, new_ct)
+                    title = f"🔔 {name} 可能发布了新作品"
+                    desp = (f"## 🔔 {name} 可能发布了新作品\n\n**作品数变化**: {prev_count} → {new_ct}\n\n"
+                            f"接口被风控/未登录，无法获取具体作品，请到主页确认：\n"
+                            f"👉 [打开 {name} 的主页]({aweme['video_url']})\n\n---\n检测时间: {now_str}")
+                if should_skip_by_silence(bjnow(), silence_cfg):
+                    logger.info("  [%s] 当前处于静默时段，暂缓新作品推送", name)
+                else:
+                    try:
+                        ctx = {"platform": "douyin",
+                               "tag": (entry.get("tags") or [None])[0] if entry.get("tags") else None,
+                               "event": "new_post"}
+                        pcfg = channel_to_push_cfg(common.resolve_channel(cfg_all or {}, ctx))
+                        channel = (pcfg.get("type") or "unknown").lower()
+                        res = dispatch_event(cfg_all or {}, ctx, title, desp)
+                        logger.info("    → 推送%s", "成功" if res.ok else "失败")
+                        content_hash = _content_hash(channel, "new_post", title + desp)
+                        if res.ok:
+                            if dedup_key:
+                                persist.dedup_record(dedup_key)
+                            persist.notify_log(channel_id=channel, event_type="new_post",
+                                               content_hash=content_hash, status="ok")
+                        elif res.last_error == "config: empty push_cfg":
+                            pass
+                        else:
+                            last_err = (res.last_error or "未知错误")[:200]
+                            logger.error("通知推送失败 channel=%s attempts=%d last_error=%s: %s",
+                                         channel, res.attempts, res.last_error, title)
+                            _append(rid, name, "douyin", "error",
+                                    detail=f"通知发送失败（{channel}）：{last_err}", push="pushed_fail")
+                            persist.notify_log(channel_id=channel, event_type="new_post",
+                                               content_hash=content_hash, status="fail")
+                    except Exception as e:
+                        logger.error("    → 推送异常: %s", e)
+
+            if do_update:
+                t["latest_aweme_id"] = aweme["aweme_id"]
+                t["latest_ct"] = new_ct
+                t["mode"] = conf
+                t["latest_count"] = new_ct
+                t["nickname"] = aweme.get("nickname") or t.get("nickname", "")
+                if conf == "count":
+                    t["need_cookie"] = True
+                else:
+                    t.pop("need_cookie", None)
+                if conf == "api":
+                    t["latest_desc"] = aweme.get("desc", "")
+                    t["latest_type"] = kind
+                    t["latest_url"] = aweme.get("video_url", "")
+            else:
+                logger.info("  [%s] 接口返回作品较旧，保留已有基线（抖音接口延迟）", name)
+            persist.set_room_status(platform="douyin", external_id=rid, kind="post",
+                                   name=name, meta_update=t)
+
+        if gated_hint:
+            logger.warning("部分账号作品接口被风控/未登录，新作品可能漏检。请在 BLIVE_CONFIG "
+                           "增加 douyin_cookie 或设置环境变量 DOUYIN_COOKIE。")
+        logger.info("[run_post_check] 新作品检测完成")
+    finally:
+        if own_context:
+            try:
+                context.close()
+            except Exception:
+                pass
+            try:
+                browser.close()
+            except Exception:
+                pass
+            try:
+                pw.__exit__(None, None, None)
+            except Exception:
+                pass
+
+
 if __name__ == "__main__":
     main()

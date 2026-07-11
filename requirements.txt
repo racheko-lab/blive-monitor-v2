@@ -8,3 +8,19 @@
 #
 # Python 版本要求: 3.8+
 playwright==1.58.0
+
+# ===== 阶段四后端依赖 =====
+# Web 框架（sync def 路由 + 线程池）；与 sync SQLAlchemy 零冲突。
+fastapi==0.128.2
+# ASGI 服务器（含标准依赖：httptools / uvloop / watchgod 等）。
+uvicorn
+# ORM / DB 访问层（sync 2.0），SQLite 方言零额外依赖。
+sqlalchemy==2.0.51
+# 后端自驱 scheduler（AsyncIOScheduler）。
+apscheduler==3.11.3
+# 推送 / 检测逻辑复用的 HTTP 客户端（common / push_utils 等）。
+httpx
+# 备选表单 / 文件导入端点（低耦合，预留）。
+python-multipart
+# 请求/响应模型（FastAPI 自带，此处显式声明以便锁定版本）。
+pydantic

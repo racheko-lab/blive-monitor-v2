@@ -1,0 +1,106 @@
+%% ============ ① 一轮直播检测主链路（scheduler 自驱） ============
+sequenceDiagram
+    autonumber
+    participant SCH as Scheduler(APScheduler)
+    participant DS as DetectionService
+    participant CS as ConfigStore
+    participant PERS as Persistence
+    participant CHK as check_status(纯函数)
+    participant CMN as common
+    participant PU as push_utils.dispatch_event
+    participant HS as HistoryStore
+    participant NL as NotifyLogStore
+    participant DD as DedupService
+    participant DB as SQLite(WAL+写锁)
+
+    SCH->>DS: run_live() [asyncio.to_thread]
+    DS->>CS: get_config() -> cfg_all (BLIVE_CONFIG)
+    CS->>DB: SELECT ConfigKV WHERE key='blive_config'
+    DB-->>CS: value JSON
+    DS->>PERS: list_rooms(kind='live', enabled=True)
+    PERS->>DB: SELECT rooms ...
+    DB-->>PERS: Room[] (含 meta 基线)
+    loop 每个启用房间
+        DS->>CHK: fetch_bilibili_batch(ids) / fetch_douyin(rid)
+        CHK-->>DS: result{status,title,online,area}
+        DS->>CMN: room_enabled(room) / should_skip_by_silence(now, silence)
+        alt 状态变化需推送 (should_push)
+            DS->>CMN: render_template / format_push_desp -> title, desp
+            DS->>PU: dispatch_event(cfg_all, ctx, title, desp)
+            PU-->>DS: SendResult(ok, attempts, last_error)
+        else 静默/无变化
+            Note over DS: 跳过推送，仍落状态
+        end
+        DS->>PERS: set_room_status(room, result)  %% 持写锁
+        PERS->>DB: UPDATE rooms(live_status,current_title,online,area,meta,last_checked_at)
+        DS->>HS: append_event(entry)  %% 复用 log_utils 节流
+        HS->>DB: INSERT events_history
+        opt 推送成功(res.ok)
+            DS->>NL: log(channel_id,event_type,content_hash,status='ok')
+            NL->>DB: INSERT notify_log
+            DS->>DD: record("live:{platform}_{rid}")  %% 仅成功后
+            DD->>DB: UPSERT notify_dedup(last_sent_at)
+        end
+    end
+    DS-->>SCH: 本轮完成
+
+%% ============ ② 配置读写（API） ============
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as ConfigRouter(/api/v1/config)
+    participant CS as ConfigStore
+    participant DB as SQLite
+
+    C->>API: GET /config
+    API->>CS: get_config()
+    CS->>DB: SELECT value FROM ConfigKV WHERE key='blive_config'
+    DB-->>CS: JSON
+    CS-->>API: BLIVE_CONFIG dict
+    API-->>C: 200 {channels,routes,templates,silence,summary,...}
+
+    C->>API: PUT /config (BLIVE_CONFIG dict)
+    API->>CS: put_config(dict)
+    CS->>DB: UPSERT ConfigKV(key='blive_config', value, updated_at)  %% 持写锁
+    CS-->>API: updated_at
+    API-->>C: 200 {updated_at}
+    Note over API,CS: PUT 后下一轮 live_check 惰性重算 summary 触发条件
+
+%% ============ ③ 手动触发（P1） ============
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant JA as JobsRouter(/api/v1/jobs/check)
+    participant SCH as Scheduler
+    participant DS as DetectionService
+
+    C->>JA: POST /jobs/check?type=post
+    JA->>SCH: trigger('post')
+    SCH->>SCH: if RUNNING_FLAGS['post']: return  %% 防重叠
+    SCH->>DS: asyncio.create_task(run_post())
+    JA-->>C: 202 {job_id, type:'post'}
+    Note over DS: run_post 内部同 ① 的 post 分支（复用 check_new_posts 纯函数）
+
+%% ============ ④ 迁移脚本（JSON → DB，幂等可重跑） ============
+sequenceDiagram
+    autonumber
+    participant M as import_json_to_db.py
+    participant FS as 仓库 JSON 文件
+    participant CS as ConfigStore
+    participant PERS as Persistence
+    participant DD as DedupService
+    participant DB as SQLite
+
+    M->>FS: 读 state.json/status.json/tracking.json
+    M->>FS: 读 post_rooms.json/post_tracking.json
+    M->>FS: 读 history.json/notify_dedup.json
+    M->>FS: 读 summary_state.json/silence_state.json
+    M->>CS: put_config(BLIVE_CONFIG)  %% JSON->ConfigKV
+    M->>PERS: upsert Room(kind='live') from rooms.json + status.json
+    M->>PERS: upsert Room(kind='post') from post_rooms.json
+    M->>PERS: set_room_status + meta from tracking.json/status.json
+    M->>PERS: upsert_post_baseline(meta) from post_tracking.json
+    M->>PERS: append_event(...)  for each history.json row
+    M->>DD: record(key)  for each notify_dedup.json key
+    M->>DB: 全部 UPSERT（key/UNIQUE 冲突则更新，幂等）
+    Note over M,DB: 重跑安全：所有写入按 PK/UNIQUE 幂等 upsert

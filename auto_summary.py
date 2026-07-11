@@ -293,5 +293,63 @@ def main() -> None:
         sys.exit(0)
 
 
+def run_summary(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datetime] = None) -> None:
+    """后端驱动的摘要投递编排（不写 JSON，经 ``persist`` 落库）。
+
+    复用本模块纯函数（compute_since / compute_summary / format_summary / should_deliver）
+    与 common / push_utils 的路由/推送逻辑（一字不改）；``summary_state.json`` 读写改为
+    ``persist`` 回调：
+
+        persist.get_summary_state() -> dict
+        persist.set_summary_state(data) -> dict（合并写回）
+        persist.get_events()         -> [{time,type,rid,account,name,platform,...}]（供 compute_summary）
+
+    Args:
+        cfg_all: BLIVE_CONFIG 完整 dict。
+        persist: 后端持久化门面（见 backend/jobs/summary_job.SummaryPersist）。
+        now: 当前北京时间（测试用）；缺省 ``bjnow()``。
+    """
+    if now is None:
+        now = bjnow()
+    summary_cfg = (cfg_all or {}).get("summary") or {}
+    state = persist.get_summary_state()
+    freq = summary_cfg.get("freq", "daily")
+    since = compute_since(freq, now)
+
+    ok, reason = should_deliver(summary_cfg, now, state)
+    logging.info("摘要 gate 结果: reason=%s freq=%s since=%s", reason, freq, since)
+    if not ok:
+        return
+
+    ch = common.resolve_channel(cfg_all or {}, {"event": "summary"})
+    pcfg = push_utils.channel_to_push_cfg(ch)
+    if not pcfg or not pcfg.get("type"):
+        logging.warning("推送未配置（无有效通道），跳过摘要投递")
+        return
+
+    hist = persist.get_events() or []
+    summary = compute_summary(hist, since)
+    title, desp = format_summary(summary, freq, summary["rangeText"])
+
+    res = push_utils.dispatch_event(cfg_all or {}, {"event": "summary"}, title, desp)
+    if res.ok:
+        new_state = {
+            **state,
+            "enabled": summary_cfg.get("enabled"),
+            "freq": summary_cfg.get("freq"),
+            "sendTime": summary_cfg.get("sendTime"),
+            "lastSent": int(time.time()),
+        }
+        persist.set_summary_state(new_state, remove=["lastFailedAt", "lastFailedSince"])
+        logging.info("摘要已投递（title=%s）", title)
+    else:
+        persist.set_summary_state({
+            **state,
+            "lastFailedAt": int(time.time()),
+            "lastFailedSince": since,
+        })
+        logging.warning("摘要投递失败: %s", res.last_error or "(无错误信息)")
+
+
 if __name__ == "__main__":
     main()
