@@ -36,7 +36,15 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 
 # 公共工具（时间/JSON 读写），避免与 check_status.py 重复定义
-from common import bjnow, load_json_file, save_json_file, BEIJING_TZ
+from common import (
+    bjnow,
+    load_json_file,
+    save_json_file,
+    BEIJING_TZ,
+    room_enabled,
+    load_silence_cfg,
+    should_skip_by_silence,
+)
 # 推送实现见 push_utils.py（直播监控与新作品监控共用）
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
@@ -626,6 +634,8 @@ def main() -> None:
     # 加载配置（推送渠道）：优先 BLIVE_CONFIG 环境变量，兼容旧 sendkey 写法
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
     push_cfg = load_push_cfg(raw_config)
+    # A3 静默时段：从 BLIVE_CONFIG.silence 解析（无则 {}，不静默）
+    silence_cfg = load_silence_cfg(raw_config)
 
     # 加载作品监控专属的抖音号列表
     post_rooms: List[Dict[str, str]] = load_json_file(CONFIG_FILE, [])
@@ -674,6 +684,10 @@ def main() -> None:
         for entry in post_rooms:
             rid = entry.get("id", "")
             name = entry.get("name", rid)
+            # B3 批量启停：enabled===false 的账号完全跳过检测（看板保留上次状态）
+            if not room_enabled(entry):
+                logger.info("  [%s] 已暂停（enabled=false），跳过检测", name)
+                continue
             if not rid:
                 # 条目缺 id（配置不完整）→ 写 system 跳过，不刷屏（不写垃圾 error）
                 logger.warning("  post_rooms.json 中存在缺 id 的条目，已跳过")
@@ -845,7 +859,10 @@ def main() -> None:
                         f"👉 [打开 {name} 的主页]({aweme['video_url']})\n\n"
                         f"---\n检测时间: {now_str}"
                     )
-                if push_cfg:
+                if should_skip_by_silence(bjnow(), silence_cfg):
+                    # A3 静默时段：仅跳过推送，作品基线已正常记录
+                    logger.info("  [%s] 当前处于静默时段，暂缓新作品推送", name)
+                elif push_cfg:
                     try:
                         res = dispatch_push(push_cfg, title, desp)
                         logger.info("    → 推送%s", "成功" if res.ok else "失败")

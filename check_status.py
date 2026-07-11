@@ -21,7 +21,16 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 
 # 公共工具（时间/JSON 读写），避免与 check_new_posts.py 重复定义
-from common import bjnow, load_json_file, save_json_file, DEFAULT_USER_AGENT, BEIJING_TZ
+from common import (
+    bjnow,
+    load_json_file,
+    save_json_file,
+    DEFAULT_USER_AGENT,
+    BEIJING_TZ,
+    room_enabled,
+    load_silence_cfg,
+    should_skip_by_silence,
+)
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
 from push_utils import dispatch_push, load_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
@@ -91,9 +100,12 @@ def load_config() -> Dict[str, Any]:
     # 推送配置：多通道（serverchan/wecom/pushplus/bark/telegram），兼容旧 sendkey
     raw_config = os.environ.get("BLIVE_CONFIG", "{}")
     push_cfg = load_push_cfg(raw_config)
+    # A3 静默时段：从 BLIVE_CONFIG.silence 解析（无则 {}，不静默）
+    silence_cfg = load_silence_cfg(raw_config)
 
     return {
         "push_cfg": push_cfg,
+        "silence": silence_cfg,
         "rooms": rooms,
     }
 
@@ -512,6 +524,8 @@ def main() -> None:
     cfg = load_config()
     rooms = cfg.get("rooms", [])
     push_cfg = cfg.get("push_cfg", {})
+    # A3 静默（仅用于推送前拦截；不影响状态抓取）
+    silence_cfg = cfg.get("silence", {})
 
     if not rooms:
         logger.info("没有配置监控房间")
@@ -559,6 +573,10 @@ def main() -> None:
         rid = room.get("id", "")
         name = room.get("name", f"{platform}-{rid}")
         key = f"{platform}_{rid}"
+        # B3 批量启停：enabled===false 的房间完全跳过检测（看板保留上次状态）
+        if not room_enabled(room):
+            logger.info("[%s] 已暂停（enabled=false），跳过检测", name)
+            continue
         push_result: Optional[str] = None
 
         # 获取当前状态
@@ -711,7 +729,13 @@ def main() -> None:
         )
 
     # Step 3: 合并推送（多通道：serverchan/wecom/pushplus/bark/telegram）
-    if newly_live and push_cfg:
+    # A3 静默时段：推送前拦截（仅跳过推送，不影响状态抓取与看板）
+    if should_skip_by_silence(now, silence_cfg):
+        logger.info("当前处于静默时段，暂缓推送（状态已正常抓取，看板不受影响）")
+        for le in log_entries:
+            if le["push"] == "queued":
+                le["push"] = "silenced"
+    elif newly_live and push_cfg:
         try:
             if len(newly_live) == 1:
                 s = newly_live[0]

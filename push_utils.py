@@ -31,6 +31,9 @@ import urllib.error
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
+# A2/A4 预留：多通道选通道 + 模板拼接（CI 多通道消费留后续协调，本波不被 dispatch_push 调用）
+from common import resolve_channel, render_template  # noqa: F401  (re-export，供 push_utils 命名空间下引用)
+
 logger = logging.getLogger(__name__)
 
 
@@ -474,6 +477,17 @@ def load_push_cfg(raw_config: str, fallback_sendkey: str = "") -> Dict[str, Any]
             logger.error("解析 BLIVE_CONFIG 失败: %s", e)
             cfg = {}
     push_cfg = cfg.get("push") or {}
+    if not push_cfg and cfg.get("channels"):
+        # 新结构（A2）：无 legacy push 段时，从首个通道推导出单通道配置，
+        # 保证 dispatch_push（读 push_cfg["type"]）在「仅多通道」配置下仍可用。
+        ch = cfg["channels"][0]
+        if isinstance(ch, dict):
+            ptype = ch.get("type", "")
+            fields = ch.get("fields") or {}
+            push_cfg = {"type": ptype}
+            if isinstance(fields, dict):
+                for k, v in fields.items():
+                    push_cfg[k] = v
     if not push_cfg:
         sendkey = cfg.get("sendkey") or fallback_sendkey
         if sendkey:

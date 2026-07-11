@@ -1788,6 +1788,29 @@ body {
           <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
         </div>
 
+        <!-- 阶段二 2b：B2 标签筛选 + B4 排序（与 .chip 平台 / q 搜索 AND 叠加） -->
+        <div class="blm-filter-bar" id="liveTagBar" style="margin-top:10px">
+          <!-- 标签 chip 由 renderTagChips() 动态填充（全部 + 各 tag） -->
+        </div>
+        <div class="blm-sort-bar" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span class="blm-config-item-title" style="margin:0">排序</span>
+          <select id="sortSel" class="blm-input blm-select" onchange="onSortChange(this.value)" style="max-width:180px">
+            <option value="default">默认</option>
+            <option value="live">直播中优先</option>
+            <option value="platform">平台（B站→抖音）</option>
+            <option value="recent">最近活跃</option>
+          </select>
+        </div>
+
+        <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
+        <div id="batchBar" class="blm-batch-bar" style="display:none">
+          <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
+          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <span id="batchCount" class="blm-batch-count">已选 0</span>
+        </div>
+
+
         <!-- Add Room（保留 #addWrap/#addForm/#addPlatform/#addId/#addName 及 handler） -->
         <div id="addWrap" style="display:none">
           <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加监控</button>
@@ -1798,6 +1821,7 @@ body {
             </select>
             <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
+            <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
             <button class="blm-btn blm-btn-primary" onclick="submitAdd()">添加</button>
             <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
           </div>
@@ -1842,11 +1866,15 @@ body {
           <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
         </div>
 
+        <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
+        <div class="blm-filter-bar" id="postsTagBar" style="margin-top:10px"></div>
+
         <div id="postAddWrap" style="display:none">
           <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
           <div class="blm-add-form" id="postAddForm" style="display:none">
             <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
             <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
+            <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
             <button class="blm-btn blm-btn-primary" onclick="submitPostAdd()">添加</button>
             <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
           </div>
@@ -1862,6 +1890,14 @@ body {
             <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
             <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
           </div>
+        </div>
+
+        <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
+        <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
+          <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
+          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
         </div>
 
         <div id="postsBody" class="blm-works-grid"></div>
@@ -2069,6 +2105,69 @@ body {
             </div>
           </div>
         </div>
+
+        <!-- 阶段二 2b：A3 静默时段 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">静默时段（A3）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">设定静默时段后，CI 在推送前会暂缓开播 / 新作推送（仅跳过推送，状态抓取与看板不受影响）。支持跨午夜（如 23:00–08:00）。</div>
+                <div class="blm-switch-row">
+                  <span class="blm-config-item-title">启用静默</span>
+                  <input type="checkbox" id="silenceEnabled" class="blm-switch">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <label class="blm-config-item-title">起
+                    <input type="time" id="silenceStart" class="blm-input" value="23:00" style="max-width:140px">
+                  </label>
+                  <label class="blm-config-item-title">止
+                    <input type="time" id="silenceEnd" class="blm-input" value="08:00" style="max-width:140px">
+                  </label>
+                </div>
+                <div id="silenceHint" class="blm-caption">未启用静默时段</div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveSilenceConfig()">保存静默配置</button>
+                </div>
+                <div id="silenceStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b：A2 多通道路由（前端 schema + UI；CI 多通道消费留后续） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送通道与路由（A2）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">配置多个推送通道，并按「平台 / 标签 / 事件」设定路由规则（最具体优先 + default 兜底）。CI 多通道消费将在后续协调落地；当前仍走上方单通道推送。</div>
+                <div id="channelRoutes" class="blm-channel-routes"></div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <button class="blm-btn" onclick="addChannelRoute('channel')">＋ 新增通道</button>
+                  <button class="blm-btn" onclick="addChannelRoute('route')">＋ 新增路由</button>
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存配置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b：A4 推送模板（前端 schema + UI；CI 模板拼接留后续） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送文案模板（A4）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">自定义开播 / 新作推送文案。可用占位符：<code>{name}</code> <code>{title}</code> <code>{platform}</code> <code>{time}</code> <code>{url}</code>。</div>
+                <div id="templateEditor" class="blm-template-editor"></div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存配置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -2197,8 +2296,36 @@ body {
 <!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
 <script src="libsodium.js"></script>
 
+    <!-- 阶段二 2b B3：编辑房间（轻量弹层：名称 + 标签 + 启停开关） -->
+    <div id="roomEdit" class="blm-modal" style="display:none">
+      <div class="blm-modal-mask" onclick="closeRoomEdit()"></div>
+      <div class="blm-modal-card">
+        <div class="blm-modal-title">编辑房间</div>
+        <input type="hidden" id="editKey">
+        <div class="blm-config-item-title" style="margin-top:8px">名称</div>
+        <input id="editName" class="blm-input" placeholder="名称（可选）">
+        <div class="blm-config-item-title" style="margin-top:8px">标签（逗号分隔）</div>
+        <input id="editTags" class="blm-input" placeholder="如 游戏,学习">
+        <div class="blm-switch-row" style="margin-top:10px">
+          <span class="blm-config-item-title">启用监控</span>
+          <input type="checkbox" id="editEnabled" class="blm-switch" checked>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+          <button class="blm-btn blm-btn-secondary" onclick="closeRoomEdit()">取消</button>
+          <button class="blm-btn blm-btn-primary" onclick="saveRoomEdit()">保存</button>
+        </div>
+      </div>
+    </div>
+
 <script>
 var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
+/* 阶段二 2b：列表筛选 / 排序 / 批量启停 全局状态 */
+var tag='';                       // 当前标签筛选（''=全部；与 fl/q AND 叠加）
+var sortKey='default';            // 'default'|'live'|'platform'|'recent'
+var selected={};                // 批量选中：'platform|id' -> true
+window.__channels=[];           // A2 多通道（前端 schema + UI，CI 多通道消费留后续）
+window.__routes=[];             // A2 路由规则
+window.__silenceState={enabled:false,start:'23:00',end:'08:00'}; // A3 静默可读镜像（silence_state.json）
 /* build 2026-07-07: 添加/删除采用乐观更新（直接采用写回结果，不二次 GET），无需刷新页面即可生效 */
 
 /* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
@@ -2263,17 +2390,30 @@ function renderLive(){
   var lb=document.getElementById('liveBody');
   if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
   var rs=rooms.slice();
+  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
+  try{ renderTagChips('liveTagBar'); }catch(_e){}
   if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
   else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
   /* ★ P0-4 文本搜索：与 fl 顺序 AND 叠加（仅过滤已加载数据，绝不调用 ld） */
   if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
+  /* ★ 阶段二 2b B2：标签筛选（与 fl/q AND 叠加；缺 tags 视为无标签） */
+  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') rs = applyTagsFilter(rs, tag);
   var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
   if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
-  rs.sort(function(a,b){
-    var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
-    var ra=_rm.hasOwnProperty(ka)?_rm[ka]:1, rb=_rm.hasOwnProperty(kb)?_rm[kb]:1;
-    return ra-rb;
-  });
+  /* ★ 阶段二 2b B4：最近活跃依据（hist 中最近 live_on/new_post 时间；无记录排末尾） */
+  var _lastActive={};
+  if(typeof hist!=='undefined' && hist){
+    for(var hi=0; hi<hist.length; hi++){
+      var _h=hist[hi]; if(!_h) continue;
+      var _ht=_h.type||_h.status;
+      if(_ht!=='live_on' && _ht!=='new_post') continue;
+      var _hts=parseBeijing(_h.time); if(_hts===null) continue;
+      var _hk=(_h.platform||'')+'|'+String(_h.rid||_h.account||'');
+      if(!_lastActive.hasOwnProperty(_hk) || _hts>_lastActive[_hk]) _lastActive[_hk]=_hts;
+    }
+  }
+  /* ★ 阶段二 2b B4：排序（default=状态排名稳定次序；live/platform/recent 见 applySort） */
+  rs = (typeof applySort==='function') ? applySort(rs, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:_rm, lastActive:_lastActive}) : rs;
   if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
   var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
@@ -2306,12 +2446,21 @@ function renderLive(){
       ? '<span class="blm-live-badge"><span class="blm-status-dot live"></span>LIVE</span>'
       : '<span class="blm-offline-badge">'+stxt+'</span>';
     var linkHtml=(u!=='#')?'<div style="display:flex;justify-content:flex-end;margin-top:8px"><a class="blm-room-link" href="'+u+'" target="_blank">'+(isLive?'进入直播间 →':'查看直播间 →')+'</a></div>':'';
-    h+='<div class="blm-room-card'+(isLive?' live':'')+'">'+
-         '<div class="blm-room-top"><div class="blm-room-info"><div class="blm-room-name-row"><span class="blm-platform-badge '+pl+'">'+pln+'</span><span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+badge+'</div></div><div class="blm-room-actions">'+rmbtn+'</div></div>'+
+    /* ★ 阶段二 2b B3：批量启停 checkbox（保留 .blm-room-link / .blm-room-card） */
+    var roomKey=r.platform+'|'+String(r.id);
+    var _sel=(typeof selected!=='undefined' && selected.hasOwnProperty(roomKey))?' checked':'';
+    var _paused=(r.enabled===false);
+    var _pauseBadge=_paused?'<span class="blm-status-badge muted">已暂停</span>':'';
+    var selHtml='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(roomKey)+'"'+(r.enabled===false?' disabled':'')+_sel+' onchange="toggleRoomSelect(\''+e(roomKey)+'\',this)"></label>';
+    h+='<div class="blm-room-card'+(isLive?' live':'')+(_paused?' paused':'')+'">'+
+         selHtml+
+         '<div class="blm-room-top"><div class="blm-room-info"><div class="blm-room-name-row"><span class="blm-platform-badge '+pl+'">'+pln+'</span><span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+badge+_pauseBadge+'</div></div><div class="blm-room-actions">'+rmbtn+'</div></div>'+
          titleHtml+metaHtml+linkHtml+
+         '<button class="blm-room-edit" title="编辑" onclick=\'editRoom('+rmArg+')\'>✎</button>'+
        '</div>';
   }
   lb.innerHTML=h;
+  try{ updateBatchBar(); }catch(_e){}
 }
 
 function renderPosts(){
@@ -2319,8 +2468,20 @@ function renderPosts(){
   var cnt=document.getElementById('postsCount');
   if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
   var list=postRooms.slice();
+  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
+  try{ renderTagChips('postsTagBar'); }catch(_e){}
   /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
   if(q) list=list.filter(function(r){return matchPostQ(r,q);});
+  /* ★ 阶段二 2b B2：标签筛选（与 q AND 叠加；缺 tags 视为无标签） */
+  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') list = applyTagsFilter(list, tag);
+  /* ★ 阶段二 2b B4：按最近活跃（postTrack.latest_ct）排序（recent 生效） */
+  var _postLast={};
+  for(var pi=0;pi<list.length;pi++){
+    var _tt=postTrack['douyin_'+list[pi].id]||{};
+    var _ct=parseInt(_tt.latest_ct||'0',10)||0;
+    _postLast['douyin|'+String(list[pi].id)] = _ct;
+  }
+  list = (typeof applySort==='function') ? applySort(list, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:{}, lastActive:_postLast}) : list;
   if(!list.length){
     body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
     if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
@@ -2358,20 +2519,29 @@ function renderPosts(){
       descLine='⌛ 等待首次抓取…';
       linkLabel='打开主页 →';
     }
-    h+='<div class="blm-work-card">'+
+    /* ★ 阶段二 2b B3：批量启停 checkbox（保留 .blm-room-link / .blm-work-card） */
+    var _pausePost=(r.enabled===false);
+    var _pauseBadgePost=_pausePost?'<span class="blm-status-badge muted">已暂停</span>':'';
+    var _postKey='douyin|'+String(r.id);
+    var _selP=(typeof selected!=='undefined' && selected.hasOwnProperty(_postKey))?' checked':'';
+    var selHtmlP='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(_postKey)+'"'+(_pausePost?' disabled':'')+_selP+' onchange="toggleRoomSelect(\''+e(_postKey)+'\',this)"></label>';
+    h+='<div class="blm-work-card'+(r.enabled===false?' paused':'')+'">'+
+         selHtmlP+
          '<a class="blm-work-thumb" href="'+linkLine+'" target="_blank">'+placeholder+coverImg+platformTag+'</a>'+
          '<div class="blm-work-info">'+
-           '<div class="blm-work-author">'+e(titleLine)+'</div>'+
+           '<div class="blm-work-author">'+e(titleLine)+' '+_pauseBadgePost+'</div>'+
            '<div class="blm-work-desc">'+e(descLine)+'</div>'+
            '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">'+
              '<span class="blm-work-time">'+time+'</span>'+
              '<a class="blm-room-link" href="'+linkLine+'" target="_blank" style="padding:4px 10px;font-size:11px">'+linkLabel+'</a>'+
              rmbtn+
+             '<button class="blm-room-edit" title="编辑" onclick=\'editRoom({id:"'+e(id)+'")\'>✎</button>'+
            '</div>'+
          '</div>'+
        '</div>';
   }
   body.innerHTML=h;
+  try{ updateBatchBar(); }catch(_e){}
 }
 
 /* 推送标记映射（status 兼容字段，新代码主要看 type） */
@@ -2947,7 +3117,10 @@ function apiAddRoom(o){
     if(rs.some(function(r){return r.platform+'|'+String(r.id)===key;})){
       throw new Error('该房间已在监控列表');
     }
-    return {rooms:rs.concat([{platform:o.platform, id:String(o.id), name:o.name||String(o.id)}]), changed:true};
+    var rec={platform:o.platform, id:String(o.id), name:o.name||String(o.id)};
+    if(o.tags&&o.tags.length) rec.tags=o.tags;          // B2 分组标签
+    if(o.enabled===false) rec.enabled=false;                  // B3 批量启停（默认 true）
+    return {rooms:rs.concat([rec]), changed:true};
   });
 }
 
@@ -2976,6 +3149,8 @@ function apiAddPostRoom(o){
     if(rs.some(function(r){return String(r.id)===key;})) throw new Error('该抖音号已在监控列表');
     var rec={id:String(o.id), name:o.name||String(o.id)};
     if(o.sec_uid) rec.sec_uid=String(o.sec_uid);
+    if(o.tags&&o.tags.length) rec.tags=o.tags;          // B2 分组标签
+    if(o.enabled===false) rec.enabled=false;                // B3 批量启停（默认 true）
     return {rooms:rs.concat([rec]), changed:true};
   });
 }
@@ -3027,7 +3202,10 @@ function submitPostAdd(){
   if(!raw){ toast('抖音号 ID / sec_uid 必填', false); return; }
   var norm=normalizeDouyinInput(raw);
   if(!norm.id){ toast('无法识别该抖音号', false); return; }
-  apiAddPostRoom({id:norm.id, name:name||norm.name||norm.id, sec_uid:norm.sec_uid})
+  // B2 分组标签（逗号分隔 → tags[]）
+  var pTagsRaw=document.getElementById('postRoomTags');
+  var pTags=pTagsRaw&&pTagsRaw.value.trim()? pTagsRaw.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  apiAddPostRoom({id:norm.id, name:name||norm.name||norm.id, sec_uid:norm.sec_uid, tags:pTags})
     .then(function(res){
       postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
       togglePostAddForm(false);
@@ -3111,7 +3289,10 @@ function submitAdd(){
   var name=document.getElementById('addName').value.trim();
   if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
   if(!id){ toast('房间 ID 必填', false); return; }
-  apiAddRoom({platform:platform, id:id, name:name})
+  // B2 分组标签（逗号分隔 → tags[]）
+  var tagsRaw=document.getElementById('roomTags').value.trim();
+  var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  apiAddRoom({platform:platform, id:id, name:name, tags:tags})
     .then(function(res){
       /* 关键修复：直接用写回时计算出的新列表更新本地 rooms，
          而不是 PUT 之后立刻 GET（GitHub Contents API 有 CDN 缓存，刚写入即刻 GET 会读到旧数据，
@@ -3225,6 +3406,7 @@ function ld(){
     renderLive();renderPosts();renderLog();
     renderDashboard();   // P0-7 仪表盘：数据载入即聚合渲染，切 tab 不重算
     maybeShowSummary();  // 阶段二 2a：跨日/跨周未生成则展示摘要卡
+    loadPhase2UI();      // 阶段二 2b：标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
     // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
@@ -3299,7 +3481,14 @@ function buildPushConfig(){
     if(v) cfg[f.id]=v;
   });
   if(!ok){ toast('请填写必填项（带 *）',false); return null; }
-  return {push:cfg};
+  // 阶段二 2b：并入 silence / channels / routes / templates（兼容旧单通道 push）
+  var full={push:cfg};
+  full.silence = buildSilenceConfig();
+  full.channels = window.__channels || [];
+  full.routes = window.__routes || [];
+  full.templates = buildTemplateConfig();
+  try { full.summary = buildSummaryConfig(); } catch(_e) {}
+  return full;
 }
 function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
 function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
@@ -3307,28 +3496,14 @@ function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&
 function ghBase(){return GH_API.split('/contents')[0];}
 async function savePushConfig(){
   var cfg=buildPushConfig(); if(!cfg)return;
-  /* 阶段二 2a：并入 summary 段（前端聚合配置）一并加密写入 BLIVE_CONFIG，供 CI 自动投递消费 */
-  try { cfg.summary = buildSummaryConfig(); } catch(_e) {}
-  var json=JSON.stringify(cfg);
-  var tok=getGhToken();
-  if(!tok){ toast('请先到「配置」页设置 Token',false); show('config'); return; }
+  /* 阶段二 2a/2b：并入 summary + silence + channels/routes/templates 段一并加密写入 BLIVE_CONFIG */
   var st=document.getElementById('pushStatus');
   st.style.display='block';
-  try{
-    var base=ghBase();
-    var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
-    if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
-    var pk=await pkResp.json();
-    await sodium.ready;
-    var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
-    var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
-    if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
+  var ok=await _encryptSaveBlive(cfg, st);
+  if(ok){
     st.style.color='var(--green,#2ecc71)';
     st.innerHTML='✅ 推送配置已加密写入仓库 Secret（BLIVE_CONFIG），<b>下次监控运行即生效</b>。';
     toast('推送配置已保存',true);
-  }catch(e){
-    st.style.color='var(--yellow)';
-    st.innerHTML='⚠️ 自动写入失败：'+(e&&e.message||e)+'。<br>请复制下面 JSON，手动到 GitHub → Settings → Secrets → Actions → 新建/更新 <b>BLIVE_CONFIG</b>：<br><textarea readonly style="width:100%;height:74px;margin-top:6px;box-sizing:border-box">'+escapeHtml(json)+'</textarea>';
   }
 }
 function copyPushJson(){
@@ -3566,7 +3741,8 @@ function normalizeBatchItem(it){
   var platform = it.platform ? normPlatform(it.platform) : '';
   if(!platform) platform = 'douyin';   // 新作监控仅抖音；缺省按 douyin
   var name = (it.name != null && it.name !== '') ? String(it.name) : id;
-  return { platform: platform, id: id, name: name };
+  var tags = (it.tags instanceof Array) ? it.tags.map(String) : [];
+  return { platform: platform, id: id, name: name, tags: tags };
 }
 
 /**
@@ -3609,9 +3785,13 @@ function parseBatchInput(text){
     var platform = normPlatform(parts[0].trim());
     var id = parts[1].trim();
     var name = parts.length > 2 ? parts[2].trim() : id;
+    // B2 批量框可选第 4 列 tags（逗号分隔）
+    var tags = parts.length > 3 ? parts[3].trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
     if(!platform){ bad.push({ raw: line, reason: '未知平台：' + parts[0] }); continue; }
     if(!id){ bad.push({ raw: line, reason: 'ID 为空' }); continue; }
-    ok.push({ platform: platform, id: id, name: name });
+    var rec={ platform: platform, id: id, name: name };
+    if(tags.length) rec.tags=tags;
+    ok.push(rec);
   }
   return { ok: ok, bad: bad };
 }
@@ -3665,7 +3845,7 @@ function submitBatchBox(boxId, target){
   var res = parseBatchInput(box.value);
   if(!res.ok.length){ toast(res.bad.length ? ('无合法行，已跳过 ' + res.bad.length + ' 行') : '批量框为空', false); return; }
   if(target === 'posts'){
-    var ok = res.ok.map(function(r){ return { id: r.id, name: r.name }; });
+    var ok = res.ok.map(function(r){ return { id: r.id, name: r.name, tags: r.tags||[] }; });
     var merged = mergeRooms(postRooms, ok);
     ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
       .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
@@ -3787,6 +3967,431 @@ if(_paw)_paw.style.display='block';
 // 页面加载即检测 GitHub API 是否可达，并提示是否需要配置 Token。
 checkApi();
 document.addEventListener('DOMContentLoaded',ld);
+
+/* =========================================================================
+ * 阶段二 2b：A3 静默 / B2 标签 / B3 启停 / B4 排序 / A2 路由 / A4 模板
+ * 纯函数下沉（applyTagsFilter/applySort/renderTemplate/resolveChannel 等），
+ * 视图层仅在 renderLive/renderPosts 排序/筛选层叠加，核心状态查询/卡片 HTML 逻辑不动。
+ * 数据层既有函数（ld/ghGetFile/ghWriteWithRetry/...）名称/签名/逻辑不动。
+ * ========================================================================= */
+
+/* ---------------- B2：标签筛选（与 fl/q AND 叠加） ---------------- */
+/** 仅返回含 tag 的房间（缺失 tags 视为无标签，不报错）。 */
+function applyTagsFilter(rooms, tag){
+  if(!tag) return rooms;
+  var out=[];
+  for(var i=0;i<rooms.length;i++){
+    var r=rooms[i];
+    var tags=r.tags;
+    if(!tags||!tags.length) continue;
+    if(tags.indexOf(tag)>=0) out.push(r);
+  }
+  return out;
+}
+/** 设全局 tag，重渲染两列表（与 fl/q AND 叠加）。 */
+function onTagFilter(t){
+  tag = t || '';
+  renderLive(); renderPosts();
+}
+/** 动态渲染标签 chip 行（全部 + 各 tag；与当前 tag 高亮）。 */
+function renderTagChips(containerId){
+  var el=document.getElementById(containerId);
+  if(!el) return;
+  var tagsSet={};
+  for(var i=0;i<rooms.length;i++){ var ts=rooms[i]&&rooms[i].tags; if(ts&&ts.length) for(var j=0;j<ts.length;j++) tagsSet[ts[j]]=true; }
+  for(var k=0;k<postRooms.length;k++){ var pts=postRooms[k]&&postRooms[k].tags; if(pts&&pts.length) for(var j=0;j<pts.length;j++) tagsSet[pts[j]]=true; }
+  var html='<button class="blm-filter-chip'+(tag===''?' active':'')+'" onclick="onTagFilter(\'\')">全部</button>';
+  for(var tk in tagsSet) if(tagsSet.hasOwnProperty(tk)){
+    html+='<button class="blm-filter-chip'+(tag===tk?' active':'')+'" data-tag="'+e(tk)+'" onclick="onTagFilter(\''+e(tk)+'\')">'+e(tk)+'</button>';
+  }
+  el.innerHTML=html;
+}
+
+/* ---------------- B3：批量启停 ---------------- */
+/** 维护全局 selected（platform|id -> true），并更新批量条。 */
+function toggleRoomSelect(key, el){
+  if(el.checked) selected[key]=true; else delete selected[key];
+  updateBatchBar();
+}
+/** 全选当前视图已渲染房间（跳过已暂停）。 */
+function selectAllInView(view){
+  view = view || 'live';
+  if(view==='posts'){
+    for(var i=0;i<postRooms.length;i++){ if(postRooms[i].enabled!==false) selected['douyin|'+String(postRooms[i].id)]=true; }
+    renderPosts();
+  } else {
+    for(var i=0;i<rooms.length;i++){ if(rooms[i].enabled!==false) selected[rooms[i].platform+'|'+String(rooms[i].id)]=true; }
+    renderLive();
+  }
+  updateBatchBar();
+}
+/** 暂停选中（enabled=false），经 ghWriteWithRetry 合并写回。 */
+function pauseSelected(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var keys=Object.keys(selected);
+  if(!keys.length){ toast('请先勾选房间', false); return; }
+  Promise.all(keys.map(function(k){
+    var p=k.split('|'); var platform=p[0], id=p[1];
+    var isPost=!rooms.some(function(r){return r.platform===platform && String(r.id)===String(id);});
+    return setRoomEnabled(platform, id, false, isPost).then(function(res){ if(isPost) postRooms=res.rooms; else rooms=res.rooms; });
+  })).then(function(){
+    selected={}; renderLive(); renderPosts(); updateBatchBar();
+    toast('已暂停选中房间', true);
+  }).catch(function(err){ toast(err&&err.message||'批量暂停失败', false); });
+}
+/** 恢复选中（enabled=true）。 */
+function resumeSelected(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var keys=Object.keys(selected);
+  if(!keys.length){ toast('请先勾选房间', false); return; }
+  Promise.all(keys.map(function(k){
+    var p=k.split('|'); var platform=p[0], id=p[1];
+    var isPost=!rooms.some(function(r){return r.platform===platform && String(r.id)===String(id);});
+    return setRoomEnabled(platform, id, true, isPost).then(function(res){ if(isPost) postRooms=res.rooms; else rooms=res.rooms; });
+  })).then(function(){
+    selected={}; renderLive(); renderPosts(); updateBatchBar();
+    toast('已恢复选中房间', true);
+  }).catch(function(err){ toast(err&&err.message||'批量恢复失败', false); });
+}
+/** 显示/隐藏批量条并刷新计数（live/posts 两个视图均更新）。 */
+function updateBatchBar(){
+  var n=Object.keys(selected).length;
+  var b=document.getElementById('batchBar'), c=document.getElementById('batchCount');
+  var bp=document.getElementById('batchBarPosts'), cp=document.getElementById('batchCountPosts');
+  if(b&&c){ b.style.display=n?'flex':'none'; c.textContent='已选 '+n; }
+  if(bp&&cp){ bp.style.display=n?'flex':'none'; cp.textContent='已选 '+n; }
+}
+/** 经 ghWriteWithRetry 合并写回 enabled（保留其余字段 / 远端未知字段）。 */
+function setRoomEnabled(platform, id, enabled, isPost){
+  var path = isPost ? 'post_rooms.json' : 'rooms.json';
+  return ghWriteWithRetry(path, function(rs){
+    var changed=false;
+    var out=rs.map(function(r){
+      if(String(r.id)===String(id) && (isPost || r.platform===platform)){
+        if(r.enabled!==enabled){
+          var nr={}; for(var k in r) if(Object.prototype.hasOwnProperty.call(r,k)) nr[k]=r[k];
+          nr.enabled=enabled; changed=true; return nr;
+        }
+      }
+      return r;
+    });
+    return {rooms:out, changed:changed};
+  });
+}
+/** 打开轻量编辑层（live: {platform,id}；posts: {id}）。 */
+function editRoom(arg){
+  var id = arg.id;
+  var platform = arg.platform || 'douyin';
+  var isPost = !arg.platform;
+  var r=null;
+  if(isPost) r = (postRooms.filter(function(x){return String(x.id)===String(id);}))[0] || null;
+  else r = (rooms.filter(function(x){return x.platform===platform && String(x.id)===String(id);}))[0] || null;
+  if(!r) return;
+  document.getElementById('editKey').value = (isPost?'douyin|':'') + platform + '|' + id;
+  document.getElementById('editName').value = r.name || '';
+  document.getElementById('editTags').value = (r.tags&&r.tags.length)? r.tags.join(',') : '';
+  document.getElementById('editEnabled').checked = (r.enabled!==false);
+  document.getElementById('roomEdit').style.display='block';
+}
+function closeRoomEdit(){ var m=document.getElementById('roomEdit'); if(m) m.style.display='none'; }
+/** 保存编辑：合并写回 name/tags/enabled（保留其余字段）。 */
+function saveRoomEdit(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var key=document.getElementById('editKey').value;
+  var parts=key.split('|'); var isPost=(parts.length===3 && parts[0]==='douyin');
+  var platform=isPost?'douyin':parts[0]; var id=isPost?parts[2]:parts[1];
+  var name=document.getElementById('editName').value.trim();
+  var tagsRaw=document.getElementById('editTags').value.trim();
+  var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  var enabled=document.getElementById('editEnabled').checked;
+  var path = isPost ? 'post_rooms.json' : 'rooms.json';
+  ghWriteWithRetry(path, function(rs){
+    var changed=false;
+    var out=rs.map(function(rr){
+      if(String(rr.id)===String(id) && (isPost || rr.platform===platform)){
+        var nr={}; for(var k in rr) if(Object.prototype.hasOwnProperty.call(rr,k)) nr[k]=rr[k];
+        if(name) nr.name=name; else if(nr.name==null) nr.name=String(id);
+        nr.tags=tags; nr.enabled=enabled; changed=true; return nr;
+      }
+      return rr;
+    });
+    return {rooms:out, changed:changed};
+  }).then(function(res){
+    if(isPost) postRooms=res.rooms; else rooms=res.rooms;
+    renderLive(); renderPosts(); closeRoomEdit(); toast('已保存编辑', true);
+  }).catch(function(err){ toast(err&&err.message||'保存失败', false); });
+}
+
+/* ---------------- B4：排序（仅排序层生效，不改数据源/不网络） ---------------- */
+/**
+ * 重排序（与 fl/q/tag AND 叠加由调用方先过滤）。
+ * @param {Array} rs 已过滤的房间数组
+ * @param {string} sortKey 'default'|'live'|'platform'|'recent'
+ * @param {{statusRank:object,lastActive:object}} ctx
+ *   statusRank: platform|id -> 状态排名（live 最前）
+ *   lastActive: platform|id -> 最近 live_on/new_post 的 epoch 毫秒（无则 0，排末尾）
+ */
+function applySort(rs, sortKey, ctx){
+  ctx = ctx || {};
+  var statusRank = ctx.statusRank || {};
+  var lastActive = ctx.lastActive || {};
+  var arr = rs.slice();
+  if(sortKey==='platform'){
+    var pfRank={'bilibili':0,'douyin':1};
+    arr.sort(function(a,b){
+      var pa=pfRank.hasOwnProperty(a.platform)?pfRank[a.platform]:9;
+      var pb=pfRank.hasOwnProperty(b.platform)?pfRank[b.platform]:9;
+      if(pa!==pb) return pa-pb;
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
+    });
+  } else if(sortKey==='recent'){
+    arr.sort(function(a,b){
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      var la=lastActive.hasOwnProperty(ka)?lastActive[ka]:0;
+      var lb=lastActive.hasOwnProperty(kb)?lastActive[kb]:0;
+      return lb-la;  // 最近活跃在前
+    });
+  } else {
+    // default / live：状态排名（直播中优先），稳定次序
+    arr.sort(function(a,b){
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
+    });
+  }
+  return arr;
+}
+/** 设全局 sortKey，重渲染（不网络）。 */
+function onSortChange(v){
+  sortKey = v || 'default';
+  renderLive(); renderPosts();
+}
+
+/* ---------------- A2：多通道路由（前端 schema + UI，CI 多通道消费留后续） ---------------- */
+/** 渲染通道列表 + 路由规则（id="channelRoutes"）。 */
+function renderChannelRoutes(){
+  var el=document.getElementById('channelRoutes'); if(!el) return;
+  var h='';
+  h+='<div class="blm-config-item-title">通道</div>';
+  if(!window.__channels.length) h+='<div class="blm-caption">（暂无通道）</div>';
+  for(var i=0;i<window.__channels.length;i++){
+    var c=window.__channels[i];
+    h+='<div class="blm-channel-item" data-id="'+e(c.id)+'">'+
+        '<span class="blm-channel-name">'+e(c.name||c.id)+'</span>'+
+        '<span class="blm-channel-type">'+e(c.type||'')+'</span>'+
+        '<button class="blm-room-remove" title="删除" onclick="removeChannel(\''+e(c.id)+'\')">✕</button></div>';
+  }
+  h+='<div class="blm-config-item-title" style="margin-top:8px">路由规则（最具体优先 + default 兜底）</div>';
+  if(!window.__routes.length) h+='<div class="blm-caption">（暂无规则，走默认通道）</div>';
+  for(var j=0;j<window.__routes.length;j++){
+    var r=window.__routes[j]; var m=r.match||{};
+    var mtxt=[m.event?'事件='+m.event:'', m.platform?'平台='+m.platform:'', m.tag?'标签='+m.tag:''].filter(function(x){return x;}).join(' / ')||'默认';
+    h+='<div class="blm-route-item" data-i="'+j+'">'+
+        '<span>'+e(mtxt)+' → '+e(r.channelId||'')+'</span>'+
+        '<button class="blm-room-remove" title="删除" onclick="removeRoute('+j+')">✕</button></div>';
+  }
+  el.innerHTML=h;
+}
+/** 新增通道 / 新增路由规则（轻量 prompt 录入）。 */
+function addChannelRoute(kind){
+  if(kind==='channel'){
+    var id=prompt('通道 ID（如 c_bark）：'); if(!id) return;
+    var type=prompt('通道类型（bark/wecom/pushplus/telegram/serverchan）：','bark'); if(!type) return;
+    var name=prompt('通道名称：', id)||id;
+    window.__channels.push({id:id, type:type, name:name, fields:{}});
+  } else {
+    var event=prompt('事件（live_on/new_post，留空=任意）：','live_on');
+    var platform=prompt('平台（bilibili/douyin，留空=任意）：','');
+    var tag=prompt('标签（留空=任意）：','');
+    var channelId=prompt('目标通道 ID：',''); if(!channelId) return;
+    var match={};
+    if(event) match.event=event; if(platform) match.platform=platform; if(tag) match.tag=tag;
+    window.__routes.push({match:match, channelId:channelId});
+  }
+  renderChannelRoutes();
+}
+/** 删除通道 / 路由（本波仅前端，保存时并入 BLIVE_CONFIG.channels/routes）。 */
+function removeChannel(id){
+  window.__channels=window.__channels.filter(function(c){return c.id!==id;});
+  renderChannelRoutes();
+}
+function removeRoute(i){
+  window.__routes=window.__routes.filter(function(_,idx){return idx!==i;});
+  renderChannelRoutes();
+}
+/** A2 构建完整配置（legacy push + channels/routes + templates + silence + summary）。 */
+function buildPushConfigV2(){
+  var full = buildPushConfig() || {push:{type:''}, channels:[], routes:[], templates:buildTemplateConfig(), silence:buildSilenceConfig()};
+  full.channels = window.__channels || [];
+  full.routes = window.__routes || [];
+  full.templates = buildTemplateConfig();
+  full.silence = buildSilenceConfig();
+  return full;
+}
+
+/** A2 预留：给定事件 ctx{platform?,tag?,event?} 按 routes 匹配通道（最具体优先 + default 兜底）。
+ *  JS 镜像 common.resolve_channel（CI 多通道消费留后续，本波不被调用）。 */
+function resolveChannel(cfg, ctx){
+  cfg = cfg || {};
+  var routes = cfg.routes || [];
+  var channels = {};
+  (cfg.channels||[]).forEach(function(c){ if(c && c.id) channels[c.id]=c; });
+  ctx = ctx || {};
+  var platform=ctx.platform, tag=ctx.tag, event=ctx.event;
+  function score(m){
+    var s=0;
+    if(m.platform) s+=1;
+    if(m.tag) s+=1;
+    if(m.event) s+=1;
+    return s;
+  }
+  function match(m){
+    if(m.platform && m.platform!==platform) return false;
+    if(m.tag && m.tag!==tag) return false;
+    if(m.event && m.event!==event) return false;
+    return true;
+  }
+  var defaultCh=null, cands=[];
+  for(var i=0;i<routes.length;i++){
+    var r=routes[i]; if(!r) continue;
+    var m=r.match||{};
+    if(!m || (Object.keys(m).length===0)){ defaultCh=channels[r.channelId]; continue; }
+    if(match(m)) cands.push({s:score(m), r:r});
+  }
+  if(cands.length){
+    cands.sort(function(a,b){ return b.s-a.s; });
+    return channels[cands[0].r.channelId] || {};
+  }
+  if(defaultCh) return defaultCh;
+  return cfg.push || {};
+}
+
+/* ---------------- A4：推送模板（前端 schema + UI，CI 模板拼接留后续） ---------------- */
+/** 渲染 tplLiveOn/tplNewPost 编辑器（含变量提示）。 */
+function renderTemplateEditor(){
+  var el=document.getElementById('templateEditor'); if(!el) return;
+  el.innerHTML=
+    '<div class="blm-config-item-title">开播模板</div>'+
+    '<textarea id="tplLiveOn" class="blm-input blm-textarea" style="height:54px">'+e(window.__tplLiveOn||'🔴 {name} 开播了：{title}')+'</textarea>'+
+    '<div class="blm-config-item-title" style="margin-top:8px">新作模板</div>'+
+    '<textarea id="tplNewPost" class="blm-input blm-textarea" style="height:54px">'+e(window.__tplNewPost||'🆕 {name} 发布了新作品')+'</textarea>'+
+    '<div class="blm-caption">占位符：{name} {title} {platform} {time} {url}（CI 拼接时消费）</div>';
+}
+/** 读取模板配置对象。 */
+function buildTemplateConfig(){
+  var liveOn=document.getElementById('tplLiveOn');
+  var newPost=document.getElementById('tplNewPost');
+  return {
+    live_on: liveOn ? (liveOn.value || '🔴 {name} 开播了：{title}') : '🔴 {name} 开播了：{title}',
+    new_post: newPost ? (newPost.value || '🆕 {name} 发布了新作品') : '🆕 {name} 发布了新作品'
+  };
+}
+/** 替换占位符；缺字段保留原占位符不崩（CI 拼接时消费，本波仅前端参考）。 */
+function renderTemplate(tpl, ctx){
+  if(tpl==null) return '';
+  return String(tpl).replace(/\{(\w+)\}/g, function(m, k){
+    if(ctx && Object.prototype.hasOwnProperty.call(ctx,k) && ctx[k]!=null && ctx[k]!=='') return String(ctx[k]);
+    return m;
+  });
+}
+
+/* ---------------- A3：静默时段 ---------------- */
+/** 读 silenceEnabled/silenceStart/silenceEnd → {enabled,start,end}。 */
+function buildSilenceConfig(){
+  var en=document.getElementById('silenceEnabled');
+  var st=document.getElementById('silenceStart');
+  var en2=document.getElementById('silenceEnd');
+  return {
+    enabled: en ? !!en.checked : false,
+    start: st && st.value ? st.value : '23:00',
+    end: en2 && en2.value ? en2.value : '08:00'
+  };
+}
+/** 载入可读镜像 silence_state.json，回显控件 + 渲染当前静默提示。 */
+function loadSilenceUI(){
+  var t=Date.now();
+  fetch('silence_state.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(st){
+    window.__silenceState = st || {enabled:false, start:'23:00', end:'08:00'};
+    var enEl=document.getElementById('silenceEnabled');
+    var stEl=document.getElementById('silenceStart');
+    var en2El=document.getElementById('silenceEnd');
+    if(enEl) enEl.checked=!!window.__silenceState.enabled;
+    if(stEl && window.__silenceState.start) stEl.value=window.__silenceState.start;
+    if(en2El && window.__silenceState.end) en2El.value=window.__silenceState.end;
+    renderSilenceHint();
+  });
+}
+/** 显示「当前是否静默」（inSilence(bjNow(), 当前配置)）。 */
+function renderSilenceHint(){
+  var el=document.getElementById('silenceHint'); if(!el) return;
+  var st=window.__silenceState || {enabled:false, start:'23:00', end:'08:00'};
+  if(!st.enabled){ el.textContent='未启用静默时段'; el.className='blm-caption'; return; }
+  var now=bjNow();
+  if(inSilence(now, st)){
+    el.textContent='当前 '+pad2(now.getHours())+':'+pad2(now.getMinutes())+' 处于静默中，推送将暂缓至 '+st.end;
+    el.className='blm-caption muted';
+  } else {
+    el.textContent='当前未静默（静默 '+st.start+'–'+st.end+'）';
+    el.className='blm-caption';
+  }
+}
+/** 保存静默配置：写可读镜像 silence_state.json + 加密并入 BLIVE_CONFIG.silence。 */
+async function saveSilenceConfig(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var silence=buildSilenceConfig();
+  var stEl=document.getElementById('silenceStatus');
+  try{
+    await ghWriteWithRetry('silence_state.json', function(){ return {rooms:silence, changed:true}; });
+    window.__silenceState = silence;
+  }catch(err){
+    toast('保存静默镜像失败：'+(err&&err.message||err), false);
+    return;
+  }
+  // 合并进 BLIVE_CONFIG 加密写（CI 推送前拦截依赖此）
+  var full;
+  var pushCfg=buildPushConfig();
+  if(pushCfg){ full=pushCfg; }
+  else { full={push:{}, silence:silence, channels:window.__channels||[], routes:window.__routes||[], templates:buildTemplateConfig()}; }
+  var ok=await _encryptSaveBlive(full, stEl);
+  if(stEl){
+    stEl.style.display='block';
+    if(ok){ stEl.style.color='var(--green,#2ecc71)'; stEl.innerHTML='✅ 静默时段已保存（镜像 silence_state.json + 仓库 Secret BLIVE_CONFIG.silence），下次监控运行即生效。'; }
+    else { stEl.style.color='var(--yellow)'; stEl.innerHTML='✅ 静默镜像已保存（silence_state.json）；但加密写入 Secret 失败，请检查 Token 或手动写入 BLIVE_CONFIG.silence。'; }
+  }
+  renderSilenceHint();
+  toast('静默配置已保存', true);
+}
+/** 复用加密链路：将完整配置写入仓库 Secret（BLIVE_CONFIG）。 */
+async function _encryptSaveBlive(fullCfg, statusEl){
+  var json=JSON.stringify(fullCfg);
+  var tok=getGhToken();
+  if(!tok){ toast('请先到「配置」页设置 Token', false); show('config'); return false; }
+  try{
+    var base=ghBase();
+    var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
+    if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
+    var pk=await pkResp.json();
+    await sodium.ready;
+    var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
+    var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
+    if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
+    return true;
+  }catch(e){
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--yellow)'; statusEl.innerHTML='⚠️ 自动写入失败：'+(e&&e.message||e)+'<br>请复制下面 JSON，手动到 GitHub → Settings → Secrets → Actions → 新建/更新 <b>BLIVE_CONFIG</b>：<br><textarea readonly style="width:100%;height:74px;margin-top:6px;box-sizing:border-box">'+escapeHtml(json)+'</textarea>'; }
+    return false;
+  }
+}
+
+/* ---------------- 阶段二 2b：配置/列表 UI 联动 ---------------- */
+/** ld() 成功后调用：填充标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条。 */
+function loadPhase2UI(){
+  try{ renderTagChips('liveTagBar'); }catch(_e){}
+  try{ renderTagChips('postsTagBar'); }catch(_e){}
+  try{ loadSilenceUI(); }catch(_e){}
+  try{ renderChannelRoutes(); }catch(_e){}
+  try{ renderTemplateEditor(); }catch(_e){}
+  try{ updateBatchBar(); }catch(_e){}
+}
 </script>
 </body>
 </html>
