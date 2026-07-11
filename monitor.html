@@ -1727,6 +1727,58 @@ body {
 /* 房间卡详情按钮（复用 .blm-room-edit 视觉语言） */
 .blm-room-detail { border: 0; background: transparent; color: var(--color-text-tertiary, #6e7681); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
 .blm-room-detail:hover { color: var(--brand-primary); background: var(--brand-primary-light, rgba(255,77,106,0.12)); }
+
+/* ============================================================= */
+/* ===== 响应式布局（布局与视觉层重构：桌面端不再死锁 430px） ===== */
+/* ============================================================= */
+
+/* 平板：容器放宽到舒适阅读宽度（移动端 ≤640px 的 430px 手机框体验不变） */
+@media (min-width: 768px) {
+  .mobile-container { max-width: 720px; }
+  .blm-tab-bar { max-width: 720px; }
+}
+
+/* 桌面：宽屏结构化布局，内容多列网格，告别「窄条漂浮在空白里」 */
+@media (min-width: 1100px) {
+  .mobile-container { max-width: 1080px; }
+  .blm-tab-bar { max-width: 1080px; }
+  .blm-header { padding-left: var(--spacing-3xl); padding-right: var(--spacing-3xl); }
+  .blm-content {
+    padding: var(--spacing-2xl) var(--spacing-3xl);
+    padding-bottom: calc(var(--spacing-3xl) + var(--tab-bar-height));
+  }
+
+  /* 直播房间卡：2 列网格（首行更新时间条跨整行） */
+  #liveBody {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    align-items: start;
+  }
+  #liveBody > .blm-update-time { grid-column: 1 / -1; }
+
+  /* 新作卡：3 列网格 */
+  .blm-works-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* 日志：2 列网格降低滚动，加载更多跨整行 */
+  #logBody {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: var(--spacing-lg);
+    row-gap: 0;
+  }
+  #logBody > .loadmore { grid-column: 1 / -1; }
+
+  /* 仪表盘图表块：趋势 / 排行 / 分布 / 通知 两两并排 */
+  .blm-dash-charts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+  }
+
+  /* 筛选 chip 行在宽屏下换行而非横向滚动溢出 */
+  #logTypeChips, #logPfChips { flex-wrap: wrap; overflow-x: visible; }
+}
 </style>
 </head>
 <body>
@@ -2232,6 +2284,7 @@ body {
           <div class="blm-dash-card full-width"><div class="blm-dash-label">开播时长（累计 / 平均 / 近30天）</div><div class="blm-dash-value" id="kpiDuration">—</div></div>
         </div>
 
+        <div class="blm-dash-charts">
         <div class="blm-dash-chart">
           <div class="blm-chart-title">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
@@ -2281,6 +2334,7 @@ body {
             通知健康
           </div>
           <div id="dashNotify"></div>
+        </div>
         </div>
       </div>
     </section>
