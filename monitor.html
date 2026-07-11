@@ -3,401 +3,1977 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0b12">
-<title>监控 · 标签切换</title>
-<style>
-:root{
-  --bg:#0b0b12;--card:#15151f;--card2:#1b1b27;--line:rgba(255,255,255,.07);
-  --text:#ECECF1;--text2:#9a9aae;--text3:#66667a;
-  --bili:#fb7299;--bili-soft:rgba(251,114,153,.14);
-  --dy:#22d3ee;--dy-soft:rgba(34,211,238,.13);
-  --live:#ff4757;--green:#2ed573;--yellow:#ffa502;
-  --radius:16px;--shadow:0 8px 24px rgba(0,0,0,.38);
+<meta name="theme-color" content="#0A0A0F">
+<title>直播 &amp; 新作监控</title>
+<style id="theme-vars">
+/* ===== BLive Monitor - Brand CSS (Dark Mobile Dashboard) ===== */
+:root {
+  /* Brand primary - vibrant coral/red matching the original app icon */
+  --brand-primary: #FF4D6A;
+  --brand-primary-hover: #FF6B82;
+  --brand-primary-active: #E83D58;
+  --brand-primary-light: rgba(255, 77, 106, 0.12);
+  --brand-primary-lighter: rgba(255, 77, 106, 0.06);
+
+  /* Neutral scale - deep dark theme */
+  --color-bg-body: #0A0A0F;
+  --color-bg-surface: #141419;
+  --color-bg-surface-raised: #1A1A21;
+  --color-bg-surface-elevated: #22222A;
+  --color-bg-input: #1E1E26;
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-text-primary: #F5F5F7;
+  --color-text-secondary: rgba(245, 245, 247, 0.7);
+  --color-text-tertiary: rgba(245, 245, 247, 0.45);
+  --color-text-quaternary: rgba(245, 245, 247, 0.25);
+
+  /* Platform colors */
+  --color-bilibili: #00D4F5;
+  --color-bilibili-bg: rgba(0, 212, 245, 0.1);
+  --color-douyin: #FE2C55;
+  --color-douyin-bg: rgba(254, 44, 85, 0.1);
+
+  /* State / semantic colors */
+  --state-success: #30D158;
+  --state-success-bg: rgba(48, 209, 88, 0.12);
+  --state-warning: #FF9F0A;
+  --state-warning-bg: rgba(255, 159, 10, 0.12);
+  --state-error: #FF453A;
+  --state-error-bg: rgba(255, 69, 58, 0.12);
+  --state-info: #0A84FF;
+  --state-info-bg: rgba(10, 132, 255, 0.12);
+
+  /* Live indicator pulse */
+  --state-live: #FF3B30;
+  --state-live-glow: rgba(255, 59, 48, 0.4);
+  --state-offline: rgba(255, 255, 255, 0.2);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --font-size-display: 28px;
+  --font-size-h1: 22px;
+  --font-size-h2: 18px;
+  --font-size-h3: 16px;
+  --font-size-body: 14px;
+  --font-size-caption: 12px;
+  --font-size-tiny: 11px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.6;
+
+  /* Radius scale - restrained */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  /* Shadows - subtle for dark theme, alpha <= 0.05 for static surfaces */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-glow-live: 0 0 8px var(--state-live-glow);
+  --shadow-glow-primary: 0 0 12px rgba(255, 77, 106, 0.25);
+
+  /* Tab bar */
+  --tab-bar-height: 64px;
+  --header-height: 56px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
-*{margin:0;padding:0;box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 80% -10%,rgba(251,114,153,.10),transparent),var(--bg);color:var(--text);min-height:100dvh;padding-bottom:84px;-webkit-font-smoothing:antialiased}
-/* topbar */
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(11,11,18,.78);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px}
-.logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:17px;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 4px 14px rgba(251,114,153,.35)}
-.title{font-size:15px;font-weight:800}
-.sub{font-size:10px;color:var(--text3)}
-.topright{display:flex;align-items:center;gap:10px}
-.refresh{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;cursor:pointer;display:grid;place-items:center}
-.refresh:active{transform:scale(.94)}
-.status-pill{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:11px;font-weight:700}
-.status-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:.3s}
-.status-pill .dot.on{background:var(--live);box-shadow:0 0 0 4px rgba(255,71,87,.22);animation:pulse 1.6s infinite}
-.status-pill .dot.err{background:var(--yellow)}
-.status-pill .dot.ok{background:var(--green)}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,71,87,.4)}70%{box-shadow:0 0 0 7px rgba(255,71,87,0)}100%{box-shadow:0 0 0 0 rgba(255,71,87,0)}}
-/* overview strip */
-.overview{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px 4px;max-width:760px;margin:0 auto}
-.ostat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
-.ostat .n{font-size:18px;font-weight:800;line-height:1}
-.ostat .l{font-size:10px;color:var(--text2);margin-top:4px}
-.ostat.live .n{color:var(--live)}.ostat.rooms .n{color:var(--bili)}.ostat.posts .n{color:var(--dy)}
-/* views */
-.view{max-width:760px;margin:0 auto;padding:12px 16px 0;display:none}
-.view.active{display:block;animation:fade .25s ease}
-@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 12px}
-.panel-head h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px}
-.chips{display:flex;gap:6px}
-.chip{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2);border:1px solid var(--line);background:transparent;transition:.2s}
-.chip.active{background:var(--bili);color:#fff;border-color:transparent}
-/* room card */
-.room{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow)}
-.room-top{display:flex;align-items:center;gap:8px}
-.pf{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
-.pf.bili{background:var(--bili-soft);color:var(--bili)}.pf.dy{background:var(--dy-soft);color:var(--dy)}
-/* P0-1 支持平台区块状态徽标：复用既有 --green / --live 变量，风格与 .s-live/.s-replay 一致 */
-.pf.ok{background:rgba(46,213,115,.15);color:var(--green)}
-.pf.bad{background:rgba(255,71,87,.15);color:var(--live)}
-.name{font-size:15px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.status{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
-.s-live{background:rgba(255,71,87,.15);color:var(--live);display:flex;align-items:center;gap:5px}
-.s-live .pulse{width:6px;height:6px;border-radius:50%;background:var(--live);animation:pulse 1.6s infinite}
-.s-replay{background:rgba(255,165,2,.15);color:var(--yellow)}
-.s-offline{background:rgba(255,255,255,.07);color:var(--text2)}
-.s-error{background:rgba(255,71,87,.12);color:#ff8088}
-.s-pending{background:rgba(88,166,255,.15);color:#58a6ff}
-.room-title{font-size:13px;color:var(--text);margin-top:9px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.room-meta{font-size:11px;color:var(--text3);margin-top:7px}
-.act{display:inline-block;margin-top:10px;padding:7px 15px;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none;background:var(--live);color:#fff}
-.act.dy{background:linear-gradient(135deg,var(--dy),#0ea5b7);color:#04222a}
-.act-off{background:rgba(255,255,255,.07);color:var(--text2);border:1px solid var(--line)}
-/* post card */
-.post{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:var(--shadow)}
-.avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;font-size:18px;font-weight:800;color:#04222a;background:linear-gradient(135deg,var(--dy),#7af0ff)}
-.post-main{flex:1;min-width:0}
-.post-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.post-top .name{font-size:14px;flex:0 1 auto}
-.type{font-size:10px;font-weight:800;padding:2px 8px;border-radius:7px}
-.type.note{background:var(--dy-soft);color:var(--dy)}.type.video{background:rgba(255,71,87,.14);color:#ff7a86}
-.post-desc{font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.post-foot{display:flex;align-items:center;justify-content:space-between;margin-top:9px}
-.time{font-size:11px;color:var(--text3)}
-/* log */
-.logbox{max-height:none}
-.log-item{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
-.log-item:last-child{border-bottom:none}
-.log-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
-.log-dot.bili{background:var(--bili)}.log-dot.dy{background:var(--dy)}.log-dot.live{background:var(--live)}.log-dot.off{background:var(--text3)}
-.log-time{color:var(--text3);font-variant-numeric:tabular-nums;flex-shrink:0}
-.log-txt{color:var(--text2);flex:1;min-width:0}
-.log-txt b{color:var(--text);font-weight:700}
-.chg{color:var(--yellow);font-weight:800}
-.push-tag{font-size:9px;padding:1px 5px;border-radius:6px;font-weight:800;margin-left:5px}
-.pt-ok{background:rgba(46,213,115,.16);color:var(--green)}.pt-fail{background:rgba(255,71,87,.16);color:var(--live)}.pt-skip{background:rgba(255,255,255,.08);color:var(--text2)}
-.empty{text-align:center;padding:40px 16px;color:var(--text3);font-size:13px}
-/* bottom tabs */
-.tabbar{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;background:rgba(11,11,18,.9);backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
-.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border:none;background:transparent;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;border-radius:12px;transition:.2s}
-.tab .ic{font-size:18px}
-.tab.active{color:var(--bili)}
-.tab.active .ic{transform:translateY(-1px)}
-/* ===== 房间管理前端化（Worker 代理）样式 ===== */
-/* 添加监控区 */
-.addwrap{margin:0 2px 12px}
-.addbtn{width:100%;padding:11px;border-radius:12px;border:1px dashed var(--line);background:transparent;color:var(--bili);font-size:13px;font-weight:800;cursor:pointer;transition:.2s}
-.addbtn:hover{border-color:var(--bili);background:var(--bili-soft)}
-.addbtn.solid:hover{border-color:var(--line);background:var(--card2)}
-.addform{display:none;gap:8px;margin-top:8px;flex-wrap:wrap;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px}
-.ainput{flex:1;min-width:88px;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
-.ainput:focus{outline:none;border-color:var(--bili)}
-/* ===== P0-4 列表文本搜索：搜索框（复用 .ainput 视觉——深色背景、圆角、聚焦描边） ===== */
-.searchbar{display:flex;gap:8px;margin:0 2px 10px;position:relative}
-.searchbar .searchbox{flex:1;min-width:0}
-.searchbox{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px}
-.searchbox:focus{outline:none;border-color:var(--bili)}
-.addok{padding:9px 16px;border-radius:9px;border:none;background:var(--bili);color:#fff;font-size:13px;font-weight:800;cursor:pointer}
-.addcancel{padding:9px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer}
-/* 卡片移除按钮 */
-.rmbtn{margin-left:8px;width:24px;height:24px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text3);font-size:12px;cursor:pointer;flex-shrink:0;transition:.2s}
-.rmbtn:hover{color:#fff;background:var(--live);border-color:var(--live)}
-/* 轻量 toast */
-.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);z-index:50;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:700;color:#fff;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;max-width:80vw;text-align:center}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{background:rgba(46,213,115,.95)}
-.toast.err{background:rgba(255,71,87,.95)}
-/* ===== 日志功能化（P0-3/4/5/6 搜索/筛选/分页/排序/展开/统计） ===== */
-.logstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 2px 10px}
-.stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
-.stat-t{font-size:10px;color:var(--text2)}
-.stat-b{font-size:20px;font-weight:800;line-height:1.1;margin:2px 0 6px;color:var(--text)}
-.spark{display:flex;align-items:flex-end;gap:3px;height:34px}
-.spark .bar{flex:1;border-radius:3px 3px 0 0;min-height:2px;opacity:.85}
-.logfilter{display:flex;flex-direction:column;gap:8px;margin:0 2px 12px}
-.logchips{display:flex;flex-wrap:wrap;gap:6px}
-.lchip{padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text2);border:1px solid var(--line);background:transparent;transition:.2s}
-.lchip.active{background:var(--bili);color:#fff;border-color:transparent}
-.logrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-#logSearch{flex:1;min-width:140px}
-#logAccount,#logDate{flex:0 1 auto;min-width:120px}
-.log-item-clickable{cursor:pointer}
-.chev{margin-left:auto;color:var(--text3);font-size:10px;transition:.2s;transform:rotate(-90deg)}
-.log-item-clickable.open .chev{transform:rotate(0)}
-.log-detail{display:none;margin-top:8px;padding:9px 11px;background:var(--card2);border:1px solid var(--line);border-radius:10px;font-size:11.5px;line-height:1.7}
-.log-detail.open{display:block}
-.ld-row{display:flex;gap:8px}
-.ld-k{color:var(--text3);min-width:42px;flex-shrink:0}
-.ld-v{color:var(--text);word-break:break-all}
-.log-dot.err{background:var(--live)}.log-dot.warn{background:var(--yellow)}
-/* P0-1 监控自检健康条（常驻跨 tab，四态：ok 绿 / warn 黄 / stale 红 / fail 红） */
-/* 注意：不改动既有 .dot / .s-* / .ostat* 语义，健康条独立 class 前缀 .health */
-.health{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto;padding:9px 16px;font-size:12px;font-weight:700;background:rgba(11,11,18,.55);border-bottom:1px solid var(--line);backdrop-filter:blur(10px);transition:.3s}
-.health .h-ic{font-size:14px;line-height:1;flex-shrink:0}
-.health .h-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.health .h-time{color:var(--text2);font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0}
-.health.ok{color:var(--green)}.health.ok .h-time{color:rgba(46,213,115,.7)}
-.health.warn{color:var(--yellow)}.health.warn .h-time{color:rgba(255,165,2,.75)}
-.health.stale{color:var(--live)}.health.stale .h-time{color:rgba(255,71,87,.75)}
-.health.fail{color:var(--live)}.health.fail .h-time{color:rgba(255,71,87,.75)}
-.loadmore{text-align:center;padding:11px;color:var(--bili);font-size:12px;font-weight:700;cursor:pointer;border:1px dashed var(--line);border-radius:10px;margin-top:6px}
-/* ===== P0-7 统一健康仪表盘（深色主题，复用既有变量与 .logstats/.spark/.log-item） ===== */
-.dash-kpis{grid-template-columns:repeat(5,1fr)}      /* KPI 卡网格：窄屏回退见下方媒体查询 */
-.dash-kpis .stat-b{font-size:18px;line-height:1.1}
-#kpiFresh{font-size:12px;line-height:1.2}              /* 新鲜度 label 较长，缩小字号避免溢出 */
-.dash-block{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
-.dash-block-title{font-size:13px;font-weight:800;margin-bottom:9px;color:var(--text)}
-.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.dash-row .dash-block{margin-bottom:0}
-.dash-trend-labs{display:flex;gap:3px;margin-top:5px}
-.dash-trend-labs .trend-lab{flex:1;text-align:center;font-size:9px;color:var(--text3);font-variant-numeric:tabular-nums}
-@media (max-width:520px){
-  .dash-kpis{grid-template-columns:repeat(3,1fr)}
-  .dash-row{grid-template-columns:1fr}
+
+/* ===== Base Reset ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background: var(--color-bg-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Mobile viewport container */
+.mobile-container {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-bg-body);
+  position: relative;
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom));
+}
+
+/* ===== Typography Classes ===== */
+.blm-display {
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.blm-h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+}
+
+.blm-h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.blm-h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.blm-body {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.blm-caption {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-tertiary);
+}
+
+.blm-tiny {
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.blm-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Header ===== */
+.blm-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 var(--spacing-lg);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.blm-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.blm-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #FF6B82, #FF4D6A, #E83D58);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-primary);
+  flex-shrink: 0;
+}
+
+.blm-header-info h1 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.blm-header-info .blm-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--state-success-bg);
+  border: 1px solid rgba(48, 209, 88, 0.2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--state-success);
+}
+
+.blm-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--state-success);
+  flex-shrink: 0;
+}
+
+.blm-status-dot.live {
+  background: var(--state-live);
+  box-shadow: 0 0 6px var(--state-live-glow);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.blm-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.blm-icon-btn:active {
+  background: var(--color-bg-surface-elevated);
+  transform: scale(0.95);
+}
+
+/* ===== Content Area ===== */
+.blm-content {
+  padding: var(--spacing-lg);
+  padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
+}
+
+/* ===== Quick Stats Bar ===== */
+.blm-stats-bar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-stat-card {
+  flex: 1;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.blm-stat-card:active {
+  background: var(--color-bg-surface-raised);
+  transform: scale(0.98);
+}
+
+.blm-stat-card.primary {
+  background: linear-gradient(135deg, rgba(255, 77, 106, 0.15), rgba(255, 77, 106, 0.05));
+  border-color: rgba(255, 77, 106, 0.2);
+}
+
+.blm-stat-value {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-stat-card.primary .blm-stat-value {
+  color: var(--brand-primary);
+}
+
+.blm-stat-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ===== Section ===== */
+.blm-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.blm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.blm-section-title {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-section-action {
+  font-size: var(--font-size-caption);
+  color: var(--brand-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ===== Filter Tabs ===== */
+.blm-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.blm-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.blm-filter-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.blm-filter-chip.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: white;
+}
+
+.blm-filter-chip:active {
+  transform: scale(0.96);
+}
+
+/* ===== Search Bar ===== */
+.blm-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 8px var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.blm-search-bar input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+}
+
+.blm-search-bar input::placeholder {
+  color: var(--color-text-quaternary);
+}
+
+.blm-search-icon {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ===== Room Card (Live Monitor) ===== */
+.blm-room-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-room-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.blm-room-card:active {
+  background: var(--color-bg-surface-raised);
+  transform: scale(0.99);
+}
+
+.blm-room-card.live {
+  border-color: rgba(255, 59, 48, 0.3);
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.08), var(--color-bg-surface));
+}
+
+.blm-room-card.live::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--state-live);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: var(--shadow-glow-live);
+}
+
+.blm-room-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.blm-room-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-room-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: 4px;
+}
+
+.blm-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.blm-platform-badge.bilibili {
+  background: var(--color-bilibili-bg);
+  color: var(--color-bilibili);
+}
+
+.blm-platform-badge.douyin {
+  background: var(--color-douyin-bg);
+  color: var(--color-douyin);
+}
+
+.blm-room-name {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--state-error-bg);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-bold);
+  color: var(--state-live);
+  flex-shrink: 0;
+}
+
+.blm-live-badge .blm-status-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.blm-offline-badge {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+}
+
+.blm-room-title {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+
+.blm-room-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.blm-room-meta-item {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.blm-room-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+
+.blm-room-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.blm-room-link:active {
+  background: rgba(255, 77, 106, 0.2);
+}
+
+.blm-room-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-quaternary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.blm-room-remove:active {
+  background: var(--state-error-bg);
+  color: var(--state-error);
+}
+
+.blm-add-room-btn {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 2px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.blm-add-room-btn:active {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-primary-lighter);
+}
+
+.blm-update-time {
+  text-align: center;
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-quaternary);
+  margin-bottom: var(--spacing-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Log Timeline ===== */
+.blm-log-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-log-summary-item {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  text-align: center;
+}
+
+.blm-log-summary-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-log-summary-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.blm-log-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.blm-log-item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  position: relative;
+  align-items: flex-start;
+}
+
+.blm-log-item:last-child {
+  border-bottom: none;
+}
+
+.blm-log-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.blm-log-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-quaternary);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+/* 配色类必须与冻结的 renderLogItem 输出严格对齐（JS 不改）：
+   cls ∈ {live, off, err, warn, dy}（typeMeta 的 c 字段映射后取值）。
+   live=直播红 / off=离线灰 / err=异常黄 / warn=风控黄 / dy=新作品抖音红。 */
+.blm-log-dot.live { background: var(--state-live); }
+.blm-log-dot.off { background: var(--color-text-tertiary); }
+.blm-log-dot.err { background: var(--state-warning); }
+.blm-log-dot.warn { background: var(--state-warning); }
+.blm-log-dot.dy { background: var(--color-douyin); }
+
+.blm-log-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-log-room {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.blm-log-stream-title {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular);
+  margin-left: 4px;
+}
+
+.blm-log-detail-btn {
+  font-size: var(--font-size-tiny);
+  color: var(--brand-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ===== Settings / Config ===== */
+.blm-config-group {
+  margin-bottom: var(--spacing-xl);
+}
+
+.blm-config-group-title {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+}
+
+.blm-config-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.blm-config-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--spacing-md);
+}
+
+.blm-config-item:last-child {
+  border-bottom: none;
+}
+
+.blm-config-item.vertical {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.blm-config-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-config-item-title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-config-item-desc {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-relaxed);
+}
+
+.blm-config-status {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.blm-config-status.success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+
+.blm-config-status.warning {
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+
+.blm-config-status.error {
+  background: var(--state-error-bg);
+  color: var(--state-error);
+}
+
+.blm-config-status.neutral {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-tertiary);
+}
+
+.blm-input {
+  width: 100%;
+  padding: 10px var(--spacing-md);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s ease;
+  margin-top: var(--spacing-sm);
+}
+
+.blm-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.blm-input::placeholder {
+  color: var(--color-text-quaternary);
+}
+
+.blm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family);
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.blm-btn-primary {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.blm-btn-primary:active {
+  background: var(--brand-primary-active);
+  transform: scale(0.98);
+}
+
+.blm-btn-secondary {
+  background: var(--color-bg-surface-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+}
+
+.blm-btn-secondary:active {
+  background: var(--color-bg-surface-raised);
+}
+
+.blm-btn-block {
+  width: 100%;
+}
+
+.blm-push-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.blm-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.blm-radio.selected {
+  border-color: var(--brand-primary);
+}
+
+.blm-radio.selected::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--brand-primary);
+}
+
+.blm-push-option-text {
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
+.blm-push-option-note {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* ===== Dashboard ===== */
+.blm-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-dash-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+}
+
+.blm-dash-card.full-width {
+  grid-column: 1 / -1;
+}
+
+.blm-dash-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.blm-dash-value {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-dash-sub {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.blm-dash-chart {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-chart-title {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+  padding-top: var(--spacing-sm);
+}
+
+.blm-chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.blm-chart-bar {
+  width: 100%;
+  max-width: 28px;
+  background: linear-gradient(180deg, var(--brand-primary), rgba(255, 77, 106, 0.4));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+.blm-chart-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-quaternary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-rank-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.blm-rank-num {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.blm-rank-num.gold {
+  background: linear-gradient(135deg, #FFD60A, #FF9500);
+  color: #000;
+}
+
+.blm-rank-num.silver {
+  background: linear-gradient(135deg, #E5E5EA, #8E8E93);
+  color: #000;
+}
+
+.blm-rank-num.bronze {
+  background: linear-gradient(135deg, #FFA07A, #CD7F32);
+  color: #000;
+}
+
+.blm-rank-num.normal {
+  background: var(--color-bg-surface-elevated);
+  color: var(--color-text-tertiary);
+}
+
+.blm-rank-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-rank-name {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-rank-count {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+}
+
+.blm-platform-dist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.blm-dist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.blm-dist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-caption);
+}
+
+.blm-dist-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.blm-dist-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-dist-bar {
+  height: 6px;
+  background: var(--color-bg-input);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.blm-dist-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.5s ease;
+}
+
+.blm-dist-fill.bilibili { background: var(--color-bilibili); }
+.blm-dist-fill.douyin { background: var(--color-douyin); }
+
+.blm-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-health-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--state-warning-bg);
+  border: 1px solid rgba(255, 159, 10, 0.15);
+  border-radius: var(--radius-md);
+}
+
+.blm-health-icon {
+  flex-shrink: 0;
+  color: var(--state-warning);
+  margin-top: 2px;
+}
+
+.blm-health-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-health-title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.blm-health-desc {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.blm-health-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+/* ===== New Works Grid ===== */
+.blm-works-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.blm-work-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.blm-work-card:active {
+  transform: scale(0.98);
+}
+
+.blm-work-thumb {
+  width: 100%;
+  aspect-ratio: 3/4;
+  background: linear-gradient(135deg, var(--color-bg-surface-elevated), var(--color-bg-surface-raised));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-decoration: none;
+}
+
+.blm-work-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blm-work-thumb-placeholder {
+  color: var(--color-text-quaternary);
+  font-size: 32px;
+}
+
+.blm-work-platform-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-semibold);
+  backdrop-filter: blur(8px);
+}
+
+.blm-work-platform-tag.bilibili {
+  background: rgba(0, 212, 245, 0.9);
+  color: #000;
+}
+
+.blm-work-platform-tag.douyin {
+  background: rgba(254, 44, 85, 0.9);
+  color: white;
+}
+
+.blm-work-info {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.blm-work-author {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-work-desc {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-secondary);
+  margin: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blm-work-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* ===== Bottom Tab Bar ===== */
+.blm-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  background: rgba(20, 20, 25, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  padding-bottom: var(--safe-area-bottom);
+  z-index: 100;
+}
+
+.blm-tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 0 calc(8px + var(--safe-area-bottom));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  border: none;
+  background: none;
+  font-family: var(--font-family);
+  color: var(--color-text-quaternary);
+}
+
+.blm-tab-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-text-quaternary);
+  transition: color 0.15s ease;
+}
+
+.blm-tab-label {
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-quaternary);
+  transition: color 0.15s ease;
+}
+
+.blm-tab-item.active .blm-tab-icon,
+.blm-tab-item.active .blm-tab-label {
+  color: var(--brand-primary);
+}
+
+.blm-tab-item.active .blm-tab-icon {
+  transform: scale(1.1);
+}
+
+/* ===== Freshness Banner ===== */
+.blm-freshness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--state-success-bg);
+  border: 1px solid rgba(48, 209, 88, 0.15);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-freshness-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-freshness-text {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--state-success);
+}
+
+.blm-freshness-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Animations ===== */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.blm-room-card, .blm-log-item, .blm-dash-card, .blm-config-card, .blm-work-card {
+  animation: fade-in 0.3s ease forwards;
+}
+
+/* ===== Scrollbar (minimal) ===== */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ============================================================= */
+/* ===== 集成兼容层：遗留变量别名（§2.2） ===== */
+/* ============================================================= */
+:root {
+  --green: #30D158;
+  --yellow: #FF9F0A;
+  --live: #FF3B30;
+  --bili: #00D4F5;
+  --dy: #FE2C55;
+  --text: #F5F5F7;
+  --text2: rgba(245, 245, 247, 0.7);
+  --text3: rgba(245, 245, 247, 0.45);
+  --card: #141419;
+  --card2: #1A1A21;
+  --line: rgba(255, 255, 255, 0.07);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --bili-soft: rgba(0, 212, 245, 0.14);
+  --dy-soft: rgba(254, 44, 85, 0.13);
+  --bg: #0A0A0F;
+  --radius: 16px;
+}
+
+/* ============================================================= */
+/* ===== Phase-1 保留类（§2.3）—— 供 JS 内联 / 详情展开依赖 ===== */
+/* ============================================================= */
+
+/* 视图显隐（show() 切换 .active）—— 必须保留 */
+.view {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0;
+  display: none;
+}
+.view.active { display: block; animation: fade .25s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* 健康条：renderHealthBar 兜底（其输出 className 改为 blm-freshness，但旧规则保留兼容） */
+.health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(10, 10, 15, 0.55);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  transition: .3s;
+}
+.health .h-ic { font-size: 14px; line-height: 1; flex-shrink: 0; }
+.health .h-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.health .h-time { color: var(--text2); font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.health.ok { color: var(--green); }
+.health.ok .h-time { color: rgba(48, 209, 88, 0.7); }
+.health.warn { color: var(--yellow); }
+.health.warn .h-time { color: rgba(255, 165, 2, 0.75); }
+.health.stale, .health.fail { color: var(--live); }
+.health.stale .h-time, .health.fail .h-time { color: rgba(255, 71, 87, 0.75); }
+
+/* .blm-freshness 状态配色（renderHealthBar 输出 .blm-freshness.{state}） */
+.blm-freshness.ok { background: var(--state-success-bg); border-color: rgba(48, 209, 88, 0.15); }
+.blm-freshness.ok .blm-freshness-text { color: var(--state-success); }
+.blm-freshness.warn { background: var(--state-warning-bg); border-color: rgba(255, 159, 10, 0.15); }
+.blm-freshness.warn .blm-freshness-text { color: var(--state-warning); }
+.blm-freshness.warn .blm-status-dot { background: var(--state-warning); }
+.blm-freshness.stale, .blm-freshness.fail { background: var(--state-error-bg); border-color: rgba(255, 69, 58, 0.15); }
+.blm-freshness.stale .blm-freshness-text, .blm-freshness.fail .blm-freshness-text { color: var(--state-error); }
+.blm-freshness.stale .blm-status-dot, .blm-freshness.fail .blm-status-dot { background: var(--state-error); }
+
+/* 状态点（ld() 写入 <span class="dot ...">） */
+.blm-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; transition: .3s; }
+.blm-status-pill .dot.on { background: var(--state-live); box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.22); animation: pulse-dot 1.6s infinite; }
+.blm-status-pill .dot.err { background: var(--state-warning); }
+.blm-status-pill .dot.ok { background: var(--state-success); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); } 70% { box-shadow: 0 0 0 7px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
+
+/* 平台徽标 / 状态（.pf.ok/.pf.bad 为 P0-5 保留；.pf.bili/.pf.dy 供配置页平台标签） */
+.pf { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 7px; }
+.pf.bili { background: var(--bili-soft); color: var(--bili); }
+.pf.dy { background: var(--dy-soft); color: var(--dy); }
+.pf.ok { background: rgba(48, 213, 115, 0.15); color: var(--green); }
+.pf.bad { background: rgba(255, 71, 87, 0.15); color: var(--live); }
+
+/* 推送标记（renderLogItem；.pt-* 内联用 --green/--live） */
+.push-tag { font-size: 9px; padding: 1px 5px; border-radius: 6px; font-weight: 800; margin-left: 5px; }
+.pt-ok { background: rgba(48, 213, 115, 0.16); color: var(--green); }
+.pt-fail { background: rgba(255, 71, 87, 0.16); color: var(--live); }
+.pt-skip { background: rgba(255, 255, 255, 0.08); color: var(--text2); }
+.chg { color: var(--yellow); font-weight: 800; }
+
+/* 轻量 toast（toast()） */
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(20px); z-index: 50; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #fff; box-shadow: var(--shadow); opacity: 0; transition: .25s; pointer-events: none; max-width: 80vw; text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.ok { background: rgba(48, 213, 115, 0.95); }
+.toast.err { background: rgba(255, 71, 87, 0.95); }
+
+/* 空态（各 render 空态） */
+.empty { text-align: center; padding: 40px 16px; color: var(--color-text-tertiary); font-size: 13px; }
+
+/* 筛选 chip 兼容（fil() 用 .chip / setChipActive 用 .lchip；叠加 .blm-filter-chip 外观） */
+.blm-filter-chip, .chip, .lchip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.blm-filter-chip.active, .chip.active, .lchip.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+/* 添加监控表单容器（toggleAddForm 用 display 切换） */
+.blm-add-form {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  background: var(--color-bg-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+}
+
+/* 日志筛选行（账号 / 日期 / 排序） */
+.blm-log-filter { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.blm-log-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.blm-log-row .blm-input { flex: 1; min-width: 120px; margin-top: 0; }
+#logSearch { flex: 1; min-width: 140px; }
+#logAccount, #logDate { flex: 0 1 auto; min-width: 120px; }
+
+/* 加载更多（日志分页） */
+.loadmore { text-align: center; padding: 11px; color: var(--brand-primary); font-size: 12px; font-weight: 700; cursor: pointer; border: 1px dashed var(--color-border-default); border-radius: 10px; margin-top: 6px; }
+
+/* 日志详情展开（Phase-1：.log-detail / .chev / .ld-* 必须保留） */
+.log-item-clickable { cursor: pointer; }
+.log-detail { display: none; margin-top: 8px; padding: 9px 11px; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 10px; font-size: 11.5px; line-height: 1.7; }
+.log-detail.open { display: block; }
+.ld-row { display: flex; gap: 8px; }
+.ld-k { color: var(--color-text-tertiary); min-width: 42px; flex-shrink: 0; }
+.ld-v { color: var(--color-text-primary); word-break: break-all; }
+.chev { margin-left: auto; color: var(--color-text-tertiary); font-size: 10px; transition: .2s; transform: rotate(-90deg); flex-shrink: 0; }
+.log-item-clickable.open .chev { transform: rotate(0); }
+
+/* kpiFresh 长 label 缩小字号避免溢出 */
+#kpiFresh { font-size: 12px; line-height: 1.2; }
 </style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <div class="logo">📡</div>
-    <div><div class="title">直播 &amp; 新作监控</div><div class="sub" id="stime">--:--:--</div></div>
-  </div>
-  <div class="topright">
-    <button class="refresh" onclick="ld()" title="刷新">↻</button>
-    <div class="status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
-  </div>
-</header>
+<div class="mobile-container">
+  <!-- Header -->
+  <header class="blm-header">
+    <div class="blm-header-left">
+      <div class="blm-logo">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="16" height="16" rx="3" stroke="white" stroke-width="1.8"/>
+          <path d="M7 7L13 10L7 13V7Z" fill="white"/>
+        </svg>
+      </div>
+      <div class="blm-header-info">
+        <h1>直播 &amp; 新作监控</h1>
+        <div class="blm-time blm-mono" id="stime">--:--:--</div>
+      </div>
+    </div>
+    <div class="blm-header-right">
+      <button class="blm-icon-btn" onclick="ld()" title="刷新">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="blm-status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+    </div>
+  </header>
 
-<!-- P0-1 监控自检健康条：常驻跨 tab，复用 calcFreshness 渲染四态（ok/warn/stale/fail） -->
-<div id="healthBar" class="health" role="status" aria-live="polite">监控自检中…</div>
+  <!-- P0-1 监控自检健康条：常驻跨 tab，复用 calcFreshness / renderHealthBar -->
+  <div class="blm-freshness" id="healthBar">
+    <div class="blm-freshness-left">
+      <span class="blm-status-dot"></span>
+      <span class="blm-freshness-text">监控自检中…</span>
+    </div>
+    <span class="blm-freshness-time blm-mono">--</span>
+  </div>
 
-<div class="overview">
-  <div class="ostat live"><div class="n" id="statLive">0</div><div class="l">直播中</div></div>
-  <div class="ostat rooms"><div class="n" id="statRooms">0</div><div class="l">监控房间</div></div>
-  <div class="ostat posts"><div class="n" id="statPosts">0</div><div class="l">新作品号</div></div>
+  <main class="blm-content">
+    <!-- 全局概览三卡（ld() 直写 #statLive/#statRooms/#statPosts） -->
+    <div class="blm-stats-bar">
+      <div class="blm-stat-card primary">
+        <div class="blm-stat-value" id="statLive">0</div>
+        <div class="blm-stat-label">直播中</div>
+      </div>
+      <div class="blm-stat-card">
+        <div class="blm-stat-value" id="statRooms">0</div>
+        <div class="blm-stat-label">监控房间</div>
+      </div>
+      <div class="blm-stat-card">
+        <div class="blm-stat-value" id="statPosts">0</div>
+        <div class="blm-stat-label">新作品号</div>
+      </div>
+    </div>
+
+    <!-- Live Monitor Section -->
+    <section class="view active" id="view-live">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="1.5" y="4" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12.5 7l4-2.5v7l-4-2.5V7z" fill="currentColor"/>
+            </svg>
+            直播监控
+          </h2>
+        </div>
+
+        <!-- Filter Chips（fil() 用 .chip 按索引设 active，叠加 .blm-filter-chip 外观） -->
+        <div class="blm-filter-bar">
+          <button class="blm-filter-chip chip active" onclick="fil('all')">全部</button>
+          <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
+          <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="blm-search-bar">
+          <svg class="blm-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <input id="liveSearch" type="search" placeholder="搜索房间名 / ID" oninput="onLiveSearch(this.value)">
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
+        </div>
+
+        <!-- Add Room（保留 #addWrap/#addForm/#addPlatform/#addId/#addName 及 handler） -->
+        <div id="addWrap" style="display:none">
+          <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加监控</button>
+          <div class="blm-add-form" id="addForm" style="display:none">
+            <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
+              <option value="bilibili">B站</option>
+              <option value="douyin">抖音</option>
+            </select>
+            <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
+            <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
+            <button class="blm-btn blm-btn-primary" onclick="submitAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- New Works Section -->
+    <section class="view" id="view-posts">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
+            </svg>
+            新作监控
+          </h2>
+          <span class="blm-section-action" id="postsCount"></span>
+        </div>
+
+        <div class="blm-search-bar">
+          <svg class="blm-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <input id="postsSearch" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
+        </div>
+
+        <div id="postAddWrap" style="display:none">
+          <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
+          <div class="blm-add-form" id="postAddForm" style="display:none">
+            <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
+            <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
+            <button class="blm-btn blm-btn-primary" onclick="submitPostAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <div id="postsBody" class="blm-works-grid"></div>
+      </div>
+    </section>
+
+    <!-- Log Section -->
+    <section class="view" id="view-log">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M7 8h8M7 11h8M7 14h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            监控日志
+          </h2>
+          <span class="blm-section-action" id="logCount"></span>
+        </div>
+
+        <div id="logStats" class="blm-log-summary"></div>
+
+        <div id="logFilter" class="blm-log-filter">
+          <input id="logSearch" class="blm-input" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
+          <div class="blm-filter-bar" id="logTypeChips" style="margin-bottom:0">
+            <button class="blm-filter-chip lchip active" data-type="all" onclick="onLogType('all')">全部</button>
+            <button class="blm-filter-chip lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
+            <button class="blm-filter-chip lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
+            <button class="blm-filter-chip lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
+            <button class="blm-filter-chip lchip" data-type="error" onclick="onLogType('error')">异常</button>
+            <button class="blm-filter-chip lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
+            <button class="blm-filter-chip lchip" data-type="system" onclick="onLogType('system')">系统</button>
+          </div>
+          <div class="blm-filter-bar" id="logPfChips" style="margin-bottom:0">
+            <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
+            <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
+            <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+          </div>
+          <div class="blm-log-row">
+            <select id="logAccount" class="blm-input" onchange="onLogAccount()"><option value="">全部账号</option></select>
+            <input id="logDate" class="blm-input" type="date" onchange="onLogDate()">
+            <button class="blm-filter-chip lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
+          </div>
+        </div>
+
+        <div id="logBody"></div>
+      </div>
+    </section>
+
+    <!-- Config Section -->
+    <section class="view" id="view-config">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M9 2v2M9 14v2M4.2 4.2l1.4 1.4M12.4 12.4l1.4 1.4M2 9h2M14 9h2M4.2 13.8l1.4-1.4M12.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            配置
+          </h2>
+        </div>
+
+        <!-- P0-5 支持平台区块（保留 #supportedPlatforms、.pf.ok/.pf.bad） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">支持平台</div>
+          <div class="blm-config-card" id="supportedPlatforms">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-title">📡 支持平台</div>
+                <div class="blm-config-item-desc">本项目当前支持以下平台的直播监控。平台定位已正式确定，无隐藏能力。</div>
+              </div>
+            </div>
+            <div class="blm-config-item">
+              <span class="blm-platform-badge bilibili">B站</span>
+              <span class="blm-config-item-desc">直播开播</span>
+              <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
+            </div>
+            <div class="blm-config-item">
+              <span class="blm-platform-badge douyin">抖音</span>
+              <span class="blm-config-item-desc">直播开播 + 新作品</span>
+              <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
+            </div>
+            <div class="blm-config-item">
+              <span class="pf bad">🔴 小红书</span>
+              <span class="blm-config-item-desc">直播（曾尝试，已移除）</span>
+              <span class="pf bad" style="margin-left:auto">❌ 已放弃，不计划支持</span>
+            </div>
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">小红书直播监控已于 2026-07-10 从代码中移除：开播短链每次都变、数据中心 IP 触发风控，维护成本高且误判/漏推难根除。当前专注 B站 / 抖音。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">GitHub Token</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--yellow)">⚠️ 当前页面已内置一个"全量权限"默认 Token 以便开箱即用；它暴露在公开源码中，建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span></div>
+                <input id="tokenInput" class="blm-input" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off">
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveToken()">保存</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="clearToken()">清除</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">连接与检测</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">检测浏览器能否直连 api.github.com（中国大陆一般可直连）。</div>
+                <button class="blm-btn blm-btn-secondary" style="margin-top:8px" onclick="checkApi()">🔌 检测 GitHub API 连接</button>
+                <div id="apiStatus" style="display:none;margin-top:10px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">手动触发</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">立即让监控脚本跑一次（新增/移除房间或抖音号后会自动触发；此处可手动补触发）。</div>
+                <button class="blm-btn blm-btn-secondary" style="margin-top:8px" onclick="triggerMonitor().then(function(){toast('已触发检测',true);}).catch(function(e){toast('触发失败：'+(e&&e.message||''),false);})">▶️ 立即触发一次监控</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送渠道</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">选择开播 / 新作品通知的推送方式。保存时配置会以加密方式写入仓库的 <b>Actions Secret（BLIVE_CONFIG）</b>，不会出现在公开源码里（方糖每日限额 5 条，推荐 Bark / 企业微信 / PushPlus 不限量）。</div>
+                <select id="pushChannel" class="blm-input" onchange="onPushChannelChange()" style="margin-top:8px">
+                  <option value="bark">Bark（iPhone 通知，无限）</option>
+                  <option value="serverchan">Server酱 / 方糖（个人微信，5 条/天）</option>
+                  <option value="wecom">企业微信群机器人（无限）</option>
+                  <option value="pushplus">PushPlus（个人微信，额度高）</option>
+                  <option value="telegram">Telegram Bot（无限）</option>
+                </select>
+                <div id="pushFields"></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存推送配置</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="copyPushJson()">复制 JSON</button>
+                </div>
+                <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dashboard Section -->
+    <section class="view" id="view-dashboard">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="11" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+              <rect x="9" y="6" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.6"/>
+              <rect x="14" y="3" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            健康仪表盘
+          </h2>
+        </div>
+
+        <div class="blm-dash-grid">
+          <div class="blm-dash-card"><div class="blm-dash-label">监控房间</div><div class="blm-dash-value blm-mono"><span id="kpiRooms">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">直播中</div><div class="blm-dash-value blm-mono"><span id="kpiLive">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">今日开播</div><div class="blm-dash-value blm-mono"><span id="kpiToday">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">通知异常</div><div class="blm-dash-value blm-mono"><span id="kpiNotify">0</span></div></div>
+          <div class="blm-dash-card full-width"><div class="blm-dash-label">数据新鲜度</div><div class="blm-dash-value" id="kpiFresh">—</div></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <rect x="2" y="9" width="3" height="5" rx="0.5" fill="var(--brand-primary)"/>
+              <rect x="6.5" y="5" width="3" height="9" rx="0.5" fill="var(--brand-primary)" opacity="0.85"/>
+              <rect x="11" y="2" width="3" height="12" rx="0.5" fill="var(--brand-primary)" opacity="0.7"/>
+            </svg>
+            开播趋势（近 7 天）
+          </div>
+          <div id="dashTrend"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <path d="M8 2l1.8 3.6 4 .6-2.9 2.8.7 4L8 11.1 4.4 13l.7-4L2.2 6.2l4-.6L8 2z" fill="#FFD60A"/>
+            </svg>
+            开播排行 Top5
+          </div>
+          <div id="dashRank"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <circle cx="8" cy="8" r="6" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+              <path d="M8 2a6 6 0 0 1 0 12V2z" fill="var(--brand-primary)" opacity="0.8"/>
+              <path d="M8 2v6l4 4" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            平台分布
+          </div>
+          <div id="dashPlatform" class="blm-platform-dist"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <path d="M8 1.5l6 12H2l6-12z" stroke="var(--state-warning)" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M8 6v3.5" stroke="var(--state-warning)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8" cy="12" r="0.8" fill="var(--state-warning)"/>
+            </svg>
+            通知健康
+          </div>
+          <div id="dashNotify"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Tab Bar（tab 用 onclick=show('KEY')，同时保留 .tab 供 show() 选择器） -->
+  <nav class="blm-tab-bar">
+    <a class="blm-tab-item tab active" onclick="show('live')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="2" y="5" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M16 9l4-2v8l-4-2V9z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">直播</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('posts')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">新作</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('log')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 8h8M7 11h8M7 14h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">日志</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('config')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="11" r="3" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M11 2v2M11 18v2M4.2 4.2l1.4 1.4M16.4 16.4l1.4 1.4M2 11h2M18 11h2M4.2 17.8l1.4-1.4M16.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">配置</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('dashboard')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="11" width="4" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="9" y="6" width="4" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="15" y="3" width="4" height="15" rx="1" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">仪表盘</span>
+    </a>
+  </nav>
 </div>
-
-<!-- apiStatus 已移至「配置」标签页连接与检测卡片内 -->
-
-<main>
-  <section class="view active" id="view-live">
-    <div class="panel-head">
-      <h2>📺 直播监控</h2>
-      <div class="chips">
-        <button class="chip active" onclick="fil('all')">全部</button>
-        <button class="chip" onclick="fil('bilibili')">哔哩哔哩</button>
-        <button class="chip" onclick="fil('douyin')">抖音</button>
-      </div>
-    </div>
-    <div class="searchbar">
-      <input id="liveSearch" class="searchbox" type="search" placeholder="搜索房间名 / ID" oninput="onLiveSearch(this.value)">
-      <button class="rmbtn" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
-    </div>
-    <div id="addWrap" class="addwrap" style="display:none">
-      <button class="addbtn" onclick="toggleAddForm()">＋ 添加监控</button>
-      <div class="addform" id="addForm" style="display:none">
-        <select id="addPlatform" class="ainput" onchange="onAddPlatformChange()">
-          <option value="bilibili">B站</option>
-          <option value="douyin">抖音</option>
-        </select>
-        <input id="addId" class="ainput" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
-        <input id="addName" class="ainput" placeholder="名称（可选）" autocomplete="off">
-        <button class="addok" onclick="submitAdd()">添加</button>
-        <button class="addcancel" onclick="toggleAddForm(false)">取消</button>
-      </div>
-    </div>
-    <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
-  </section>
-
-  <section class="view" id="view-posts">
-    <div class="panel-head"><h2>🎬 抖音新作品</h2><span class="count" id="postsCount" style="font-size:11px;color:var(--text2)"></span></div>
-    <div class="searchbar">
-      <input id="postsSearch" class="searchbox" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
-      <button class="rmbtn" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
-    </div>
-    <div id="postAddWrap" class="addwrap" style="display:none">
-      <button class="addbtn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
-      <div class="addform" id="postAddForm" style="display:none">
-        <input id="postAddId" class="ainput" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
-        <input id="postAddName" class="ainput" placeholder="备注名（可选）" autocomplete="off">
-        <button class="addok" onclick="submitPostAdd()">添加</button>
-        <button class="addcancel" onclick="togglePostAddForm(false)">取消</button>
-      </div>
-    </div>
-    <div id="postsBody"></div>
-  </section>
-
-  <section class="view" id="view-log">
-    <div class="panel-head"><h2>📋 监控日志</h2><span class="count" id="logCount" style="font-size:11px;color:var(--text2)"></span></div>
-    <div id="logStats" class="logstats"></div>
-    <div id="logFilter" class="logfilter">
-      <input id="logSearch" class="ainput" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
-      <div class="logchips" id="logTypeChips">
-        <button class="lchip active" data-type="all" onclick="onLogType('all')">全部</button>
-        <button class="lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
-        <button class="lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
-        <button class="lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
-        <button class="lchip" data-type="error" onclick="onLogType('error')">异常</button>
-        <button class="lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
-        <button class="lchip" data-type="system" onclick="onLogType('system')">系统</button>
-      </div>
-      <div class="logchips" id="logPfChips">
-        <button class="lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
-        <button class="lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
-        <button class="lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
-      </div>
-      <div class="logrow">
-        <select id="logAccount" class="ainput" onchange="onLogAccount()"><option value="">全部账号</option></select>
-        <input id="logDate" class="ainput" type="date" onchange="onLogDate()">
-        <button class="lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
-      </div>
-    </div>
-    <div id="logBody" class="logbox"></div>
-  </section>
-
-  <section class="view" id="view-config">
-    <div class="panel-head"><h2>⚙️ 配置</h2></div>
-
-    <!-- P0-1 平台定位固化：纯展示，不参与任何检测/推送逻辑 -->
-    <div class="room" id="supportedPlatforms" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">📡 支持平台</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-        本项目当前支持以下平台的直播监控。平台定位已正式确定，无隐藏能力。
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-          <span class="pf bili">🟢 B站</span>
-          <span style="color:var(--text2)">直播开播</span>
-          <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-          <span class="pf dy">🟢 抖音</span>
-          <span style="color:var(--text2)">直播开播 + 新作品</span>
-          <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-          <span class="pf bad">🔴 小红书</span>
-          <span style="color:var(--text2)">直播（曾尝试，已移除）</span>
-          <span class="pf bad" style="margin-left:auto">❌ 已放弃，不计划支持</span>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);line-height:1.55;margin-top:10px">
-        小红书直播监控已于 2026-07-10 从代码中移除：开播短链每次都变、数据中心 IP 触发风控，维护成本高且误判/漏推难根除。当前专注 B站 / 抖音。
-      </div>
-    </div>
-
-    <div class="room" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔑 GitHub Token</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-        用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库
-        <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br>
-        <span style="color:var(--yellow)">⚠️ 当前页面已内置一个“全量权限”默认 Token 以便开箱即用；它暴露在公开源码中，
-        建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span>
-      </div>
-      <input id="tokenInput" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off"
-        style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px;margin-bottom:10px">
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button onclick="saveToken()" style="padding:8px 14px;border-radius:9px;border:none;background:var(--bili);color:#fff;cursor:pointer;font-weight:800">保存</button>
-        <button onclick="clearToken()" style="padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);cursor:pointer">清除</button>
-      </div>
-    </div>
-
-    <div class="room" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔌 连接与检测</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-        检测浏览器能否直连 api.github.com（中国大陆一般可直连）。
-      </div>
-      <button class="addbtn solid" style="background:var(--card2);color:var(--text);border:1px solid var(--line)" onclick="checkApi()">🔌 检测 GitHub API 连接</button>
-      <div id="apiStatus" style="display:none;margin-top:10px"></div>
-    </div>
-
-    <div class="room" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">▶️ 手动触发</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-        立即让监控脚本跑一次（新增/移除房间或抖音号后会自动触发；此处可手动补触发）。
-      </div>
-      <button class="addbtn solid" style="background:var(--card2);color:var(--text);border:1px solid var(--line)" onclick="triggerMonitor().then(function(){toast('已触发检测',true);}).catch(function(e){toast('触发失败：'+(e&&e.message||''),false);})">▶️ 立即触发一次监控</button>
-    </div>
-
-    <div class="room" style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🔔 推送渠道</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px">
-        选择开播 / 新作品通知的推送方式。保存时配置会以加密方式写入仓库的
-        <b>Actions Secret（BLIVE_CONFIG）</b>，不会出现在公开源码里（方糖每日限额 5 条，推荐 Bark / 企业微信 / PushPlus 不限量）。
-      </div>
-      <select id="pushChannel" class="ainput" onchange="onPushChannelChange()" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px;margin-bottom:10px">
-        <option value="bark">Bark（iPhone 通知，无限）</option>
-        <option value="serverchan">Server酱 / 方糖（个人微信，5 条/天）</option>
-        <option value="wecom">企业微信群机器人（无限）</option>
-        <option value="pushplus">PushPlus（个人微信，额度高）</option>
-        <option value="telegram">Telegram Bot（无限）</option>
-      </select>
-      <div id="pushFields"></div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button onclick="savePushConfig()" style="padding:8px 14px;border-radius:9px;border:none;background:var(--bili);color:#fff;cursor:pointer;font-weight:800">保存推送配置</button>
-        <button onclick="copyPushJson()" style="padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--text2);cursor:pointer">复制 JSON</button>
-      </div>
-      <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
-    </div>
-  </section>
-
-  <!-- P0-7 统一健康仪表盘：纯前端聚合视图，复用 ld() 已载入的全局 hist/stat/rooms -->
-  <section class="view" id="view-dashboard">
-    <div class="panel-head"><h2>📊 健康仪表盘</h2></div>
-    <div class="logstats dash-kpis">
-      <div class="stat-card"><div class="stat-t">监控房间</div><div class="stat-b"><span id="kpiRooms">0</span></div></div>
-      <div class="stat-card"><div class="stat-t">直播中</div><div class="stat-b"><span id="kpiLive">0</span></div></div>
-      <div class="stat-card"><div class="stat-t">今日开播</div><div class="stat-b"><span id="kpiToday">0</span></div></div>
-      <div class="stat-card"><div class="stat-t">通知异常</div><div class="stat-b"><span id="kpiNotify">0</span></div></div>
-      <div class="stat-card"><div class="stat-t">数据新鲜度</div><div class="stat-b"><span id="kpiFresh">—</span></div></div>
-    </div>
-    <div class="dash-block">
-      <div class="dash-block-title">📈 开播趋势（近 7 天）</div>
-      <div id="dashTrend"></div>
-    </div>
-    <div class="dash-row">
-      <div class="dash-block">
-        <div class="dash-block-title">🏆 开播排行 Top5</div>
-        <div id="dashRank"></div>
-      </div>
-      <div class="dash-block">
-        <div class="dash-block-title">📡 平台分布</div>
-        <div id="dashPlatform"></div>
-      </div>
-    </div>
-    <div class="dash-block">
-      <div class="dash-block-title">🔔 通知健康</div>
-      <div id="dashNotify"></div>
-    </div>
-  </section>
-</main>
-
-<nav class="tabbar">
-  <button class="tab active" onclick="show('live')"><span class="ic">📺</span>直播</button>
-  <button class="tab" onclick="show('posts')"><span class="ic">🎬</span>新作</button>
-  <button class="tab" onclick="show('log')"><span class="ic">📋</span>日志</button>
-  <button class="tab" onclick="show('config')"><span class="ic">⚙️</span>配置</button>
-  <button class="tab" onclick="show('dashboard')"><span class="ic">📊</span>仪表盘</button>
-</nav>
-
-<!-- Token 设置弹层已移除：相关 UI 内联到「配置」标签页（view-config） -->
 
 <!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
 <script src="libsodium.js"></script>
@@ -480,7 +2056,7 @@ function renderLive(){
   });
   if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
   var up=(stat&&stat.updated)||'等待数据';
-  var h='<div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:11px">更新于 '+e(up)+'</div>';
+  var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
   for(var i=0;i<rs.length;i++){
     var r=rs[i],s=null;
     if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
@@ -494,18 +2070,26 @@ function renderLive(){
       stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
       sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
     }
-    var pl=r.platform==='bilibili'?'bili':(r.platform==='douyin'?'dy':'');
+    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':'');
     var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'');
     var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'#';
+    var isLive = st==='live';
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
     if(s&&s.area)meta.push(e(s.area));
     if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
-    var title=s&&s.title?('<div class="room-title">'+e(s.title)+'</div>'):'';
-    var act=(u!=='#')?'<a class="'+(st==='live'?'act':'act act-off')+'" href="'+u+'" target="_blank">'+(st==='live'?'进入直播间 →':'查看直播间 →')+'</a>':'';
     var rmArg=JSON.stringify({platform:r.platform,id:r.id});
-    var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
-    h+='<div class="room"><div class="room-top"><span class="pf '+pl+'">'+pln+'</span><span class="name">'+e(s?s.name:r.name)+'</span><span class="status '+sc+'">'+sp+stxt+'</span>'+rmbtn+'</div>'+title+(meta.length?'<div class="room-meta">'+meta.join(' · ')+'</div>':'')+act+'</div>';
+    var rmbtn=hasApi?'<button class="blm-room-remove" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
+    var metaHtml=meta.length?'<div class="blm-room-meta">'+meta.map(function(m){return '<span class="blm-room-meta-item">'+m+'</span>';}).join('')+'</div>':'';
+    var titleHtml=s&&s.title?'<div class="blm-room-title">'+e(s.title)+'</div>':'';
+    var badge=isLive
+      ? '<span class="blm-live-badge"><span class="blm-status-dot live"></span>LIVE</span>'
+      : '<span class="blm-offline-badge">'+stxt+'</span>';
+    var linkHtml=(u!=='#')?'<div style="display:flex;justify-content:flex-end;margin-top:8px"><a class="blm-room-link" href="'+u+'" target="_blank">'+(isLive?'进入直播间 →':'查看直播间 →')+'</a></div>':'';
+    h+='<div class="blm-room-card'+(isLive?' live':'')+'">'+
+         '<div class="blm-room-top"><div class="blm-room-info"><div class="blm-room-name-row"><span class="blm-platform-badge '+pl+'">'+pln+'</span><span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+badge+'</div></div><div class="blm-room-actions">'+rmbtn+'</div></div>'+
+         titleHtml+metaHtml+linkHtml+
+       '</div>';
   }
   lb.innerHTML=h;
 }
@@ -537,27 +2121,35 @@ function renderPosts(){
     var desc=tt.latest_desc||'';
     var time=ago(tt.latest_ct);
     var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
-    var ini=name?name.charAt(0):'🎬';
     var rmArg=JSON.stringify({id:r.id});
-    var rmbtn=hasApi?'<button class="rmbtn" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'';
-    var inner;
+    var rmbtn=hasApi?'<button class="blm-room-remove" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'';
+    var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
+    var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    var cover=tt.latest_cover?('<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="">'):placeholder;
+    var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
     if(aid && !String(aid).startsWith('count:')){
-      // 正常模式：拿到真实作品（aweme_id）
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+rmbtn+'</div>'+
-        '<div class="post-desc">'+e(desc||'(无描述)')+'</div>'+
-        '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">查看作品 →</a></div>';
+      descLine=desc||'(无描述)';
     }else if(aid && String(aid).startsWith('count:')){
       // 退化计数模式：抖音接口被风控（未登录），只拿到作品总数，无具体作品。
-      // 明确告诉用户需配置 Cookie 才能获取具体作品，而不是显示「等待首次抓取」让人误以为没抓。
-      var cnt=String(aid).replace('count:','');
-      var hint=needCookie?'⚠️ 仅检测到 '+cnt+' 个作品（抖音接口风控）。到仓库 Settings→Secrets 的 BLIVE_CONFIG 配置 douyin_cookie 即可获取具体作品':'已检测 '+cnt+' 个作品';
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+(type?'<span class="type '+(isNote?'note':'video')+'">'+type+'</span>':'')+rmbtn+'</div>'+
-        '<div class="post-desc" style="color:var(--text3)">'+e(hint)+'</div>'+
-        '<div class="post-foot"><span class="time">'+time+'</span><a class="act dy" href="'+link+'" target="_blank">打开主页 →</a></div>';
+      var c=String(aid).replace('count:','');
+      descLine=needCookie?'⚠️ 仅检测到 '+c+' 个作品（抖音接口风控）。到仓库 Settings→Secrets 的 BLIVE_CONFIG 配置 douyin_cookie 即可获取具体作品':'已检测 '+c+' 个作品';
+      linkLabel='打开主页 →';
     }else{
-      inner='<div class="post-top"><span class="name">'+e(name)+'</span><span class="pf dy">抖音</span>'+rmbtn+'</div><div class="post-desc" style="color:var(--text3)">⌛ 等待首次抓取…</div>';
+      descLine='⌛ 等待首次抓取…';
+      linkLabel='打开主页 →';
     }
-    h+='<div class="post"><div class="avatar">'+e(ini)+'</div><div class="post-main">'+inner+'</div></div>';
+    h+='<div class="blm-work-card">'+
+         '<a class="blm-work-thumb" href="'+linkLine+'" target="_blank">'+cover+platformTag+'</a>'+
+         '<div class="blm-work-info">'+
+           '<div class="blm-work-author">'+e(titleLine)+'</div>'+
+           '<div class="blm-work-desc">'+e(descLine)+'</div>'+
+           '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">'+
+             '<span class="blm-work-time">'+time+'</span>'+
+             '<a class="blm-room-link" href="'+linkLine+'" target="_blank" style="padding:4px 10px;font-size:11px">'+linkLabel+'</a>'+
+             rmbtn+
+           '</div>'+
+         '</div>'+
+       '</div>';
   }
   body.innerHTML=h;
 }
@@ -615,7 +2207,7 @@ function applyFilters(){
   }
   // 排序：按 time（默认倒序 新→旧）
   out.sort(function(a,b){
-    var ta=Date.parse((a.time||'').replace(/-/g,'/')), tb=Date.parse((b.time||'').replace(/-/g,'/'));
+    var ta=Date.parse((a.time||'').replace(/-/g,'/')); var tb=Date.parse((b.time||'').replace(/-/g,'/'));
     if(isNaN(ta))ta=0; if(isNaN(tb))tb=0;
     return logState.sort==='desc'? tb-ta : ta-tb;
   });
@@ -710,20 +2302,10 @@ function renderStats(){
   // 选中账号时统计该账号（按账号视图迷你统计，P1-1）
   var base = logState.account ? hist.filter(function(l){return (l.account||l.rid)==logState.account;}) : hist;
   var s=computeStatsJS(base,7);
-  function bars(arr,colorVar){
-    var max=Math.max(1,Math.max.apply(null,arr));
-    var h='';
-    for(var i=0;i<arr.length;i++){
-      var hgt=Math.round(arr[i]/max*100);
-      h+='<div class="bar" title="'+s.days[i]+': '+arr[i]+'" style="height:'+hgt+'%;background:var('+colorVar+')"></div>';
-    }
-    return h;
-  }
-  var errWarn=s.error.map(function(a,i){return a+s.cookie_warn[i];});
   box.innerHTML=
-    '<div class="stat-card"><div class="stat-t">近7天新作品</div><div class="stat-b">'+s.totals.new_post+'</div><div class="spark">'+bars(s.new_post,'--dy')+'</div></div>'+
-    '<div class="stat-card"><div class="stat-t">近7天开播</div><div class="stat-b">'+s.totals.live_on+'</div><div class="spark">'+bars(s.live_on,'--live')+'</div></div>'+
-    '<div class="stat-card"><div class="stat-t">近7天异常/风控</div><div class="stat-b">'+(s.totals.error+s.totals.cookie_warn)+'</div><div class="spark">'+bars(errWarn,'--yellow')+'</div></div>';
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+s.totals.new_post+'</div><div class="blm-log-summary-label">近7天新作品</div></div>'+
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+s.totals.live_on+'</div><div class="blm-log-summary-label">近7天开播</div></div>'+
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+(s.totals.error+s.totals.cookie_warn)+'</div><div class="blm-log-summary-label">近7天异常/风控</div></div>';
 }
 
 /* ===================== P0-7 统一健康仪表盘 ===================== */
@@ -795,11 +2377,13 @@ function recentAnomalies(hist, n){
 function buildPlatformHTML(plat){
   function row(label, bili, dy){
     var tot=bili+dy, bp=tot?Math.round(bili/tot*100):0, dp=100-bp;
-    return '<div style="font-size:12px;color:var(--text2);margin:6px 0 3px">'+e(label)+'（'+tot+'）</div>'
-      + '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--card2)">'
-      + '<div style="width:'+bp+'%;background:var(--bili)"></div>'
-      + '<div style="width:'+dp+'%;background:var(--dy)"></div></div>'
-      + '<div style="display:flex;font-size:11px;margin-top:3px"><span style="color:var(--bili)">B站 '+bili+' ('+bp+'%)</span><span style="margin-left:auto;color:var(--dy)">抖音 '+dy+' ('+dp+'%)</span></div>';
+    return '<div class="blm-dist-item">'+
+      '<div class="blm-dist-header"><span class="blm-dist-label">'+e(label)+'</span><span class="blm-dist-value">'+tot+'</span></div>'+
+      '<div class="blm-dist-bar"><div class="blm-dist-fill bilibili" style="width:'+bp+'%"></div></div>'+
+      '<div class="blm-dist-header" style="margin-top:6px"><span class="blm-dist-label">B站</span><span class="blm-dist-value">'+bili+' ('+bp+'%)</span></div>'+
+      '<div class="blm-dist-bar"><div class="blm-dist-fill douyin" style="width:'+dp+'%"></div></div>'+
+      '<div class="blm-dist-header" style="margin-top:6px"><span class="blm-dist-label">抖音</span><span class="blm-dist-value">'+dy+' ('+dp+'%)</span></div>'+
+      '</div>';
   }
   return row('房间数', plat.rooms.bilibili, plat.rooms.douyin)
        + row('开播数', plat.live.bilibili,  plat.live.douyin);
@@ -839,22 +2423,22 @@ function renderDashboard(){
     kFresh.style.color = fc;
   }
 
-  // —— 趋势 CSS 条形（复用 .spark/.bar，高度按最大值归一；标 MM-DD 标签）——
+  // —— 趋势 CSS 条形（复用 .blm-chart-bar，高度按最大值归一；标 MM-DD 标签）——
   var dt=document.getElementById('dashTrend');
   if(dt){
     var max = Math.max(1, Math.max.apply(null, trend));
     var barsHtml = trend.map(function(v,i){
-      return '<div class="bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%;background:var(--live)"></div>';
+      return '<div class="blm-chart-bar-group"><div class="blm-chart-bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%"></div><div class="blm-chart-label">'+e(days[i])+'</div></div>';
     }).join('');
-    var labsHtml = days.map(function(d){ return '<span class="trend-lab">'+e(d)+'</span>'; }).join('');
-    dt.innerHTML = '<div class="spark">'+barsHtml+'</div><div class="dash-trend-labs">'+labsHtml+'</div>';
+    dt.innerHTML = '<div class="blm-chart-bars">'+barsHtml+'</div>';
   }
 
   // —— 排行列表 ——
   var dr=document.getElementById('dashRank');
   if(dr){
     dr.innerHTML = rank.length ? rank.map(function(r,i){
-      return '<div class="log-item"><span class="log-dot live"></span><span class="log-txt"><b>'+(i+1)+'. '+e(r.name)+'</b> · '+r.count+' 场</span></div>';
+      var medal = i===0?'gold':i===1?'silver':i===2?'bronze':'normal';
+      return '<div class="blm-rank-item"><div class="blm-rank-num '+medal+'">'+(i+1)+'</div><div class="blm-rank-info"><div class="blm-rank-name">'+e(r.name)+'</div><div class="blm-rank-count">'+r.count+' 场</div></div></div>';
     }).join('') : '<div class="empty" style="padding:18px">暂无开播记录</div>';
   }
 
@@ -866,11 +2450,11 @@ function renderDashboard(){
   var dn=document.getElementById('dashNotify');
   if(dn){
     dn.innerHTML = recent.length ? recent.map(function(l){
-      var cls = (l.level==='error'||l.type==='error')?'err':'warn';
+      var cls = (l.level==='error'||l.type==='error')?'error':'system';
       var detail = e(l.detail || l.title || l.type || '—');
       var pname = l.platform==='bilibili'?'B站':(l.platform==='douyin'?'抖音':'—');
-      return '<div class="log-item"><span class="log-dot '+cls+'"></span>'
-        + '<span class="log-txt"><b>'+e(l.name||'—')+'</b> · '+pname+' · '+(l.time||'').substring(5,16)+'<br>'+detail+'</span></div>';
+      var badge = l.platform==='bilibili'?'bilibili':'douyin';
+      return '<div class="blm-health-item"><div class="blm-health-icon">⚠</div><div class="blm-health-info"><div class="blm-health-title">'+e(l.name||'—')+' <span class="blm-platform-badge '+badge+'">'+pname+'</span></div><div class="blm-health-desc">'+detail+'</div><div class="blm-health-time blm-mono">'+(l.time||'').substring(5,16)+'</div></div></div>';
     }).join('') : '<div class="empty" style="padding:18px">✅ 近期无通知异常</div>';
   }
 }
@@ -898,7 +2482,7 @@ function renderLogItem(l, idx){
   var chg=l.changed?' <span class="chg">[变化]</span>':'';
   var pt=PM[l.push]||'';
   var timeStr=(l.time||'').substring(11,16);
-  var title=l.title?' · '+e(l.title):'';
+  var title=l.title?'<span class="blm-log-stream-title">'+e(l.title)+'</span>':'';
   var open=logExpanded[idx]?' open':'';
   var detail=
     '<div class="log-detail'+open+'" id="ld_'+idx+'">'+
@@ -911,10 +2495,11 @@ function renderLogItem(l, idx){
     logRow('详情', e(l.detail))+
     logRow('rid', e(l.rid))+
     '</div>';
-  return '<div class="log-item log-item-clickable'+open+'" onclick="toggleExpand('+idx+')">'+
-    '<span class="log-dot '+cls+'"></span>'+
-    '<span class="log-time">'+timeStr+'</span>'+
-    '<span class="log-txt">'+m.i+' <b>'+e(l.name)+'</b>'+chg+pt+title+'</span>'+
+  return '<div class="blm-log-item log-item-clickable'+open+'" onclick="toggleExpand('+idx+')">'+
+    '<span class="blm-log-time">'+timeStr+'</span>'+
+    '<span class="blm-log-dot '+cls+'"></span>'+
+    '<div class="blm-log-content"><span class="blm-log-room">'+m.i+' '+e(l.name)+'</span>'+chg+pt+title+'</div>'+
+    '<span class="blm-log-detail-btn">详情</span>'+
     '<span class="chev">▾</span></div>'+detail;
 }
 
@@ -1021,9 +2606,9 @@ function b64decUtf8(b64){
 
 /** GitHub 鉴权头。 */
 function ghHeaders(extra){
-  /* 注意：不要加 Cache-Control 等“非 CORS 安全头”——它会触发浏览器对 api.github.com 的
+  /* 注意：不要加 Cache-Control 等"非 CORS 安全头"——它会触发浏览器对 api.github.com 的
      OPTIONS 预检，而 GitHub 的 access-control-allow-headers 不含 cache-control，
-     导致预检不通过、真实请求被拦截，表现为“无法连接 api.github.com”。 */
+     导致预检不通过、真实请求被拦截，表现为"无法连接 api.github.com"。 */
   var h=Object.assign({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'blive-monitor-web'}, extra||{});
   h['Authorization']='Bearer '+getGhToken();
   return h;
@@ -1080,8 +2665,8 @@ function ghPutFile(path, rooms, sha){
 }
 
 /** 读-改-写（基于 sha 的并发安全，遇 409 基于「最新」sha 重试，最多 5 次）。
- *  关键：每次重试都会重新 ghGetFile 拿到远端最新 sha，因此能自愈“CI 刚 push 过
- *  同一文件导致 base sha 过期”的 409。单次超时 20s、最多 5 次，足以覆盖 CI 那次
+ *  关键：每次重试都会重新 ghGetFile 拿到远端最新 sha，因此能自愈"CI 刚 push 过
+ *  同一文件导致 base sha 过期"的 409。单次超时 20s、最多 5 次，足以覆盖 CI 那次
  *  push 落地前的短暂窗口（通常几十秒内）。若仍失败，由调用方提示用户稍候再试。 */
 function ghWriteWithRetry(path, mutate){
   var attempt=0;
@@ -1353,7 +2938,7 @@ function removeRoom(arg){
 function renderHealthBar(f){
   var el = document.getElementById('healthBar');
   if(!el || !f) return;
-  var cls = 'health', ic = '💚';
+  var cls = 'blm-freshness', ic = '💚';
   if(f.state === 'ok'){ cls += ' ok'; ic = '💚'; }
   else if(f.state === 'warn'){ cls += ' warn'; ic = '🟡'; }
   else if(f.state === 'stale'){ cls += ' stale'; ic = '🔴'; }
@@ -1366,9 +2951,8 @@ function renderHealthBar(f){
   }
   el.className = cls;
   el.innerHTML =
-    '<span class="h-ic">' + ic + '</span>' +
-    '<span class="h-t">' + e(f.label) + '</span>' +
-    '<span class="h-time">' + e(f.updated || '') + rel + '</span>';
+    '<div class="blm-freshness-left"><span class="blm-status-dot'+(f.state==='ok'?'':(f.state==='stale'||f.state==='fail'?' live':''))+'"></span><span class="blm-freshness-text">'+e(f.label)+'</span></div>'+
+    '<span class="blm-freshness-time blm-mono">'+e(f.updated || '') + rel + '</span>';
 }
 
 function ld(){
@@ -1382,8 +2966,8 @@ function ld(){
       ? apiGetRooms().then(function(r){return {ok:true,data:r};}).catch(function(err){return {ok:false,err:err};})
       : fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(async function(r){return r.ok?{ok:true,data:await r.json()}:{ok:false};}).catch(function(){return {ok:false};})),
     fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
-    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return []}),
-    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}})
+    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return [];}),
+    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {};})
   ]).then(function(v){
     if(v[0])stat=v[0];
     var rv=v[1];

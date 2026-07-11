@@ -119,73 +119,77 @@ def test_live_offline_unknown_rooms_link_behavior():
     finally:
         os.unlink(f.name)
 
-    # live 房间：进入直播间 →，href 为 bilibili 直播间地址；class 为醒目纯 'act'（无弱化类）
+    # 换肤后房间链接统一使用新皮肤类 .blm-room-link（设计文档 §5：.act → .blm-room-link）。
+    # live/offline 的视觉区分由文案（进入/查看直播间）+ 状态徽标（blm-live-badge /
+    # blm-offline-badge）承担，不再依赖旧的 act / act-off 类。可点击性（u!=='#' 闸门）
+    # 与链接 href 均保持不变。
+    # live 房间：进入直播间 →，href 为 bilibili 直播间地址；class 为 blm-room-link
     assert "进入直播间" in out
     assert "https://live.bilibili.com/123" in out
-    assert '<a class="act" href="https://live.bilibili.com/123"' in out, (
-        "live 房间链接 class 应为醒目纯 'act'"
+    assert '<a class="blm-room-link" href="https://live.bilibili.com/123"' in out, (
+        "live 房间链接 class 应为新皮肤类 blm-room-link"
     )
-    assert ('<a class="act act-off" href="https://live.bilibili.com/123"' not in out), (
-        "live 房间链接不应带弱化类 act-off"
+    assert "blm-live-badge" in out, (
+        "live 房间应通过 blm-live-badge 呈现开播强调（替代旧 act/act-off 区分）"
     )
-    # offline 房间：查看直播间 →，href 为 douyin 直播间地址；class 含弱化 'act-off'
+    # offline 房间：查看直播间 →，href 为 douyin 直播间地址；class 同样为 blm-room-link
     assert "查看直播间" in out
     assert "https://live.douyin.com/456" in out
-    assert '<a class="act act-off" href="https://live.douyin.com/456"' in out, (
-        "offline 房间链接 class 应带弱化类 act-off"
+    assert '<a class="blm-room-link" href="https://live.douyin.com/456"' in out, (
+        "offline 房间链接 class 应为新皮肤类 blm-room-link"
     )
-    # 未知平台房间（u==='#'）：不应生成任何 class="act" 链接
-    assert out.count('class="act"') == 1, (
-        "仅 live 房间应使用纯 'act' 类（offline 用 act-off），实际：%s" % out
+    assert "blm-offline-badge" in out, "offline 房间应通过 blm-offline-badge 呈现未开播状态"
+    # 未知平台房间（u==='#'）：不应生成任何链接（live/offline 各 1 个 blm-room-link）
+    assert out.count('class="blm-room-link"') == 2, (
+        "live 与 offline 各应渲染 1 个 blm-room-link，未知平台不渲染，实际：%s" % out
     )
     assert 'href="#"' not in out, "未知平台不应渲染直播间链接"
 
 
 # ==================== 颜色区分：开播/未开播按钮不应同色（结构性断言） ====================
 
-def test_act_off_css_rule_exists():
-    """<style> 内必须存在 .act-off 的 CSS 规则，提供弱化次要配色。"""
+def test_room_link_css_rule_exists():
+    """<style> 内必须存在 .blm-room-link 的 CSS 规则（换肤后取代旧 .act/.act-off）。"""
     html = _read_monitor()
-    # 抽取 <style>...</style> 区块再做断言，避免命中无关的字符串
-    style = re.search(r"<style>.*?</style>", html, re.S)
+    # 抽取 <style ...>...</style> 区块再做断言（换肤后 <style> 带 id 属性，须容忍属性）
+    style = re.search(r"<style[^>]*>.*?</style>", html, re.S)
     assert style, "monitor.html 缺少 <style> 区块"
-    assert ".act-off{" in style.group(0), "应在 <style> 内定义 .act-off 弱化样式规则"
-    # 复用已有变量（--text2 / --line），不引入新变量
-    assert "var(--text2)" in style.group(0), ".act-off 应沿用已有 --text2 变量"
-    assert "var(--line)" in style.group(0), ".act-off 应沿用已有 --line 变量"
+    style_text = style.group(0)
+    assert re.search(r"\.blm-room-link\s*\{", style_text), (
+        "应在 <style> 内定义 .blm-room-link 链接样式规则（取代旧 .act-off）"
+    )
+    # 复用已有品牌变量（--brand-primary / --brand-primary-light），不引入新变量
+    assert "var(--brand-primary)" in style_text, (
+        ".blm-room-link 应沿用已有 --brand-primary 品牌变量"
+    )
 
 
-def test_render_live_offline_branch_uses_act_off_class():
-    """第 378 行 renderLive 的 act 链接构造：离线分支（st!=='live'）必须用
-    'act act-off'，开播分支（st==='live'）仍用纯 'act'。"""
+def test_render_live_link_uses_blm_room_link_class():
+    """renderLive 的房间链接构造（var linkHtml=）统一使用新皮肤类 blm-room-link，
+    并通过 isLive 三元切换「进入/查看直播间」文案（替代旧 act / act-off 区分）。"""
     html = _read_monitor()
-    line = [ln for ln in html.splitlines() if "var act=(u!=='#')" in ln]
-    assert line, "未找到 renderLive 内构造 act 链接的第 378 行"
+    line = [ln for ln in html.splitlines() if "var linkHtml=" in ln]
+    assert line, "未找到 renderLive 内构造房间链接的行（var linkHtml=）"
     src = line[0]
-    # 离线（非 live）分支：'act-off' 字面量
-    assert "'act':'act act-off'" in src, "离线分支 class 应含 'act act-off' 字面量"
-    # 三元整体：开播用 'act'、未开播用 'act act-off'
-    assert "(st==='live'?'act':'act act-off')" in src, "应按 st==='live' 区分 class"
-    # 开播分支不应带 act-off（左侧纯 'act' 出现在 'act-off' 文本之前）
-    assert src.index("'act'") < src.index("act-off"), (
-        "纯 'act' 应作为开播分支出现在 act-off 之前"
-    )
+    # 链接使用新皮肤类 blm-room-link（设计文档 §5：.act → .blm-room-link）
+    assert '"blm-room-link"' in src, "房间链接 class 应改为 blm-room-link（换肤重命名）"
+    # 文案按 isLive 区分：开播「进入直播间 →」、未开播「查看直播间 →」
+    assert "isLive?'进入直播间 →':'查看直播间 →'" in src, "应按 isLive 区分进入/查看直播间文案"
+    # 开播分支保留「进入直播间」（对应旧的醒目文案）
+    assert "进入直播间" in src, "开播分支文案应为「进入直播间 →」"
 
 
-def test_render_live_act_off_is_only_secondary_for_offline():
-    """回归：.act 醒目样式保持不变（开播仍亮红底白字），仅新增 .act-off 弱化，
-    两者明确区分、不共用同一配色。"""
+def test_room_link_styled_and_live_offline_badge_distinct():
+    """回归：房间链接 .blm-room-link 有定义样式（开播醒目品牌色），且 live/offline
+    状态区分通过 .blm-live-badge / .blm-offline-badge 呈现（替代旧 act/act-off 配色区分）。"""
     html = _read_monitor()
-    style = re.search(r"<style>.*?</style>", html, re.S).group(0)
-    # .act 仍使用亮红 var(--live) 底（开播醒目）
-    assert ".act{" in style
-    assert "background:var(--live)" in style
-    # .act-off 不得等于 .act 的醒目配色（不得用亮红底白字）
-    act_off_rule = re.search(r"\.act-off\{[^}]*\}", style)
-    assert act_off_rule, "应存在单行的 .act-off{...} 规则"
-    assert "var(--live)" not in act_off_rule.group(0), (
-        ".act-off 不得使用与开播按钮相同的亮红底 var(--live)"
-    )
+    style = re.search(r"<style[^>]*>.*?</style>", html, re.S).group(0)
+    # 链接有定义样式（使用品牌色变量，开播醒目）
+    assert re.search(r"\.blm-room-link\s*\{", style)
+    assert "var(--brand-primary)" in style
+    # live/offline 状态区分徽标存在（取代旧 act-off 弱化配色）
+    assert ".blm-live-badge" in html, "应存在 .blm-live-badge 开播徽标（区分 live/offline）"
+    assert ".blm-offline-badge" in html, "应存在 .blm-offline-badge 未开播徽标（区分 live/offline）"
 
 
 @pytest.mark.skipif(not _has_node(), reason="node 不可用，跳过前端真实函数颜色校验")
@@ -238,7 +242,7 @@ def test_live_offline_room_classes_real_run():
     finally:
         os.unlink(f.name)
 
-    # live 房间 → 纯 'act'；offline 房间 → 'act act-off'
-    assert '<a class="act" href="https://live.bilibili.com/123"' in out
-    assert '<a class="act act-off" href="https://live.douyin.com/456"' in out
-    assert out.count('class="act"') == 1
+    # 换肤后 live / offline 房间链接统一使用 .blm-room-link（区分由文案+徽标呈现）
+    assert '<a class="blm-room-link" href="https://live.bilibili.com/123"' in out
+    assert '<a class="blm-room-link" href="https://live.douyin.com/456"' in out
+    assert out.count('class="blm-room-link"') == 2
