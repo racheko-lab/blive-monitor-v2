@@ -75,6 +75,11 @@ jobs:
           ENABLE_POST_CHECK: "true"
         run: python3 check_new_posts.py
 
+      # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
+      - name: Transcode covers
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
+        run: python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+
       # 状态持久化到 Git —— 唯一真相来源，跨 run 可靠，不再依赖易失效的 actions/cache
       - name: Persist state & keepalive
         run: |
@@ -103,7 +108,7 @@ jobs:
           rm -rf "$TMPD"
           # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
           # status.json 为本轮检测产出，必须一并提交（否则前端读到旧状态）
-          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json
+          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json assets/covers
           # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
           date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
           git add .keepalive
@@ -123,7 +128,7 @@ jobs:
               [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
             done
             rm -rf "$TMPD"
-            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json
+            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json assets/covers
             git commit -m "📡 update state [skip ci]" || true
           done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
 

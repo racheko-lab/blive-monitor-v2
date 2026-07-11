@@ -969,6 +969,140 @@ body {
   grid-column: 1 / -1;
 }
 
+/* ===== 阶段二 2a：定时摘要卡片 / 开关 / 分段控件 / 批量添加 ===== */
+.blm-summary-card {
+  margin-bottom: var(--spacing-md, 12px);
+}
+.blm-summary-card .blm-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.blm-summary-title {
+  font-size: var(--font-size-h3, 15px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary);
+}
+.blm-summary-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: var(--color-text-secondary);
+}
+.blm-summary-badge.sent {
+  color: var(--color-text-tertiary);
+}
+.blm-summary-badge.pending {
+  color: var(--yellow, #f1c40f);
+  background: rgba(241,196,15,0.12);
+}
+.blm-summary-text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 8px 0 12px;
+}
+.blm-summary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 开关（checkbox 样式化） */
+.blm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.blm-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-border-strong, #2a2f3a);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .2s;
+  margin: 0;
+}
+.blm-switch:checked {
+  background: var(--color-accent, #3b82f6);
+}
+.blm-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+}
+.blm-switch:checked::after {
+  transform: translateX(20px);
+}
+
+/* 分段控件（每日/每周） */
+.blm-segmented {
+  display: inline-flex;
+  background: var(--color-bg-surface, #14171d);
+  border: 1px solid var(--color-border-subtle, #2a2f3a);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.blm-segmented button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.blm-segmented button.active {
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+}
+
+/* 批量添加 */
+.blm-batch-add {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--color-border-subtle, #2a2f3a);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,0.02);
+}
+.blm-batch-add textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 84px;
+  resize: vertical;
+}
+.blm-batch-preview {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.blm-batch-preview .blm-batch-item {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.blm-batch-preview .blm-batch-bad {
+  color: var(--yellow, #f1c40f);
+}
+.blm-batch-preview .blm-pf-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+}
+
 .blm-dash-label {
   font-size: var(--font-size-tiny);
   color: var(--color-text-tertiary);
@@ -1624,6 +1758,19 @@ body {
           </h2>
         </div>
 
+        <!-- 阶段二 2a：A1 定时摘要卡（直播视图顶部） -->
+        <div id="summaryCard" class="blm-summary-card blm-dash-card full-width" style="display:none">
+          <div class="blm-summary-head">
+            <span id="summaryTitle" class="blm-summary-title">今日摘要</span>
+            <span id="summaryBadge" class="blm-summary-badge">—</span>
+          </div>
+          <div id="summaryText" class="blm-summary-text">暂无新动态</div>
+          <div class="blm-summary-actions">
+            <button class="blm-btn blm-btn-secondary" id="btnCopySummary" onclick="copySummary()">📋 复制摘要</button>
+            <button class="blm-btn blm-btn-primary" id="btnPushSummary" onclick="requestPushSummary()">📨 请求推送</button>
+          </div>
+        </div>
+
         <!-- Filter Chips（fil() 用 .chip 按索引设 active，叠加 .blm-filter-chip 外观） -->
         <div class="blm-filter-bar">
           <button class="blm-filter-chip chip active" onclick="fil('all')">全部</button>
@@ -1653,6 +1800,18 @@ body {
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
             <button class="blm-btn blm-btn-primary" onclick="submitAdd()">添加</button>
             <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 批量添加直播房间 -->
+        <div class="blm-batch-add">
+          <div class="blm-config-item-title">批量添加房间</div>
+          <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
+          <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
+          <div id="batchPreview" class="blm-batch-preview"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
           </div>
         </div>
 
@@ -1690,6 +1849,18 @@ body {
             <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
             <button class="blm-btn blm-btn-primary" onclick="submitPostAdd()">添加</button>
             <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 批量添加抖音号（新作） -->
+        <div class="blm-batch-add">
+          <div class="blm-config-item-title">批量添加抖音号</div>
+          <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
+          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+          <div id="postBatchPreview" class="blm-batch-preview"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
           </div>
         </div>
 
@@ -1846,6 +2017,54 @@ body {
                   <button class="blm-btn blm-btn-secondary" onclick="copyPushJson()">复制 JSON</button>
                 </div>
                 <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：A1 定时摘要配置组 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">定时摘要（A1）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">开启后，直播视图顶部展示「今日/本周摘要」（N 人开播 · M 条新作），可一键复制或请求推送。自动投递由 CI 读取仓库 Secret（BLIVE_CONFIG.summary）完成。</div>
+                <div class="blm-switch-row">
+                  <span class="blm-config-item-title">启用定时摘要</span>
+                  <input type="checkbox" id="summaryEnabled" class="blm-switch">
+                </div>
+                <div class="blm-config-item-title" style="margin-top:8px">频率</div>
+                <div class="blm-segmented" style="margin-top:4px">
+                  <button type="button" data-v="daily" class="active" onclick="var s=document.getElementById('summaryFreq');s.value='daily';this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('active',b.dataset.v==='daily');})">每日</button>
+                  <button type="button" data-v="weekly" onclick="var s=document.getElementById('summaryFreq');s.value='weekly';this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('active',b.dataset.v==='weekly');})">每周</button>
+                </div>
+                <input type="hidden" id="summaryFreq" value="daily">
+                <div class="blm-config-item-title" style="margin-top:8px">发送时间（北京时）</div>
+                <input type="time" id="summarySendTime" class="blm-input" value="09:00" style="margin-top:4px;max-width:160px">
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveSummaryConfig()">保存摘要配置</button>
+                </div>
+                <div id="summaryStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 数据备份与迁移 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">数据备份与迁移（B1）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">导出当前监控列表（直播房间 + 抖音号）为备份 JSON；或粘贴/上传备份 JSON 合并导入（保留既有字段，不覆盖）。</div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <button class="blm-btn blm-btn-secondary" onclick="exportRooms()">⬇️ 导出备份 JSON</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="document.getElementById('importFile').click()">⬆️ 导入备份</button>
+                  <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="onImportFile(event)">
+                </div>
+                <textarea id="importBox" class="blm-input" placeholder="或在此粘贴备份 JSON，然后点「合并导入」" style="margin-top:8px;height:80px"></textarea>
+                <button class="blm-btn blm-btn-primary" onclick="importRooms(document.getElementById('importBox').value)">合并导入</button>
+                <div id="importStatus" style="display:none;margin-top:8px;font-size:12px;line-height:1.6"></div>
               </div>
             </div>
           </div>
@@ -3005,6 +3224,7 @@ function ld(){
     readViewParam();
     renderLive();renderPosts();renderLog();
     renderDashboard();   // P0-7 仪表盘：数据载入即聚合渲染，切 tab 不重算
+    maybeShowSummary();  // 阶段二 2a：跨日/跨周未生成则展示摘要卡
   }).catch(function(){
     document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
     // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
@@ -3087,6 +3307,8 @@ function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&
 function ghBase(){return GH_API.split('/contents')[0];}
 async function savePushConfig(){
   var cfg=buildPushConfig(); if(!cfg)return;
+  /* 阶段二 2a：并入 summary 段（前端聚合配置）一并加密写入 BLIVE_CONFIG，供 CI 自动投递消费 */
+  try { cfg.summary = buildSummaryConfig(); } catch(_e) {}
   var json=JSON.stringify(cfg);
   var tok=getGhToken();
   if(!tok){ toast('请先到「配置」页设置 Token',false); show('config'); return; }
@@ -3115,6 +3337,446 @@ function copyPushJson(){
   if(navigator.clipboard) navigator.clipboard.writeText(json).then(function(){toast('已复制 JSON',true);},function(){toast('复制失败，请手动选择',false);});
   else toast(json,true);
 }
+
+/* =========================================================================
+ * 阶段二 2a：A1 定时摘要 + B1 批量增删（纯函数 + UI）
+ * 数据层既有函数（ld/ghGetFile/ghPutFile/ghWriteWithRetry/...）名称/签名/逻辑不动。
+ * 以下均为新增独立函数；grep 契约见 tests/test_phase2_*.py。
+ * ========================================================================= */
+
+/* ---------------- A1：定时摘要纯函数 ---------------- */
+
+/**
+ * 计算「今日/本周」起点的北京时 epoch 秒。
+ * @param {string} freq 'daily' | 'weekly'
+ * @param {Date} nowBJ bjNow() 风格 Date（其本地 getter 反映北京墙钟）
+ * @return {number} 北京当日 00:00（daily）或本周一 00:00（weekly）的真实 UTC 秒。
+ */
+function computeSince(freq, nowBJ){
+  var d = new Date(nowBJ.getTime());
+  d.setHours(0,0,0,0);
+  if(freq === 'weekly'){
+    var day = d.getDay();                       // 0=周日..6=周六（北京）
+    var diff = (day === 0) ? 6 : (day - 1);
+    d.setDate(d.getDate() - diff);
+  }
+  // 北京午夜 → 真实 UTC 秒：Date.UTC(y,m,d,0,0,0) 为该墙钟当 UTC 的秒，减 8h 即北京真实 UTC。
+  var beijingMidnightMs = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0) - 8 * 3600 * 1000;
+  return Math.floor(beijingMidnightMs / 1000);
+}
+
+/**
+ * 聚合 hist 中 since 之后的 live_on / new_post 事件。
+ * @param {Array} hist 历史事件（字段 type；兼容旧 status）
+ * @param {number} since 北京起点 epoch 秒（computeSince 产出）
+ * @return {{liveOnCount:number,newPostCount:number,byRoom:Array,rangeText:string}}
+ */
+function computeSummary(hist, since){
+  var byRoomMap = {};
+  var newPostTotal = 0;
+  for(var i=0;i<hist.length;i++){
+    var l = hist[i];
+    if(!l) continue;
+    var t = (l.type || l.status);
+    if(t !== 'live_on' && t !== 'new_post') continue;
+    var ts = parseBeijing(l.time);
+    if(ts === null || ts < since * 1000) continue;
+    var rid = String(l.rid || l.account || '');
+    var key = (l.platform || '') + '|' + rid;
+    var room = byRoomMap[key];
+    if(!room){
+      room = { platform: l.platform || '', id: rid, name: l.name || '', liveOn: 0, newPost: 0 };
+      byRoomMap[key] = room;
+    }
+    if(t === 'live_on') room.liveOn += 1;
+    else { room.newPost += 1; newPostTotal += 1; }
+  }
+  var byRoom = [];
+  for(var k in byRoomMap) if(byRoomMap.hasOwnProperty(k)) byRoom.push(byRoomMap[k]);
+  // rangeText：since 对应的北京日期
+  var sd = new Date(since * 1000 + 8 * 3600 * 1000);
+  var rangeText = sd.getUTCFullYear() + '-' + pad2(sd.getUTCMonth()+1) + '-' + pad2(sd.getUTCDate());
+  return { liveOnCount: byRoom.length, newPostCount: newPostTotal, byRoom: byRoom, rangeText: rangeText };
+}
+
+/** 两位补零（computeSummary 用）。 */
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+
+/**
+ * 读取「定时摘要」控件 + summary_state.json 默认值，构造 summary 配置对象。
+ * @return {{enabled:boolean,freq:string,channel:string,sendTime:string,lastSent:number}}
+ */
+function buildSummaryConfig(){
+  var enabled = false, freq = 'daily', sendTime = '09:00';
+  var enEl = document.getElementById('summaryEnabled');
+  var frEl = document.getElementById('summaryFreq');
+  var stEl = document.getElementById('summarySendTime');
+  if(enEl) enabled = !!enEl.checked;
+  if(frEl) freq = (frEl.value === 'weekly') ? 'weekly' : 'daily';
+  if(stEl && stEl.value) sendTime = stEl.value;
+  var lastSent = (window.__summaryState && window.__summaryState.lastSent) || 0;
+  return { enabled: enabled, freq: freq, channel: 'push', sendTime: sendTime, lastSent: lastSent };
+}
+
+/** 渲染直播视图顶部摘要卡。未启用时隐藏。 */
+function renderSummary(sent){
+  var card = document.getElementById('summaryCard');
+  if(!card) return;
+  var cfg = buildSummaryConfig();
+  if(!cfg.enabled){ card.style.display = 'none'; return; }
+  var freq = cfg.freq || 'daily';
+  var since = computeSince(freq, bjNow());
+  var sum = computeSummary(hist, since);
+  var titleEl = document.getElementById('summaryTitle');
+  var textEl = document.getElementById('summaryText');
+  var badgeEl = document.getElementById('summaryBadge');
+  if(titleEl) titleEl.textContent = (freq === 'weekly' ? '本周摘要' : '今日摘要') + '（' + sum.rangeText + '）';
+  if(textEl) textEl.textContent = sum.liveOnCount + ' 人开播 · ' + sum.newPostCount + ' 条新作';
+  if(badgeEl){
+    if(sent){ badgeEl.textContent = '本周期已生成'; badgeEl.className = 'blm-summary-badge sent'; }
+    else { badgeEl.textContent = '本周期未生成'; badgeEl.className = 'blm-summary-badge pending'; }
+  }
+  card.style.display = 'block';
+}
+
+/**
+ * ld() 内调用：载入摘要镜像，跨日/跨周且未生成则展示摘要卡。
+ * 自动投递（无人值守）由未来 CI job 读 BLIVE_CONFIG.summary 完成，本波仅做前端展示+手动触发。
+ */
+function maybeShowSummary(){
+  var t = Date.now();
+  fetch('summary_state.json?_=' + t, {signal: AbortSignal.timeout(8000)})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .catch(function(){ return null; })
+    .then(function(st){
+      window.__summaryState = st || { enabled: false, lastSent: 0, freq: 'daily', sendTime: '09:00' };
+      if(!window.__summaryState.freq) window.__summaryState.freq = 'daily';
+      if(window.__summaryState.sendTime === undefined) window.__summaryState.sendTime = '09:00';
+      var enEl = document.getElementById('summaryEnabled');
+      var frEl = document.getElementById('summaryFreq');
+      var stEl = document.getElementById('summarySendTime');
+      if(enEl) enEl.checked = !!window.__summaryState.enabled;
+      if(frEl) frEl.value = window.__summaryState.freq;
+      if(stEl && window.__summaryState.sendTime) stEl.value = window.__summaryState.sendTime;
+      var freq = window.__summaryState.freq || 'daily';
+      var since = computeSince(freq, bjNow());
+      var sent = (window.__summaryState.lastSent || 0) >= since;
+      renderSummary(sent);
+    });
+}
+
+/** 复制当前摘要文本到剪贴板。 */
+function copySummary(){
+  var freq = (window.__summaryState && window.__summaryState.freq) || 'daily';
+  var since = computeSince(freq, bjNow());
+  var sum = computeSummary(hist, since);
+  var label = (freq === 'weekly' ? '本周' : '今日');
+  var text = label + '摘要（' + sum.rangeText + '）：' + sum.liveOnCount + ' 人开播 · ' + sum.newPostCount + ' 条新作';
+  if(sum.byRoom.length){
+    text += '\n' + sum.byRoom.map(function(r){ return '- ' + (r.name || r.id) + '：开播' + r.liveOn + ' 次 / 新作' + r.newPost + ' 条'; }).join('\n');
+  }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){ toast('已复制摘要', true); }, function(){ toast('复制失败，请手动选择', false); });
+  } else {
+    toast(text, true);
+  }
+}
+
+/** 手动触发：写 summary_state.json 的 lastSent 标记本周期已生成（自动投递留给 CI）。 */
+async function requestPushSummary(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var now = Math.floor(Date.now() / 1000);
+  var st = window.__summaryState || { enabled: false, freq: 'daily', sendTime: '09:00' };
+  st.lastSent = now;
+  try{
+    await ghWriteWithRetry('summary_state.json', function(){ return { rooms: st, changed: true }; });
+    window.__summaryState = st;
+    renderSummary(true);
+    toast('已请求推送，自动投递将由 CI 完成', true);
+  }catch(err){
+    toast('标记失败：' + (err && err.message || err), false);
+  }
+}
+
+/**
+ * 保存「定时摘要」：写可读镜像 summary_state.json（前端拥有）；
+ * 并尝试并入 BLIVE_CONFIG 加密写（需推送渠道已配，供 CI 自动投递消费）。
+ */
+async function saveSummaryConfig(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var cfg = buildSummaryConfig();
+  var st = {
+    enabled: cfg.enabled,
+    freq: cfg.freq,
+    sendTime: cfg.sendTime,
+    lastSent: (window.__summaryState && window.__summaryState.lastSent) || 0
+  };
+  var stEl = document.getElementById('summaryStatus');
+  try{
+    await ghWriteWithRetry('summary_state.json', function(){ return { rooms: st, changed: true }; });
+    window.__summaryState = st;
+  }catch(err){
+    toast('保存摘要镜像失败：' + (err && err.message || err), false);
+    return;
+  }
+  // 尝试并入 BLIVE_CONFIG（加密写给 CI 自动投递消费）。推送渠道未配时不覆盖既有 Secret。
+  var pushCfg = buildPushConfig();
+  if(pushCfg){
+    try{
+      var full = pushCfg;
+      full.summary = cfg;
+      var json = JSON.stringify(full);
+      var base = ghBase();
+      var pkResp = await fetch(base + '/actions/secrets/public-key', {headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json'}});
+      if(!pkResp.ok) throw new Error('获取公钥失败 HTTP ' + pkResp.status);
+      var pk = await pkResp.json();
+      await sodium.ready;
+      var sealed = sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
+      var putResp = await fetch(base + '/actions/secrets/BLIVE_CONFIG', {method:'PUT', headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json','Content-Type':'application/json'}, body: JSON.stringify({encrypted_value: bytesToB64(sealed), key_id: pk.key_id})});
+      if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP ' + putResp.status);
+      if(stEl){ stEl.style.display='block'; stEl.style.color='var(--green,#2ecc71)'; stEl.innerHTML='✅ 定时摘要已并入仓库 Secret（BLIVE_CONFIG.summary），下次监控运行即生效。'; }
+      toast('定时摘要已保存', true);
+    }catch(err){
+      if(stEl){ stEl.style.display='block'; stEl.style.color='var(--yellow)'; stEl.innerHTML='⚠️ 摘要镜像已保存；但自动投递需配置推送渠道并写入 Secret：' + (err && err.message || err); }
+      toast('摘要镜像已保存（自动投递待配置推送）', true);
+    }
+  } else {
+    if(stEl){ stEl.style.display='block'; stEl.style.color='var(--yellow)'; stEl.innerHTML='✅ 摘要镜像已保存（summary_state.json）。开启自动投递需在「推送渠道」配置后点「保存推送配置」。'; }
+    toast('摘要镜像已保存', true);
+  }
+  renderSummary((st.lastSent || 0) >= computeSince(st.freq, bjNow()));
+}
+
+/* ---------------- B1：批量增删纯函数 ---------------- */
+
+/** 平台别名归一化（bilibili/B站/bili；douyin/抖音/dy；xhs/小红书）。 */
+function normPlatform(p){
+  p = (p || '').toLowerCase();
+  if(p === 'bilibili' || p === 'b站' || p === 'bili') return 'bilibili';
+  if(p === 'douyin' || p === '抖音' || p === 'dy' || p === 'tiktok') return 'douyin';
+  if(p === 'xhs' || p === '小红书') return 'xhs';
+  return '';
+}
+
+/** 从对象/裸数组元素归一化为 {platform,id,name}（供 JSON/对象输入）。 */
+function normalizeBatchItem(it){
+  if(!it || typeof it !== 'object') return null;
+  var id = (it.id != null) ? String(it.id) : '';
+  if(!id) return null;
+  var platform = it.platform ? normPlatform(it.platform) : '';
+  if(!platform) platform = 'douyin';   // 新作监控仅抖音；缺省按 douyin
+  var name = (it.name != null && it.name !== '') ? String(it.name) : id;
+  return { platform: platform, id: id, name: name };
+}
+
+/**
+ * 解析批量输入：多行「平台|ID|名称」或整段 / 逐行 JSON。
+ * @return {{ok:Array<{platform,id,name}>, bad:Array<{raw,reason}>}}
+ */
+function parseBatchInput(text){
+  var ok = [], bad = [];
+  if(!text) return { ok: ok, bad: bad };
+  var raw = String(text).trim();
+  // 整段 JSON 模式
+  if(raw.charAt(0) === '[' || raw.charAt(0) === '{'){
+    var data;
+    try { data = JSON.parse(raw); }
+    catch(err){ return { ok: ok, bad: [{ raw: raw.slice(0,200), reason: 'JSON 解析失败：' + (err && err.message || err) }] }; }
+    var items = (data instanceof Array) ? data : [];
+    if(data && typeof data === 'object' && !(data instanceof Array)){
+      items = (data.rooms || []).concat(data.postRooms || []);
+    }
+    for(var i=0;i<items.length;i++){
+      var r = normalizeBatchItem(items[i]);
+      if(r) ok.push(r); else bad.push({ raw: JSON.stringify(items[i]).slice(0,120), reason: '缺少 platform/id' });
+    }
+    return { ok: ok, bad: bad };
+  }
+  var lines = raw.split(/\r?\n/);
+  for(var j=0;j<lines.length;j++){
+    var line = lines[j].trim();
+    if(!line) continue;
+    if(line.charAt(0) === '[' || line.charAt(0) === '{'){
+      var it;
+      try { it = JSON.parse(line); }
+      catch(_e){ bad.push({ raw: line, reason: 'JSON 解析失败' }); continue; }
+      var ri = normalizeBatchItem(it);
+      if(ri) ok.push(ri); else bad.push({ raw: line.slice(0,120), reason: '缺少 platform/id' });
+      continue;
+    }
+    var parts = line.split('|');
+    if(parts.length < 2){ bad.push({ raw: line, reason: '格式应为 平台|ID|名称' }); continue; }
+    var platform = normPlatform(parts[0].trim());
+    var id = parts[1].trim();
+    var name = parts.length > 2 ? parts[2].trim() : id;
+    if(!platform){ bad.push({ raw: line, reason: '未知平台：' + parts[0] }); continue; }
+    if(!id){ bad.push({ raw: line, reason: 'ID 为空' }); continue; }
+    ok.push({ platform: platform, id: id, name: name });
+  }
+  return { ok: ok, bad: bad };
+}
+
+/**
+ * 按 platform|id（直播）/ id（新作）去重合并，保留 existing 未知字段与顺序。
+ * @return {{rooms:Array, added:number, skipped:number}}
+ */
+function mergeRooms(existing, incoming){
+  existing = existing || [];
+  incoming = incoming || [];
+  var map = {}, out = [];
+  function keyOf(r){
+    var id = String(r.id != null ? r.id : '');
+    var p = r.platform ? r.platform + '|' : '';
+    return p + id;
+  }
+  for(var i=0;i<existing.length;i++){ var r = existing[i]; map[keyOf(r)] = r; out.push(r); }
+  var added = 0, skipped = 0;
+  for(var j=0;j<incoming.length;j++){
+    var inc = incoming[j];
+    if(!inc || inc.id == null || String(inc.id) === '') continue;
+    var item = {};
+    for (var kk in inc) if (Object.prototype.hasOwnProperty.call(inc, kk)) item[kk] = inc[kk];
+    item.id = String(inc.id);
+    if (item.name == null || item.name === '') item.name = String(inc.id);
+    if (item.platform === undefined) delete item.platform;
+    var k = keyOf(item);
+    if(map.hasOwnProperty(k)){ skipped++; }
+    else { map[k] = item; out.push(item); added++; }
+  }
+  return { rooms: out, added: added, skipped: skipped };
+}
+
+/** 预览批量解析结果到指定预览容器。 */
+function previewBatchBox(boxId, previewId){
+  var box = document.getElementById(boxId); if(!box) return;
+  var res = parseBatchInput(box.value);
+  var el = document.getElementById(previewId); if(!el) return;
+  var html = '';
+  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':'抖音') + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
+  if(res.bad.length) html += '<div class="blm-batch-bad">⚠️ 跳过 ' + res.bad.length + ' 行</div>' + res.bad.map(function(b){ return '<div class="blm-batch-item blm-batch-bad">' + e((b.raw||'').slice(0,60)) + ' — ' + e(b.reason) + '</div>'; }).join('');
+  if(!html) html = '<div class="blm-batch-item">（空）</div>';
+  el.innerHTML = html;
+}
+
+/** 批量加入：合并写回 rooms.json（target='rooms'）或 post_rooms.json（target='posts'）。 */
+function submitBatchBox(boxId, target){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var box = document.getElementById(boxId); if(!box) return;
+  var res = parseBatchInput(box.value);
+  if(!res.ok.length){ toast(res.bad.length ? ('无合法行，已跳过 ' + res.bad.length + ' 行') : '批量框为空', false); return; }
+  if(target === 'posts'){
+    var ok = res.ok.map(function(r){ return { id: r.id, name: r.name }; });
+    var merged = mergeRooms(postRooms, ok);
+    ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
+      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .catch(function(err){ toast(err && err.message ? err.message : '批量添加失败', false); });
+  } else {
+    var merged2 = mergeRooms(rooms, res.ok);
+    ghWriteWithRetry('rooms.json', function(rs){ var m = mergeRooms(rs, res.ok); return { rooms: m.rooms, changed: m.added > 0 }; })
+      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .catch(function(err){ var msg = err && err.message ? err.message : '批量添加失败'; if(/409|conflict|冲突/i.test(msg)) msg = '并发写入冲突，请稍候几秒再点「批量加入」'; toast(msg, false); });
+  }
+}
+
+/**
+ * 导出当前监控列表为备份 JSON 并触发下载；同时返回 JSON 字符串（便于测试）。
+ * 含 rooms + postRooms（含 tags/enabled 等字段）+ exportedAt。
+ */
+function exportRooms(){
+  var data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    rooms: rooms,
+    postRooms: postRooms
+  };
+  var json = JSON.stringify(data, null, 2);
+  try{
+    var blob = new Blob([json], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date();
+    var ymd = d.getFullYear() + '' + pad2(d.getMonth()+1) + pad2(d.getDate());
+    a.href = url; a.download = 'blive-monitor-backup-' + ymd + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }catch(_e){ /* 测试环境无 DOM 时忽略下载 */ }
+  return json;
+}
+
+/**
+ * 合并导入备份 JSON（rooms + postRooms），经 ghWriteWithRetry 合并写回（保留未知字段）。
+ * @param {string} jsonText 全文备份或裸数组
+ * @return {Promise<boolean>}
+ */
+function importRooms(jsonText){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return Promise.resolve(false); }
+  var data;
+  try { data = JSON.parse(jsonText); }
+  catch(err){ toast('JSON 解析失败：' + (err && err.message || err), false); return Promise.resolve(false); }
+  if(!data || typeof data !== 'object'){ toast('备份格式不正确', false); return Promise.resolve(false); }
+  var inRooms = data.rooms || (data instanceof Array ? data : []);
+  var inPosts = data.postRooms || [];
+  var statusEl = document.getElementById('importStatus');
+  var jobs = [];
+  if(inRooms.length){
+    jobs.push(ghWriteWithRetry('rooms.json', function(rs){
+      var m = mergeRooms(rs, inRooms);
+      return { rooms: m.rooms, changed: m.added > 0 };
+    }).then(function(out){ return { kind: 'rooms', rooms: out.rooms }; }));
+  }
+  if(inPosts.length){
+    jobs.push(ghWriteWithRetry('post_rooms.json', function(rs){
+      var m = mergeRooms(rs, inPosts);
+      return { rooms: m.rooms, changed: m.added > 0 };
+    }).then(function(out){ return { kind: 'posts', rooms: out.rooms }; }));
+  }
+  if(!jobs.length){ toast('备份中没有可导入的房间', false); return Promise.resolve(false); }
+  return Promise.all(jobs).then(function(results){
+    results.forEach(function(r){ if(r.kind === 'rooms'){ rooms = r.rooms; } else { postRooms = r.rooms; } });
+    renderLive(); renderPosts(); updateStatRooms(); updateStatPosts();
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--green,#2ecc71)'; statusEl.innerHTML='✅ 已合并导入（房间 ' + rooms.length + '，新作 ' + postRooms.length + '）。'; }
+    toast('导入完成', true);
+    triggerMonitor().catch(function(){});
+    return true;
+  }).catch(function(err){
+    var msg = err && err.message ? err.message : '导入失败';
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--yellow)'; statusEl.innerHTML='⚠️ 导入失败：' + e(msg); }
+    toast(msg, false);
+    return false;
+  });
+}
+
+/** 文件选择后把内容读入导入文本框。 */
+function onImportFile(ev){
+  var f = ev && ev.target && ev.target.files && ev.target.files[0];
+  if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){ var box = document.getElementById('importBox'); if(box) box.value = reader.result; };
+  reader.readAsText(f);
+}
+
+/* ---------------- A3 预留：静默时段纯函数（2a 仅签名 + 参考测试） ---------------- */
+
+/**
+ * 判断是否处于静默时段（支持跨午夜）。
+ * @param {Date} nowBJ 北京时 Date（bjNow() 风格）
+ * @param {{enabled:boolean,start:string,end:string}} silence
+ * @return {boolean}
+ */
+function inSilence(nowBJ, silence){
+  if(!silence || !silence.enabled) return false;
+  function hm(s){
+    var p = String(s || '00:00').split(':');
+    var h = parseInt(p[0] || '0', 10), m = parseInt(p[1] || '0', 10);
+    if(isNaN(h)) h = 0; if(isNaN(m)) m = 0;
+    return h * 60 + m;
+  }
+  var start = hm(silence.start), end = hm(silence.end);
+  var cur = nowBJ.getHours() * 60 + nowBJ.getMinutes();
+  if(start <= end) return cur >= start && cur < end;
+  return cur >= start || cur < end;   // 跨午夜
+}
+
 onPushChannelChange();
 
 /* 写操作 UI 常驻显示；未配置 Token 时提交会提示先设置 */
