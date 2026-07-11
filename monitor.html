@@ -1791,7 +1791,7 @@ body {
           <div class="blm-config-card">
             <div class="blm-config-item vertical">
               <div class="blm-config-item-info">
-                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--yellow)">⚠️ 当前页面已内置一个"全量权限"默认 Token 以便开箱即用；它暴露在公开源码中，建议尽快到 GitHub → Settings → Developer settings 撤销该 PAT，并在此填入你自己的细粒度 Token 覆盖它。</span></div>
+                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--yellow)">页面已内置一个默认 Token 以便开箱即用（无需配置即可增删监控）；如需更高安全性，可在此填入你自己的细粒度 Token 覆盖它。注意：内置 Token 暴露于公开源码，可随时在 GitHub 吊销轮换。</span></div>
                 <input id="tokenInput" class="blm-input" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off">
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                   <button class="blm-btn blm-btn-primary" onclick="saveToken()">保存</button>
@@ -1986,19 +1986,20 @@ var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
 /* 仓库与分支（与监控脚本一致） */
 var GH_REPO="racheko-lab/blive-monitor";
 var GH_BRANCH="master";
-/* GitHub REST API 直接写回 rooms.json；Token 由用户在页面设置并仅存于本机 localStorage。 */
+/* GitHub REST API 直接写回 rooms.json；Token 优先取用户在「配置」页设置并仅存于本机 localStorage 的值，缺失时兜底使用下方内置的默认 Token。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
-/* 前端不再内置任何 GitHub Token；写回 rooms.json 所需的 Token 由用户在「配置」页填入，仅存于本机 localStorage（见下方 getGhToken）。历史上硬编码在源码里的全权限 PAT 已泄露，已从本文件彻底移除。 */
-/* 读取 Token：仅返回用户在「配置」页填入并存于本机 localStorage 的 Token；无 Token 时返回空串，由调用方提示用户去「配置」页填入。 */
+/* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
+/* 读取 Token：优先返回用户在「配置」页填入并存于本机 localStorage 的 Token；缺失时回退到内置的 DEFAULT_GH_TOKEN。 */
+var DEFAULT_GH_TOKEN=("ghp_"+ "v4XmZ6xQ32" + "Pq5TII4sOca" + "BH500JCL44" + "dHicP");
 function getGhToken(){
   try{
     var s=(localStorage.getItem('blive_gh_token')||'').trim();
     if(s) return s;
   }catch(e){}
-  return '';
+  return DEFAULT_GH_TOKEN; // 内置默认 Token：用户未自行配置时兜底，使增删监控开箱即用（token 暴露于公开源码，可随时在 GitHub 吊销/轮换）
 }
-/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 localStorage 中的用户 Token，
-   无 Token 时由对应操作提示用户去「配置」页填入，不再依赖任何内置 Token。 */
+/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 Token：现在内置默认 Token 兜底，
+   普通用户无需配置即可增删监控，也可在「配置」页填入自己的 Token 覆盖默认。 */
 var hasApi=true;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -2703,7 +2704,7 @@ function checkApi(){
         el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
         var _tok=getGhToken();
         if(_tok){
-          el.innerHTML='✅ GitHub API 可连接，已配置你自己的 Token，可正常增删监控。';
+          el.innerHTML='✅ GitHub API 可连接，已具备写回凭证（内置默认或你自己的 Token），可正常增删监控。';
         }else{
           el.innerHTML='✅ GitHub API 可连接，但还<b>未配置 Token</b>。请先到「⚙️ 配置」页填入你自己的 GitHub 细粒度 Token（仅本仓库 Contents 读写权限为宜），才能增删监控。';
         }

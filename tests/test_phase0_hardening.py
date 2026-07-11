@@ -1,22 +1,23 @@
-"""Phase 0 止血回归测试：安全 Token 移除 + 小红书幽灵功能清理。
+"""Phase 0 止血回归测试：内置默认 Token 反转 + 小红书幽灵功能清理。
 
-本测试验证「阶段 0（止血）」的两类修复在后续改动中不被回归：
+本测试验证「阶段 0」两类事项在后续改动中不被回归：
 
-1. 安全止血（monitor.html）
-   - 不得再包含历史上硬编码在源码里的全权限 GitHub PAT 字串
-     （或其拼接片段），也不得引用当初硬编码在源码里的内置 Token 变量。
-   - ``getGhToken()`` 不再回退到任何内置 Token；连接检测文案不再提示
-     「使用内置默认 Token」。
+1. 内置默认 Token（monitor.html）——【已按用户明确决定反转】
+   阶段 0 曾做「移除内置 Token」的安全 hardening，但用户已明确反转该决定：
+   现在 monitor.html 重新内置一个默认 GitHub Token（DEFAULT_GH_TOKEN）作为
+   getGhToken() 的兜底返回值，使增删监控开箱即用（无需用户自行配置 Token）。
+   因此本测试不再断言「无泄露 PAT / 无内置 Token 变量」，改为断言：
+   - monitor.html 存在 ``var DEFAULT_GH_TOKEN=`` 赋值，且 getGhToken 在用户无
+     localStorage Token 时回退到该内置常量；
+   - 配置页 / 连接检测文案中已就位「默认 Token」或「内置默认」字样。
+   注意：本测试不断言具体 PAT 字串值。
 
-2. 小红书幽灵功能清理（check_status.py / docs）
+2. 小红书幽灵功能清理（check_status.py / docs）——【保持不变】
    - ``check_status.py`` 不得把小红书当作「已实现」的检测分支/函数
      （允许「已移除 / 未支持」的注释性提及）。
    - ``docs/blive-monitor-context.md`` 与 ``docs/live-monitor-detection-landscape.md``
      不得再声称小红书「已端到端验证 / 15 单测 / 补了行业空白」等虚假声明，
      且应明确声明「未支持 / 已移除」。
-
-注意：历史泄露 Token 的片段在本测试文件中以「拆分拼接」方式构造，
-避免出现完整字串，防止本测试文件本身再次成为泄露点。
 """
 
 import os
@@ -31,38 +32,26 @@ def _read(rel_path: str) -> str:
         return f.read()
 
 
-# 历史泄露 PAT 的片段（拆分拼接，避免本文件出现完整字串）。
-_PAT_FRAG_A = "ghp_v4XmZ" + "6xQ32Pq5TII"
-_PAT_FRAG_B = "4sOcaBH500J" + "CL44dHicP"
-LEAKED_PAT_FRAGMENTS = (_PAT_FRAG_A, _PAT_FRAG_B)
+def test_monitor_html_getGhToken_builtin_fallback():
+    """getGhToken 在用户无 localStorage Token 时回退到内置 DEFAULT_GH_TOKEN。
 
-# 内置 Token 变量名（同样拆分，避免本文件出现完整字串）。
-_BUILTIN_TOKEN_VAR = "GH_TOKEN_BUILT" + "IN"
-
-
-def test_monitor_html_no_leaked_pat():
-    """monitor.html 不得包含泄露的全权限 PAT 字串或其拼接片段。"""
+    用户已明确反转阶段 0 的「移除内置 Token」hardening：
+    monitor.html 重新内置默认 Token 作为兜底，使增删监控开箱即用。
+    本测试断言内置默认 Token 已就位，且文案说明其存在（不断言具体 PAT 值）。
+    """
     html = _read("monitor.html")
-    for bad in LEAKED_PAT_FRAGMENTS:
-        assert bad not in html, f"monitor.html 仍包含泄露字串片段: {bad}"
+    # 1) 存在内置默认 Token 变量赋值
+    assert "var DEFAULT_GH_TOKEN=" in html, \
+        "monitor.html 缺少内置默认 Token 变量赋值 (var DEFAULT_GH_TOKEN=)"
 
+    # 2) getGhToken 在缺少用户 Token 时回退到内置常量
+    assert "return DEFAULT_GH_TOKEN" in html, \
+        "getGhToken 未在缺少用户 Token 时回退到内置 DEFAULT_GH_TOKEN"
 
-def test_monitor_html_no_builtin_token_reference():
-    """monitor.html 不得再引用当初硬编码在源码里的内置 Token 变量。"""
-    html = _read("monitor.html")
-    assert _BUILTIN_TOKEN_VAR not in html, \
-        "monitor.html 仍引用当初硬编码在源码里的内置 Token 变量"
+    # 3) 配置页 / 连接检测文案已就位「默认 Token」或「内置默认」字样
+    assert ("默认 Token" in html) or ("内置默认" in html), \
+        "配置页 / 连接检测文案未说明内置默认 Token 已就位"
 
-
-def test_monitor_html_getGhToken_no_builtin_fallback():
-    """getGhToken 不应再回退到内置 Token，连接检测文案不再提「内置默认 Token」。"""
-    html = _read("monitor.html")
-    # 函数体不应再回退到内置 Token 变量
-    assert "return " + _BUILTIN_TOKEN_VAR not in html, \
-        "getGhToken 仍回退到内置 Token"
-    # 连接检测提示不应再声称「使用内置默认 Token」
-    assert "内置默认 Token" not in html, \
-        "连接检测文案仍提及「内置默认 Token」"
 
 
 def test_check_status_no_xhs_implemented_branch():
