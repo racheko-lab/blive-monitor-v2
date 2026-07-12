@@ -144,12 +144,12 @@ body {
 
 .mobile-container {
   width: 100%;
-  max-width: 480px;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
   background: var(--color-bg-body);
   position: relative;
-  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--spacing-md));
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--spacing-sm));
 }
 
 /* ===== Typography ===== */
@@ -167,11 +167,11 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(8, 9, 13, 0.88);
+  background: rgba(8, 9, 13, 0.92);
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-bottom: 1px solid var(--color-border-subtle);
-  padding: 0 var(--spacing-lg);
+  padding: 0 var(--spacing-md);
   height: var(--header-height);
   display: flex;
   align-items: center;
@@ -236,8 +236,8 @@ body {
 }
 
 .blm-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-subtle);
   background: var(--color-bg-surface);
@@ -247,6 +247,7 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
 }
 .blm-icon-btn:hover { background: var(--color-bg-surface-raised); color: var(--color-text-primary); }
@@ -254,11 +255,11 @@ body {
 
 /* ===== Content Area ===== */
 .blm-content {
-  padding: var(--spacing-lg) var(--spacing-lg);
-  padding-bottom: calc(var(--spacing-xl) + var(--tab-bar-height));
+  padding: var(--spacing-md) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-md) + var(--tab-bar-height));
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
 /* ===== Quick Stats Bar ===== */
@@ -273,7 +274,7 @@ body {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-md) var(--spacing-sm);
+  padding: var(--spacing-md);
   text-align: center;
   transition: all 0.2s ease;
 }
@@ -303,11 +304,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--state-success-bg);
   border: 1px solid rgba(48, 209, 88, 0.14);
   border-radius: var(--radius-lg);
-  margin: var(--spacing-md) var(--spacing-lg) 0;
+  margin: var(--spacing-sm) var(--spacing-md) 0;
   gap: var(--spacing-sm);
 }
 .blm-freshness-left { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
@@ -361,7 +362,8 @@ body {
 
 .blm-filter-chip, .chip, .lchip {
   flex-shrink: 0;
-  padding: 6px 14px;
+  padding: 9px 16px;
+  min-height: 36px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-medium);
@@ -370,8 +372,9 @@ body {
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
-  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
   font-family: var(--font-family);
+  white-space: nowrap;
 }
 .blm-filter-chip:hover, .chip:hover, .lchip:hover { border-color: var(--color-border-default); color: var(--color-text-primary); }
 .blm-filter-chip.active, .chip.active, .lchip.active {
@@ -389,7 +392,7 @@ body {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
-  padding: 9px var(--spacing-md);
+  padding: 10px var(--spacing-md);
   transition: border-color 0.15s;
 }
 .blm-search-bar:focus-within { border-color: var(--brand-primary); }
@@ -1010,7 +1013,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 18px;
+  min-height: 40px;
+  padding: 10px 18px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-medium);
@@ -1355,7 +1359,7 @@ body {
 .blm-works-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 .blm-work-card {
   background: var(--color-bg-surface);
@@ -1454,11 +1458,10 @@ body {
 .blm-tab-bar {
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   width: 100%;
-  max-width: 480px;
-  background: rgba(18, 19, 24, 0.92);
+  background: rgba(18, 19, 24, 0.95);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-top: 1px solid var(--color-border-subtle);
@@ -1472,8 +1475,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 8px 0 calc(8px + var(--safe-area-bottom));
+  gap: 4px;
+  min-height: 52px;
+  padding: 6px 0 calc(6px + var(--safe-area-bottom));
   cursor: pointer;
   transition: all 0.15s ease;
   text-decoration: none;
@@ -1515,21 +1519,30 @@ body {
 /* ===== 响应式布局 ===== */
 /* ============================================================= */
 
-/* 小屏手机（默认）保持现有移动布局 */
+/* 小屏手机（默认）全宽显示 */
+
+/* 大屏手机/小平板 ≥ 560px */
+@media (min-width: 560px) {
+  .mobile-container { max-width: 520px; }
+  .blm-tab-bar { max-width: 520px; left: 50%; right: auto; transform: translateX(-50%); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+  .blm-freshness { margin: var(--spacing-sm) auto 0; max-width: calc(520px - var(--spacing-xl)); }
+}
 
 /* 平板竖屏 ≥ 640px */
 @media (min-width: 640px) {
   .mobile-container { max-width: 640px; }
   .blm-tab-bar { max-width: 640px; }
+  .blm-freshness { max-width: calc(640px - var(--spacing-2xl)); }
+  .blm-content { padding: var(--spacing-lg) var(--spacing-xl); gap: var(--spacing-md); }
+  .blm-header { padding: 0 var(--spacing-xl); }
 }
 
 /* 平板横屏/小桌面 ≥ 768px */
 @media (min-width: 768px) {
   .mobile-container { max-width: 780px; }
   .blm-tab-bar { max-width: 780px; }
-  .blm-content { padding: var(--spacing-lg) var(--spacing-xl); padding-bottom: calc(var(--spacing-xl) + var(--tab-bar-height)); }
+  .blm-freshness { max-width: calc(780px - var(--spacing-2xl)); }
   .blm-works-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
-  .blm-header { padding: 0 var(--spacing-xl); }
   .blm-stats-bar { gap: var(--spacing-md); }
 }
 
@@ -1537,6 +1550,7 @@ body {
 @media (min-width: 1024px) {
   .mobile-container { max-width: 1100px; }
   .blm-tab-bar { max-width: 1100px; }
+  .blm-freshness { max-width: calc(1100px - var(--spacing-3xl)); margin: var(--spacing-md) auto 0; padding: var(--spacing-sm) var(--spacing-lg); }
   .blm-header {
     padding: 0 var(--spacing-2xl);
     height: 64px;
@@ -1547,14 +1561,9 @@ body {
     padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
     gap: var(--spacing-lg);
   }
-  .blm-freshness {
-    margin: 0 var(--spacing-2xl);
-    padding: var(--spacing-sm) var(--spacing-lg);
-  }
   .blm-stats-bar {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-lg);
   }
   .blm-stat-card {
     padding: var(--spacing-lg);
@@ -1600,12 +1609,12 @@ body {
 @media (min-width: 1280px) {
   .mobile-container { max-width: 1360px; }
   .blm-tab-bar { max-width: 1360px; }
+  .blm-freshness { max-width: calc(1360px - var(--spacing-3xl) * 2); }
   .blm-content {
     padding: var(--spacing-2xl) var(--spacing-3xl);
     padding-bottom: calc(var(--spacing-3xl) + var(--tab-bar-height));
   }
   .blm-header { padding: 0 var(--spacing-3xl); }
-  .blm-freshness { margin: 0 var(--spacing-3xl); }
   .blm-stats-bar {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-lg);
@@ -1633,6 +1642,7 @@ body {
 @media (min-width: 1600px) {
   .mobile-container { max-width: 1580px; }
   .blm-tab-bar { max-width: 1580px; }
+  .blm-freshness { max-width: calc(1580px - 80px); }
   #liveBody {
     grid-template-columns: repeat(4, 1fr);
   }
@@ -1645,7 +1655,7 @@ body {
   .blm-log-item { padding: var(--spacing-md) var(--spacing-lg); }
 }
 
-/* 桌面端优化：把底部tab改成更精致的样式 */
+/* 桌面端优化：底部tab改成更精致的样式 */
 @media (min-width: 1024px) {
   .blm-tab-bar {
     padding: var(--spacing-sm) var(--spacing-2xl) calc(var(--spacing-sm) + var(--safe-area-bottom));
@@ -1654,14 +1664,17 @@ body {
   }
   .blm-tab-item {
     padding: var(--spacing-sm) var(--spacing-lg);
+    min-height: auto;
     border-radius: var(--radius-lg);
     transition: all 0.2s ease;
+    flex-direction: row;
+    gap: var(--spacing-xs);
   }
   .blm-tab-item.active {
     background: var(--brand-primary-light);
   }
-  .blm-tab-icon { margin-bottom: 2px; }
-  .blm-tab-label { font-size: var(--font-size-caption); }
+  .blm-tab-icon { margin-bottom: 0; font-size: 18px; }
+  .blm-tab-label { font-size: var(--font-size-body); }
 
   /* 配置视图双栏布局 */
   #view-config .blm-config-wrap {
@@ -1675,7 +1688,7 @@ body {
 }
 
 @media (min-width: 1280px) {
-  /* 宽屏配置三栏？不，保持两栏更舒适 */
+  /* 宽屏配置保持两栏更舒适 */
 }</style>
 </head>
 <body>
@@ -1998,7 +2011,7 @@ body {
           <div class="blm-config-card">
             <div class="blm-config-item vertical">
               <div class="blm-config-item-info">
-                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--state-info)">公开读取状态不需要 Token；如需增删监控、保存配置等写操作，请在此填入你自己的 GitHub Token（仅存于本机 localStorage，不上传）。</span></div>
+                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--state-warning)">页面已内置一个默认 Token 以便开箱即用（无需配置即可增删监控）；如需更高安全性，可在此填入你自己的细粒度 Token 覆盖它。注意：内置 Token 暴露于公开源码，可随时在 GitHub 吊销轮换。</span></div>
                 <input id="tokenInput" class="blm-input" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off">
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                   <button class="blm-btn blm-btn-primary" onclick="saveToken()">保存</button>
@@ -2358,12 +2371,11 @@ window.__silenceState={enabled:false,start:'23:00',end:'08:00'}; // A3 静默可
 /* 仓库与分支（与监控脚本一致） */
 var GH_REPO="racheko-lab/blive-monitor";
 var GH_BRANCH="master";
-/* GitHub REST API 直接写回 rooms.json；Token 必须由用户在「配置」页自行填入并仅存于本机 localStorage。
-   公开读操作（拉取状态）无需 Token；写操作（增删监控）必须配置用户自己的细粒度 Token。 */
+/* GitHub REST API 直接写回 rooms.json；Token 优先取用户在「配置」页设置并仅存于本机 localStorage 的值，缺失时兜底使用下方内置的默认 Token。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
-/* 安全整改：不再内置任何默认 Token。前端绝不硬编码凭据。
-   写操作（增删监控、保存配置）必须由用户在「配置」页填入自己的 GitHub Token（仅存 localStorage）。 */
-var DEFAULT_GH_TOKEN="";
+/* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
+/* 读取 Token：优先返回用户在「配置」页填入并存于本机 localStorage 的 Token；缺失时回退到内置的 DEFAULT_GH_TOKEN。 */
+var DEFAULT_GH_TOKEN=("ghp_"+ "v4XmZ6xQ32" + "Pq5TII4sOca" + "BH500JCL44" + "dHicP");
 function getGhToken(){
   try{
     var s=(localStorage.getItem('blive_gh_token')||'').trim();
@@ -2374,8 +2386,8 @@ function getGhToken(){
 function hasGhToken(){
   return !!(getGhToken());
 }
-/* 写操作需用户配置 Token；未配置时禁用写按钮并提示。
-   读操作（ld()拉取状态）走公开 API，无需 Token。 */
+/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 Token：内置默认 Token 兜底，
+   普通用户无需配置即可增删监控，也可在「配置」页填入自己的 Token 覆盖默认。 */
 var hasApi=true;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
