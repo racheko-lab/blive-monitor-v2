@@ -78,7 +78,7 @@ jobs:
       # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
       - name: Transcode covers
         if: ${{ steps.postlist.outputs.enabled == 'true' }}
-        run:           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+        run:           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor-v2 --branch main --covers-dir assets/covers
 
       # A1：定时摘要自动投递（在 history.json 已更新的同轮运行；失败不影响持久化/部署）
       - name: Auto-deliver summary
@@ -97,8 +97,8 @@ jobs:
           # abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。
           # 新方案：fetch 远端（不 rebase），用 merge_state.py 按字段语义合并状态文件，
           # 然后 reset 到远端 HEAD 再覆盖合并后的文件，确保 push 快进成功。
-          git fetch origin master 2>&1 || true
-          python3 merge_state.py origin/master
+          git fetch origin main 2>&1 || true
+          python3 merge_state.py origin/main
           # 保存合并后的状态文件到临时目录（含 status.json——它由脚本每轮重写，
           # 必须随工作区最新版保留，否则 reset --hard 会回滚到远端旧版，导致前端一直
           # 显示「状态获取中」）
@@ -107,7 +107,7 @@ jobs:
             [ -f "$f" ] && cp "$f" "$TMPD/"
           done
           # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
-          git reset --hard origin/master 2>/dev/null || true
+          git reset --hard origin/main 2>/dev/null || true
           # 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）
           for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
             [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
@@ -122,7 +122,7 @@ jobs:
           git commit -m "📡 update state [skip ci]" || true
           # 推送：基于远端 master 提交，应为快进。若失败（远端又推进了），重试
           for i in 1 2; do
-            git push origin HEAD:master 2>&1 && break
+            git push origin HEAD:main 2>&1 && break
             echo "push 失败，重试 ($i)... 重新 fetch + 合并"
             git fetch origin master 2>&1 || true
             python3 merge_state.py origin/master
@@ -130,7 +130,7 @@ jobs:
             for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$f" ] && cp "$f" "$TMPD/"
             done
-            git reset --hard origin/master 2>/dev/null || true
+            git reset --hard origin/main 2>/dev/null || true
             for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
               [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
             done
