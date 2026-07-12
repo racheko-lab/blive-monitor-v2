@@ -236,8 +236,8 @@ body {
 
 /* ===== Content Area ===== */
 .blm-content {
-  padding: var(--spacing-lg);
-  padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
+  padding: var(--spacing-md) var(--spacing-lg);
+  padding-bottom: calc(var(--spacing-xl) + var(--tab-bar-height));
 }
 
 /* ===== Quick Stats Bar ===== */
@@ -245,7 +245,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .blm-stat-card {
@@ -286,7 +286,7 @@ body {
   background: var(--state-success-bg);
   border: 1px solid rgba(48, 209, 88, 0.14);
   border-radius: var(--radius-lg);
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
   gap: var(--spacing-sm);
 }
 .blm-freshness-left { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
@@ -300,12 +300,12 @@ body {
 .blm-freshness.stale .blm-freshness-text, .blm-freshness.fail .blm-freshness-text { color: var(--state-error); }
 
 /* ===== Section ===== */
-.blm-section { margin-bottom: var(--spacing-xl); }
+.blm-section { margin-bottom: var(--spacing-lg); }
 .blm-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 .blm-section-title {
   font-size: var(--font-size-h2);
@@ -322,7 +322,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
 }
 
 /* ===== Filter Tabs ===== */
@@ -334,6 +334,7 @@ body {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 2px;
+  margin-top: var(--spacing-xs);
 }
 .blm-filter-bar::-webkit-scrollbar { display: none; }
 
@@ -389,6 +390,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
 }
 .blm-select {
   appearance: none;
@@ -505,6 +508,22 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+#liveBody {
+  margin-top: var(--spacing-sm);
+}
+#liveBody:not(.grid-mode) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-update-time {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  padding: var(--spacing-sm) 0;
 }
 
 .blm-room-card {
@@ -1463,10 +1482,11 @@ body {
     padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
   }
   #liveBody {
-    display: grid;
+    display: grid !important;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-md);
     align-items: start;
+    margin-top: var(--spacing-sm);
   }
   #liveBody > .blm-update-time { grid-column: 1 / -1; }
   .blm-works-grid { grid-template-columns: repeat(4, 1fr); }
@@ -1492,8 +1512,7 @@ body {
   #liveBody { grid-template-columns: repeat(3, 1fr); }
   .blm-works-grid { grid-template-columns: repeat(5, 1fr); }
   .blm-stats-bar { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
-}
-</style>
+}</style>
 </head>
 <body>
 
@@ -1592,10 +1611,10 @@ body {
         </div>
 
         <!-- 阶段二 2b：B2 标签筛选 + B4 排序（与 .chip 平台 / q 搜索 AND 叠加） -->
-        <div class="blm-filter-bar" id="liveTagBar" style="margin-top:10px">
+        <div class="blm-filter-bar" id="liveTagBar">
           <!-- 标签 chip 由 renderTagChips() 动态填充（全部 + 各 tag） -->
         </div>
-        <div class="blm-sort-bar" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <div class="blm-sort-bar">
           <span class="blm-config-item-title" style="margin:0">排序</span>
           <select id="sortSel" class="blm-input blm-select" onchange="onSortChange(this.value)" style="max-width:180px">
             <option value="default">默认</option>
@@ -1614,9 +1633,12 @@ body {
         </div>
 
 
-        <!-- Add Room（保留 #addWrap/#addForm/#addPlatform/#addId/#addName 及 handler） -->
-        <div id="addWrap" style="display:none">
-          <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加监控</button>
+        <!-- Add Room -->
+        <div class="blm-add-actions" style="display:flex;gap:var(--spacing-sm);margin:var(--spacing-sm) 0;">
+          <button class="blm-add-room-btn" onclick="toggleAddForm()" style="flex:1">＋ 添加监控</button>
+          <button class="blm-add-room-btn" onclick="toggleBatchAdd()" id="batchToggleBtn" style="width:auto;padding:var(--spacing-md) var(--spacing-lg);">📋 批量</button>
+        </div>
+        <div id="addWrap">
           <div class="blm-add-form" id="addForm" style="display:none">
             <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
               <option value="bilibili">B站</option>
@@ -1625,20 +1647,23 @@ body {
             <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
             <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <button class="blm-btn blm-btn-primary" onclick="submitAdd()">添加</button>
-            <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+            <div style="display:flex;gap:var(--spacing-sm)">
+              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitAdd()">添加</button>
+              <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+            </div>
           </div>
         </div>
 
-        <!-- 阶段二 2a：B1 批量添加直播房间 -->
-        <div class="blm-batch-add">
+        <!-- 批量添加直播房间（默认折叠） -->
+        <div class="blm-batch-add" id="batchAddBox" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
           <div class="blm-config-item-title">批量添加房间</div>
           <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
-          <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
+          <textarea id="batchAddText" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
           <div id="batchPreview" class="blm-batch-preview"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
+          <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
+            <button class="blm-btn" onclick="previewBatchBox('batchAddText','batchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddText','rooms')">批量加入</button>
+            <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchAdd(false)">收起</button>
           </div>
         </div>
 
@@ -1670,28 +1695,35 @@ body {
         </div>
 
         <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
-        <div class="blm-filter-bar" id="postsTagBar" style="margin-top:10px"></div>
+        <div class="blm-filter-bar" id="postsTagBar"></div>
 
-        <div id="postAddWrap" style="display:none">
-          <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
+        <!-- Add Post -->
+        <div class="blm-add-actions" style="display:flex;gap:var(--spacing-sm);margin:var(--spacing-sm) 0;">
+          <button class="blm-add-room-btn" onclick="togglePostAddForm()" style="flex:1">＋ 添加抖音号</button>
+          <button class="blm-add-room-btn" onclick="togglePostBatchAdd()" id="postBatchToggleBtn" style="width:auto;padding:var(--spacing-md) var(--spacing-lg);">📋 批量</button>
+        </div>
+        <div id="postAddWrap">
           <div class="blm-add-form" id="postAddForm" style="display:none">
             <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
             <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
             <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
-            <button class="blm-btn blm-btn-primary" onclick="submitPostAdd()">添加</button>
-            <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+            <div style="display:flex;gap:var(--spacing-sm)">
+              <button class="blm-btn blm-btn-primary" style="flex:1" onclick="submitPostAdd()">添加</button>
+              <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+            </div>
           </div>
         </div>
 
-        <!-- 阶段二 2a：B1 批量添加抖音号（新作） -->
-        <div class="blm-batch-add">
+        <!-- 批量添加抖音号（默认折叠） -->
+        <div class="blm-batch-add" id="postBatchBox" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
           <div class="blm-config-item-title">批量添加抖音号</div>
           <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
-          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+          <textarea id="postBatchText" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
           <div id="postBatchPreview" class="blm-batch-preview"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
+          <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
+            <button class="blm-btn" onclick="previewBatchBox('postBatchText','postBatchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchText','posts')">批量加入</button>
+            <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="togglePostBatchAdd(false)">收起</button>
           </div>
         </div>
 
@@ -3460,14 +3492,6 @@ function apiRemovePostRoom(o){
 }
 /** 同步顶部「新作品号」统计数。 */
 function updateStatPosts(){ var el=document.getElementById('statPosts'); if(el) el.textContent = postRooms.length; }
-/** 切换「添加抖音号」表单显隐。 */
-function togglePostAddForm(force){
-  var f=document.getElementById('postAddForm');
-  if(!f) return;
-  var show=(force===undefined)?(f.style.display!=='flex'&&f.style.display!=='block'):force;
-  f.style.display=show?'flex':'none';
-  if(!show){ var a=document.getElementById('postAddId'); var b=document.getElementById('postAddName'); if(a)a.value=''; if(b)b.value=''; }
-}
 /**
  * 规范化抖音号输入：识别 sec_uid / handle / 链接，返回 {id, sec_uid, name}。
  *  - 以 MS4w 开头 → 视为 sec_uid，直接采用（最佳：等价于预存 sec_uid，立即生效）；
@@ -3561,7 +3585,33 @@ function toggleAddForm(force){
   if(!f) return;
   var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
   f.style.display = show ? 'flex' : 'none';
+  if(show){ toggleBatchAdd(false); }
   if(!show){ document.getElementById('addId').value=''; document.getElementById('addName').value=''; }
+}
+
+function toggleBatchAdd(force){
+  var box=document.getElementById('batchAddBox');
+  if(!box) return;
+  var show = (force===undefined) ? (box.style.display==='none') : force;
+  box.style.display = show ? 'block' : 'none';
+  if(show){ toggleAddForm(false); }
+}
+
+function togglePostAddForm(force){
+  var f=document.getElementById('postAddForm');
+  if(!f) return;
+  var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
+  f.style.display = show ? 'flex' : 'none';
+  if(show){ togglePostBatchAdd(false); }
+  if(!show){ document.getElementById('postAddId').value=''; document.getElementById('postAddName').value=''; }
+}
+
+function togglePostBatchAdd(force){
+  var box=document.getElementById('postBatchBox');
+  if(!box) return;
+  var show = (force===undefined) ? (box.style.display==='none') : force;
+  box.style.display = show ? 'block' : 'none';
+  if(show){ togglePostAddForm(false); }
 }
 
 /** 提交添加监控表单。 */
