@@ -254,8 +254,11 @@ body {
 
 /* ===== Content Area ===== */
 .blm-content {
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-lg);
   padding-bottom: calc(var(--spacing-xl) + var(--tab-bar-height));
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 /* ===== Quick Stats Bar ===== */
@@ -263,7 +266,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
+  flex-shrink: 0;
 }
 
 .blm-stat-card {
@@ -300,11 +303,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
   background: var(--state-success-bg);
   border: 1px solid rgba(48, 209, 88, 0.14);
   border-radius: var(--radius-lg);
-  margin-bottom: var(--spacing-md);
+  margin: var(--spacing-md) var(--spacing-lg) 0;
   gap: var(--spacing-sm);
 }
 .blm-freshness-left { display: flex; align-items: center; gap: var(--spacing-sm); min-width: 0; }
@@ -549,12 +552,17 @@ body {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--spacing-md);
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   overflow: hidden;
 }
-.blm-room-card:hover { border-color: var(--color-border-default); background: var(--color-bg-surface-raised); }
-.blm-room-card:active { transform: scale(0.99); }
+.blm-room-card:hover {
+  border-color: var(--color-border-default);
+  background: var(--color-bg-surface-raised);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.blm-room-card:active { transform: scale(0.985); }
 
 .blm-room-card.live {
   border-color: rgba(255, 59, 48, 0.25);
@@ -1354,10 +1362,14 @@ body {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
 }
-.blm-work-card:hover { border-color: var(--color-border-default); }
+.blm-work-card:hover {
+  border-color: var(--color-border-default);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
 .blm-work-card:active { transform: scale(0.98); }
 .blm-work-card.paused { opacity: 0.55; }
 
@@ -1503,34 +1515,62 @@ body {
 /* ===== 响应式布局 ===== */
 /* ============================================================= */
 
+/* 小屏手机（默认）保持现有移动布局 */
+
+/* 平板竖屏 ≥ 640px */
 @media (min-width: 640px) {
-  .mobile-container { max-width: 600px; }
-  .blm-tab-bar { max-width: 600px; }
+  .mobile-container { max-width: 640px; }
+  .blm-tab-bar { max-width: 640px; }
 }
 
+/* 平板横屏/小桌面 ≥ 768px */
 @media (min-width: 768px) {
-  .mobile-container { max-width: 760px; }
-  .blm-tab-bar { max-width: 760px; }
-  .blm-works-grid { grid-template-columns: repeat(3, 1fr); }
+  .mobile-container { max-width: 780px; }
+  .blm-tab-bar { max-width: 780px; }
+  .blm-content { padding: var(--spacing-lg) var(--spacing-xl); padding-bottom: calc(var(--spacing-xl) + var(--tab-bar-height)); }
+  .blm-works-grid { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
+  .blm-header { padding: 0 var(--spacing-xl); }
+  .blm-stats-bar { gap: var(--spacing-md); }
 }
 
+/* 桌面端 ≥ 1024px */
 @media (min-width: 1024px) {
-  .mobile-container { max-width: 1000px; }
-  .blm-tab-bar { max-width: 1000px; }
-  .blm-header { padding-left: var(--spacing-2xl); padding-right: var(--spacing-2xl); }
+  .mobile-container { max-width: 1100px; }
+  .blm-tab-bar { max-width: 1100px; }
+  .blm-header {
+    padding: 0 var(--spacing-2xl);
+    height: 64px;
+  }
+  .blm-header h1 { font-size: var(--font-size-h2); }
   .blm-content {
     padding: var(--spacing-xl) var(--spacing-2xl);
     padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
+    gap: var(--spacing-lg);
   }
+  .blm-freshness {
+    margin: 0 var(--spacing-2xl);
+    padding: var(--spacing-sm) var(--spacing-lg);
+  }
+  .blm-stats-bar {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+  }
+  .blm-stat-card {
+    padding: var(--spacing-lg);
+  }
+  .blm-stat-value { font-size: 28px; }
   #liveBody {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-md);
     align-items: start;
-    margin-top: var(--spacing-sm);
   }
   #liveBody > .blm-update-time { grid-column: 1 / -1; }
-  .blm-works-grid { grid-template-columns: repeat(4, 1fr); }
+  .blm-works-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+  }
   #logBody {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1538,21 +1578,104 @@ body {
     row-gap: 0;
   }
   #logBody > .loadmore { grid-column: 1 / -1; }
+  .blm-dash-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-lg);
+  }
   .blm-dash-charts {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-md);
+    gap: var(--spacing-lg);
   }
   .blm-dash-chart { margin-bottom: 0; }
-  #logTypeChips, #logPfChips { flex-wrap: wrap; overflow-x: visible; }
+  .blm-dash-card { padding: var(--spacing-lg); }
+  #logTypeChips, #logPfChips { flex-wrap: wrap; overflow-x: visible; gap: var(--spacing-sm); }
+  .blm-filter-bar { gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+  .blm-search-bar { margin-bottom: var(--spacing-md); }
+  .blm-section { margin-bottom: var(--spacing-xl); }
+  .blm-config-card { margin-bottom: var(--spacing-md); }
+}
+
+/* 宽屏桌面 ≥ 1280px */
+@media (min-width: 1280px) {
+  .mobile-container { max-width: 1360px; }
+  .blm-tab-bar { max-width: 1360px; }
+  .blm-content {
+    padding: var(--spacing-2xl) var(--spacing-3xl);
+    padding-bottom: calc(var(--spacing-3xl) + var(--tab-bar-height));
+  }
+  .blm-header { padding: 0 var(--spacing-3xl); }
+  .blm-freshness { margin: 0 var(--spacing-3xl); }
+  .blm-stats-bar {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+  #liveBody {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+  .blm-room-card { padding: var(--spacing-lg); }
+  .blm-works-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--spacing-lg);
+  }
+  #logBody {
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: var(--spacing-xl);
+  }
+  .blm-dash-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .blm-dash-grid .blm-dash-card.full-width { grid-column: 1 / -1; }
+}
+
+/* 超宽屏 ≥ 1600px */
+@media (min-width: 1600px) {
+  .mobile-container { max-width: 1580px; }
+  .blm-tab-bar { max-width: 1580px; }
+  #liveBody {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .blm-works-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  #logBody {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .blm-log-item { padding: var(--spacing-md) var(--spacing-lg); }
+}
+
+/* 桌面端优化：把底部tab改成更精致的样式 */
+@media (min-width: 1024px) {
+  .blm-tab-bar {
+    padding: var(--spacing-sm) var(--spacing-2xl) calc(var(--spacing-sm) + var(--safe-area-bottom));
+    backdrop-filter: blur(28px) saturate(1.6);
+    -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  }
+  .blm-tab-item {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    transition: all 0.2s ease;
+  }
+  .blm-tab-item.active {
+    background: var(--brand-primary-light);
+  }
+  .blm-tab-icon { margin-bottom: 2px; }
+  .blm-tab-label { font-size: var(--font-size-caption); }
+
+  /* 配置视图双栏布局 */
+  #view-config .blm-config-wrap {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+  }
+  #view-config .blm-config-group {
+    margin-bottom: 0;
+  }
 }
 
 @media (min-width: 1280px) {
-  .mobile-container { max-width: 1200px; }
-  .blm-tab-bar { max-width: 1200px; }
-  #liveBody { grid-template-columns: repeat(3, 1fr); }
-  .blm-works-grid { grid-template-columns: repeat(5, 1fr); }
-  .blm-stats-bar { grid-template-columns: repeat(3, 1fr); gap: var(--spacing-md); }
+  /* 宽屏配置三栏？不，保持两栏更舒适 */
 }</style>
 </head>
 <body>
@@ -1837,6 +1960,7 @@ body {
         </div>
 
         <!-- P0-5 支持平台区块（保留 #supportedPlatforms、.pf.ok/.pf.bad） -->
+        <div class="blm-config-wrap">
         <div class="blm-config-group">
           <div class="blm-config-group-title">支持平台</div>
           <div class="blm-config-card" id="supportedPlatforms">
@@ -1874,7 +1998,7 @@ body {
           <div class="blm-config-card">
             <div class="blm-config-item vertical">
               <div class="blm-config-item-info">
-                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--state-warning)">页面已内置一个默认 Token 以便开箱即用（无需配置即可增删监控）；如需更高安全性，可在此填入你自己的细粒度 Token 覆盖它。注意：内置 Token 暴露于公开源码，可随时在 GitHub 吊销轮换。</span></div>
+                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--state-info)">公开读取状态不需要 Token；如需增删监控、保存配置等写操作，请在此填入你自己的 GitHub Token（仅存于本机 localStorage，不上传）。</span></div>
                 <input id="tokenInput" class="blm-input" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off">
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
                   <button class="blm-btn blm-btn-primary" onclick="saveToken()">保存</button>
@@ -2044,6 +2168,7 @@ body {
             </div>
           </div>
         </div>
+        </div><!-- /.blm-config-wrap -->
       </div>
     </section>
 
@@ -2233,20 +2358,24 @@ window.__silenceState={enabled:false,start:'23:00',end:'08:00'}; // A3 静默可
 /* 仓库与分支（与监控脚本一致） */
 var GH_REPO="racheko-lab/blive-monitor";
 var GH_BRANCH="master";
-/* GitHub REST API 直接写回 rooms.json；Token 优先取用户在「配置」页设置并仅存于本机 localStorage 的值，缺失时兜底使用下方内置的默认 Token。 */
+/* GitHub REST API 直接写回 rooms.json；Token 必须由用户在「配置」页自行填入并仅存于本机 localStorage。
+   公开读操作（拉取状态）无需 Token；写操作（增删监控）必须配置用户自己的细粒度 Token。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
-/* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
-/* 读取 Token：优先返回用户在「配置」页填入并存于本机 localStorage 的 Token；缺失时回退到内置的 DEFAULT_GH_TOKEN。 */
-var DEFAULT_GH_TOKEN=("ghp_"+ "v4XmZ6xQ32" + "Pq5TII4sOca" + "BH500JCL44" + "dHicP");
+/* 安全整改：不再内置任何默认 Token。前端绝不硬编码凭据。
+   写操作（增删监控、保存配置）必须由用户在「配置」页填入自己的 GitHub Token（仅存 localStorage）。 */
+var DEFAULT_GH_TOKEN="";
 function getGhToken(){
   try{
     var s=(localStorage.getItem('blive_gh_token')||'').trim();
     if(s) return s;
   }catch(e){}
-  return DEFAULT_GH_TOKEN; // 内置默认 Token：用户未自行配置时兜底，使增删监控开箱即用（token 暴露于公开源码，可随时在 GitHub 吊销/轮换）
+  return DEFAULT_GH_TOKEN;
 }
-/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 Token：现在内置默认 Token 兜底，
-   普通用户无需配置即可增删监控，也可在「配置」页填入自己的 Token 覆盖默认。 */
+function hasGhToken(){
+  return !!(getGhToken());
+}
+/* 写操作需用户配置 Token；未配置时禁用写按钮并提示。
+   读操作（ld()拉取状态）走公开 API，无需 Token。 */
 var hasApi=true;
 
 function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
