@@ -31,7 +31,7 @@
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7659466394198609830",
     "nickname": "整天白日梦",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_81197422897.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor-v2/main/assets/covers/douyin_81197422897.jpg"
   },
   "douyin_zhuizhuguang61": {
     "sec_uid": "MS4wLjABAAAAz00i43aUgcvmD5vyZB2eMs6feBhlePqIoRapBCaAPjLwmBanhIAen9faTAkq3PHZ",
@@ -43,7 +43,7 @@
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_zhuizhuguang61.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor-v2/main/assets/covers/douyin_zhuizhuguang61.jpg"
   },
   "douyin_llqq192": {
     "sec_uid": "MS4wLjABAAAAPBP113is5zbadFY77J3HQRZ72SDrhQZC3m6qQcOY5f0sI4M0suqH5QrUQKM3_iWi",
@@ -77,27 +77,29 @@
     "latest_desc": "健身房一周被搭讪七次 被问器械还有几组三次 占了别人器械两次 踢飞别人水杯两次#健身打卡",
     "latest_type": "视频",
     "latest_url": "https://www.douyin.com/video/7660007808596178939",
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_601914453.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor-v2/main/assets/covers/douyin_601914453.jpg"
   },
   "douyin_vHan09233": {
     "sec_uid": "MS4wLjABAAAAUXBNFnWLvl9T8ylgAbD1auR_o5FL3dF7ic0KMYN9_88",
-    "latest_aweme_id": "7660803649483846254",
+    "latest_aweme_id": "7661552754426943049",
     "latest_ct": 0,
     "mode": "api",
     "latest_count": 0,
     "nickname": "韩冰",
-    "latest_desc": "晒黑了",
+    "latest_desc": "我苦笑两声 得到一句笑的人是gay",
     "latest_type": "视频",
-    "latest_url": "https://www.douyin.com/video/7660803649483846254"
+    "latest_url": "https://www.douyin.com/video/7661552754426943049"
   },
   "douyin_74597663503": {
     "sec_uid": "MS4wLjABAAAAhKMh_lUoSsPbEhBHyeTC5OzBJIOWYIYWXUqw5q_cdLbBzrWUFvFmepcpSlezkkTQ",
-    "latest_aweme_id": "count:3",
-    "latest_ct": 3,
-    "mode": "count",
-    "latest_count": 3,
+    "latest_aweme_id": "7661546145781035003",
+    "latest_ct": 0,
+    "mode": "api",
+    "latest_count": 0,
     "nickname": "D.my",
-    "need_cookie": true
+    "latest_desc": "",
+    "latest_type": "视频",
+    "latest_url": "https://www.douyin.com/video/7661546145781035003"
   },
   "douyin_FengBro": {
     "sec_uid": "MS4wLjABAAAAXrcPvX8QchAY5irWMAxU379DgfCBEOoztZoCcOUqi8I",
@@ -131,6 +133,6 @@
     "nickname": "小夭等雪",
     "mode": "api",
     "latest_count": 0,
-    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/assets/covers/douyin_XiaoyaoDx.jpg"
+    "latest_cover": "https://raw.githubusercontent.com/racheko-lab/blive-monitor-v2/main/assets/covers/douyin_XiaoyaoDx.jpg"
   }
 }
