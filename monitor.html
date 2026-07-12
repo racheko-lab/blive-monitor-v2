@@ -2562,8 +2562,9 @@ function renderPosts(){
     var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
     var rmArg=JSON.stringify({id:r.id});
     var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
-    var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
-    var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
+    var placeholder='<svg class="blm-work-thumb-placeholder" width="64" height="64" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    var coverUrl = tt.latest_cover ? tt.latest_cover.replace('https://raw.githubusercontent.com/racheko-lab/blive-monitor/master/', '') : '';
+    var coverImg=coverUrl?'<img class="blm-work-cover" src="'+e(coverUrl)+'" alt="" onerror="this.remove()">':'';
     var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
     if(aid && !String(aid).startsWith('count:')){
       descLine=desc||'(无描述)';
