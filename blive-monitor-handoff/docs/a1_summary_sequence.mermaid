@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant CI as check.yml step
+    participant Main as auto_summary.main
+    participant Env as BLIVE_CONFIG(env)
+    participant Gate as should_deliver
+    participant H as history.json
+    participant P as push_utils.dispatch_push
+    participant S as summary_state.json
+
+    CI->>Main: python3 auto_summary.py (env BLIVE_CONFIG)
+    Main->>Env: json.loads(BLIVE_CONFIG).get("summary")
+    alt enabled != true
+        Main-->>CI: exit 0 (disabled)
+    else enabled
+        Main->>Gate: should_deliver(summary, bjnow(), state)
+        Note over Gate: since = compute_since(freq, now_bj)
+        alt now_bj < sendTime(今日)
+            Gate-->>Main: (False, 'too_early')
+        else lastSent >= since
+            Gate-->>Main: (False, 'already_sent')
+        else 同周期冷却中(lastFailedSince==since)
+            Gate-->>Main: (False, 'cooldown')
+        else 应投
+            Gate-->>Main: (True, 'deliver')
+            Main->>H: load history.json (本轮已更新)
+            Main->>Main: compute_summary(hist, since)
+            Main->>Main: format_summary_text -> (title, desp)
+            Main->>P: dispatch_push(push_cfg, title, desp)
+            alt ok
+                P-->>Main: SendResult(ok=true)
+                Main->>S: save lastSent=now (合并保留 enabled/freq/sendTime)
+                Main-->>CI: exit 0
+            else fail / 配置无效
+                P-->>Main: SendResult(ok=false) 或 push_cfg 空
+                Main->>S: 失败: 写 lastFailedAt/lastFailedSince (不写 lastSent)
+                Main-->>CI: exit 0 (continue-on-error 兜底)
+            end
+        end
+    end

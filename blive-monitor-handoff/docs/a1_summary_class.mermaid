@@ -1,0 +1,37 @@
+classDiagram
+    class AutoSummary {
+        <<module: auto_summary.py>>
+        +parse_beijing(s: str) int|None
+        +compute_since(freq: str, now_bj: datetime) int
+        +compute_summary(hist: list, since: int) dict
+        +format_summary_text(cfg: dict, sum: dict) tuple~str,str~
+        +load_summary_state(path: str) dict
+        +save_summary_state(path: str, data: dict) void
+        +should_deliver(cfg: dict, now_bj: datetime, state: dict) tuple~bool,str~
+        +main() int
+    }
+    class SummaryState {
+        <<data: summary_state.json>>
+        +enabled: bool
+        +freq: str
+        +sendTime: str
+        +lastSent: int
+        +lastFailedAt: int
+        +lastFailedSince: int
+    }
+    class Common {
+        <<external module>>
+        +bjnow() datetime
+        +parse_beijing(s) int|None
+        +load_json_file(p, d) Any
+        +save_json_file(p, d) void
+    }
+    class PushUtils {
+        <<external module>>
+        +load_push_cfg(raw: str, fb: str) dict
+        +dispatch_push(cfg: dict, title: str, desp: str) SendResult
+    }
+    AutoSummary ..> SummaryState : 读写投递守卫
+    AutoSummary ..> Common : bjnow / parse_beijing / save
+    AutoSummary ..> PushUtils : load_push_cfg / dispatch_push
+    AutoSummary ..> history.json : 读取 live_on/new_post 事件

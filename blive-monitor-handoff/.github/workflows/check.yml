@@ -1,0 +1,199 @@
+name: 直播状态检测
+
+on:
+  # 注意：GitHub Actions schedule 不太稳定，可能延迟或跳过
+  # 建议配合外部 cron 服务（如 cron-job.org）使用，通过 workflow_dispatch 触发
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    paths:
+      - rooms.json
+      - post_rooms.json
+
+# 串行执行，避免并发 run 互相覆盖状态 / 提交冲突导致重复推送
+concurrency:
+  group: live-check
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # 作品监控总开关：设为 "true" 启用；列表（post_rooms.json）为空时整段跳过，不浪费资源
+    env:
+      ENABLE_POST_CHECK: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 判断作品监控列表是否非空（空则不安装/运行浏览器）
+      - name: Check post_rooms list
+        id: postlist
+        if: ${{ env.ENABLE_POST_CHECK == 'true' }}
+        run: |
+          n=$(python3 -c "import json;print(len(json.load(open('post_rooms.json'))))" 2>/dev/null || echo 0)
+          if [ "$n" != "0" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"; else echo "enabled=false" >> "$GITHUB_OUTPUT"; fi
+
+      # 缓存 Playwright 浏览器（抖音作品监控使用）
+      - name: Cache Playwright browsers
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.58.0
+
+      # 安装 Playwright + Chromium（抖音作品监控需要）
+      - name: Install Playwright
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      # 运行直播检测
+      - name: Run check
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: python3 check_status.py
+
+      # 新作品监控（无头浏览器抓取用户主页，绕过抖音反爬；列表来自独立的 post_rooms.json）
+      - name: Check new posts
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+          DOUYIN_COOKIE: ${{ secrets.DOUYIN_COOKIE }}
+          ENABLE_POST_CHECK: "true"
+        run: python3 check_new_posts.py
+
+      # D1：抖音新作封面转存（仅 post_rooms 非空时运行；差异提交避免仓库膨胀）
+      - name: Transcode covers
+        if: ${{ steps.postlist.outputs.enabled == 'true' }}
+        run:           python3 transcode_covers.py --owner racheko-lab --repo blive-monitor --branch master --covers-dir assets/covers
+
+      # A1：定时摘要自动投递（在 history.json 已更新的同轮运行；失败不影响持久化/部署）
+      - name: Auto-deliver summary
+        continue-on-error: true
+        env:
+          BLIVE_CONFIG: ${{ secrets.BLIVE_CONFIG }}
+        run: python3 auto_summary.py
+
+      # 状态持久化到 Git —— 唯一真相来源，跨 run 可靠，不再依赖易失效的 actions/cache
+      - name: Persist state & keepalive
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.com"
+          # 关键：用语义合并替代 git pull --rebase。
+          # 旧方案 `git pull --rebase` 在状态文件有本地改动时会失败（远端也改了同一文件），
+          # abort 后提交基于旧 base、push 非快进被拒 → 状态丢失 → 下一轮重复推送。
+          # 新方案：fetch 远端（不 rebase），用 merge_state.py 按字段语义合并状态文件，
+          # 然后 reset 到远端 HEAD 再覆盖合并后的文件，确保 push 快进成功。
+          git fetch origin master 2>&1 || true
+          python3 merge_state.py origin/master
+          # 保存合并后的状态文件到临时目录（含 status.json——它由脚本每轮重写，
+          # 必须随工作区最新版保留，否则 reset --hard 会回滚到远端旧版，导致前端一直
+          # 显示「状态获取中」）
+          TMPD=$(mktemp -d)
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+            [ -f "$f" ] && cp "$f" "$TMPD/"
+          done
+          # reset 到远端 HEAD，使后续 commit 基于最新远端（确保 push 快进）
+          git reset --hard origin/master 2>/dev/null || true
+          # 恢复合并后的状态文件（status.json 取本地最新，其余按语义合并后结果）
+          for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+            [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
+          done
+          rm -rf "$TMPD"
+          # 状态文件被 .gitignore 忽略，用 -f 强制纳入版本控制；notify_dedup.json 为去重账本，同样需持久化
+          # status.json 为本轮检测产出，必须一并提交（否则前端读到旧状态）
+          git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
+          # 每次运行更新时间戳，保证仓库持续有活动（防 60 天自动停用 schedule）
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+          git add .keepalive
+          git commit -m "📡 update state [skip ci]" || true
+          # 推送：基于远端 master 提交，应为快进。若失败（远端又推进了），重试
+          for i in 1 2; do
+            git push origin HEAD:master 2>&1 && break
+            echo "push 失败，重试 ($i)... 重新 fetch + 合并"
+            git fetch origin master 2>&1 || true
+            python3 merge_state.py origin/master
+            TMPD=$(mktemp -d)
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+              [ -f "$f" ] && cp "$f" "$TMPD/"
+            done
+            git reset --hard origin/master 2>/dev/null || true
+            for f in state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json; do
+              [ -f "$TMPD/$f" ] && cp "$TMPD/$f" .
+            done
+            rm -rf "$TMPD"
+            git add -f state.json tracking.json history.json post_tracking.json post_rooms.json notify_dedup.json status.json summary_state.json assets/covers
+            git commit -m "📡 update state [skip ci]" || true
+          done || echo "push failed (状态将在下一次 run 自动对齐，去重账本兜底防刷屏)"
+
+      # 上传运行时日志便于排障（logs/ 默认被 .gitignore 忽略，仅作 artifact 留存，不影响监控/部署）
+      - name: Upload runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-logs
+          path: logs/
+          if-no-files-found: ignore
+
+      # 构建 Pages 目录（同域名部署；状态已提交 Git 作可靠后备）
+      - name: Build Pages
+        run: |
+          mkdir -p _site
+          cp monitor.html _site/
+          cp libsodium.js _site/ 2>/dev/null || true
+          cp monitor-*.html _site/ 2>/dev/null || true
+          cp index.html _site/ 2>/dev/null || true
+          cp rooms.json _site/
+          cp status.json _site/
+          cp history.json _site/
+          cp post_rooms.json _site/
+          cp post_tracking.json _site/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+
+  # 独立测试任务：运行 pytest 回归套件（不影响监控/部署，仅作质量信号）
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run pytest
+        run: python -m pytest -q
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

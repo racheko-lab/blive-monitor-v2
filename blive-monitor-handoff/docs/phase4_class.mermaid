@@ -1,0 +1,231 @@
+classDiagram
+    %% ============ ORM 模型层（backend/models.py） ============
+    class Room {
+        +int id PK
+        +str kind  %% 'live' | 'post'
+        +str platform
+        +str external_id
+        +str name
+        +str title
+        +JSON tags
+        +bool enabled
+        +JSON meta  %% 平台/维度基线
+        +str live_status
+        +str current_title
+        +int online
+        +str area
+        +str cover
+        +str last_live_at
+        +str live_started_at
+        +str live_duration
+        +str last_checked_at
+        +datetime created_at
+        +datetime updated_at
+        +UNIQUE(platform, external_id, kind)
+    }
+    class Post {
+        +int id PK
+        +str platform
+        +str post_id
+        +str author
+        +str url
+        +str cover
+        +str published_at
+        +datetime created_at
+        +UNIQUE(platform, post_id)
+    }
+    class EventHistory {
+        +int id PK
+        +int room_id  %% FK->Room.id, nullable
+        +str raw_rid
+        +str account
+        +str platform
+        +str event_type
+        +str name
+        +str title
+        +str detail
+        +str level
+        +bool changed
+        +str prev
+        +str push
+        +JSON payload
+        +str occurred_at  %% 北京时间字符串
+        +int occurred_ts
+    }
+    class NotifyLog {
+        +int id PK
+        +str channel_id
+        +str event_type
+        +str target
+        +str content_hash
+        +str sent_at
+        +str status
+    }
+    class NotifyDedup {
+        +str key PK  %% live:<rid> | post:<sec>:<aweme>
+        +float last_sent_at
+        +JSON meta
+    }
+    class ConfigKV {
+        +str key PK  %% 'blive_config'
+        +JSON value
+        +datetime updated_at
+    }
+    class SummaryState {
+        +str key PK  %% 'summary'
+        +JSON value
+        +datetime updated_at
+    }
+    class SilenceState {
+        +str key PK  %% 'silence'
+        +JSON value
+        +datetime updated_at
+    }
+
+    EventHistory --> Room : "room_id FK (nullable)"
+
+    %% ============ 服务/存储类（backend/core, backend/config_store） ============
+    class ConfigStore {
+        +get_config() dict
+        +put_config(dict) void
+        +get_push_cfg() dict
+    }
+    class Persistence {
+        +set_room_status(room, status) void
+        +append_event(entry) void
+        +record_notify(...) void
+        +upsert_post_baseline(room, data) void
+        +get_room(id) Room
+        +list_rooms(kind, platform, enabled) list
+    }
+    class DedupService {
+        +should_notify(key, cooldown) bool
+        +record(key) void
+        +prune() void
+    }
+    class HistoryStore {
+        +append_event(entry) void  %% 复用 log_utils.should_suppress 节流
+    }
+    class NotifyLogStore {
+        +log(channel_id, event_type, target, content_hash, status) void
+    }
+
+    ConfigStore ..> ConfigKV : "读写"
+    Persistence ..> Room : "读写"
+    Persistence ..> Post : "读写"
+    Persistence ..> EventHistory : "写"
+    DedupService ..> NotifyDedup : "读写"
+    HistoryStore ..> EventHistory : "写"
+    NotifyLogStore ..> NotifyLog : "写"
+
+    %% ============ 检测编排（backend/jobs） ============
+    class DetectionService {
+        +run_live() void
+        +run_post() void
+        +run_summary() void
+        +run_transcode() void  %% P1
+    }
+    class Scheduler {
+        +start() void
+        +shutdown() void
+        +trigger(type) void
+    }
+    class LiveCheckJob {
+        +run(cfg_all, persist) void
+    }
+    class PostCheckJob {
+        +run(cfg_all, persist) void
+    }
+    class SummaryJob {
+        +run(cfg_all, persist) void
+    }
+    class TranscodeJob {
+        +run(...) void  %% P1
+    }
+
+    DetectionService ..> Persistence : "落库"
+    DetectionService ..> ConfigStore : "读 BLIVE_CONFIG"
+    DetectionService ..> DedupService : "去重"
+    DetectionService ..> HistoryStore : "写历史"
+    DetectionService ..> NotifyLogStore : "写通知账本"
+    DetectionService ..> "push_utils.dispatch_event" : "复用推送(不变)"
+
+    LiveCheckJob ..> DetectionService : "委托"
+    PostCheckJob ..> DetectionService : "委托"
+    SummaryJob ..> DetectionService : "委托"
+    TranscodeJob ..> DetectionService : "委托"
+    Scheduler ..> LiveCheckJob : "注册/触发"
+    Scheduler ..> PostCheckJob : "注册/触发"
+    Scheduler ..> SummaryJob : "注册/触发"
+    Scheduler ..> TranscodeJob : "注册/触发(P1)"
+
+    %% ============ API 路由层（backend/api） ============
+    class RoomsRouter { +/rooms CRUD +/rooms/{id}/status }
+    class PostsRouter { +/posts 列表/写入 }
+    class EventsRouter { +/events 查询 }
+    class NotifyRouter { +/notify/log +/notify/dedup }
+    class ConfigRouter { +/config GET/PUT }
+    class SummaryRouter { +/summary/state }
+    class SilenceRouter { +/silence/state }
+    class JobsRouter { +/jobs/check(P1) +/healthz }
+
+    RoomsRouter ..> Persistence : "读写"
+    PostsRouter ..> Persistence : "读写"
+    EventsRouter ..> EventHistory : "查询"
+    NotifyRouter ..> NotifyLogStore : "写"
+    NotifyRouter ..> DedupService : "查/标记"
+    ConfigRouter ..> ConfigStore : "读写"
+    SummaryRouter ..> SummaryState : "读写"
+    SilenceRouter ..> SilenceState : "读写"
+    JobsRouter ..> Scheduler : "手动触发"
+
+    %% ============ 应用入口 ============
+    class FastAPIApp {
+        +lifespan: init_db + 启停 Scheduler
+        +挂载 8 router @ /api/v1
+        +/healthz
+    }
+    FastAPIApp ..> Scheduler : "启停"
+    FastAPIApp ..> "db.init_db()" : "建表"
+    FastAPIApp ..> RoomsRouter : "挂载"
+    FastAPIApp ..> PostsRouter : "挂载"
+    FastAPIApp ..> EventsRouter : "挂载"
+    FastAPIApp ..> NotifyRouter : "挂载"
+    FastAPIApp ..> ConfigRouter : "挂载"
+    FastAPIApp ..> SummaryRouter : "挂载"
+    FastAPIApp ..> SilenceRouter : "挂载"
+    FastAPIApp ..> JobsRouter : "挂载"
+
+    %% ============ 复用的现有模块（逻辑不变） ============
+    class "common" {
+        +bjnow() / parse_beijing()
+        +resolve_channel() / render_template()
+        +should_skip_by_silence()
+        +room_enabled()
+    }
+    class "push_utils" {
+        +dispatch_event()
+        +dispatch_push() + SendResult
+    }
+    class "check_status" {
+        +fetch_bilibili_batch()
+        +fetch_douyin()
+        +should_push() + format_push_*
+        +run_live_check(cfg_all, persist)
+    }
+    class "check_new_posts" {
+        +get_latest_aweme()
+        +should_notify_new_post()
+        +run_post_check(cfg_all, persist)
+    }
+    class "auto_summary" {
+        +compute_since() / compute_summary()
+        +should_deliver()
+        +run_summary(cfg_all, persist)
+    }
+
+    LiveCheckJob ..> "check_status" : "复用纯函数"
+    PostCheckJob ..> "check_new_posts" : "复用纯函数"
+    SummaryJob ..> "auto_summary" : "复用纯函数"
+    DetectionService ..> "common" : "路由/模板/静默/时间"
+    DetectionService ..> "push_utils" : "dispatch_event"

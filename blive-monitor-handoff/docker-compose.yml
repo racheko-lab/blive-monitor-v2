@@ -1,0 +1,18 @@
+# blive-monitor 后端服务（阶段四）
+# 构建当前目录镜像，挂载 sqlite 库与封面目录，可选 Bearer 鉴权。
+services:
+  blive-monitor:
+    build: .
+    container_name: blive-monitor
+    ports:
+      - "8000:8000"
+    environment:
+      # 内网默认留空（无鉴权）；公网暴露时设强随机值，API 写接口需带 X-Bearer-Token。
+      - AUTH_TOKEN=${AUTH_TOKEN:-}
+      # 默认不自启调度器；如需后端自驱检测设为 "true"。
+      - START_SCHEDULER=${START_SCHEDULER:-false}
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data:/app/data
+      - ./assets/covers:/app/assets/covers
+    restart: unless-stopped

@@ -1,0 +1,59 @@
+%% ===== 图1：运行时日志初始化（两脚本共用） =====
+sequenceDiagram
+    autonumber
+    participant M as 脚本入口(main)
+    participant L as log_utils.init_runtime_logging
+    participant RFH as RotatingFileHandler
+    participant CH as StreamHandler(console)
+
+    M->>L: init_runtime_logging(level=INFO, log_dir="logs")
+    L->>L: 创建 logs/ 目录（若不存在）
+    L->>RFH: 新建 RotatingFileHandler(runtime.log, 5MB, 5备份)
+    L->>CH: 新建 StreamHandler(stdout)
+    L->>L: 设置格式化器（含 name/account 上下文）
+    L-->>M: 返回已配置 root logger
+    Note over M: 后续所有 logger.info/warning/error<br/>同时落盘 + 控制台
+
+%% ===== 图2：check_status 固化阶段 —— history.json 级联清理 =====
+sequenceDiagram
+    autonumber
+    participant CS as check_status.main
+    participant RJ as rooms.json
+    participant H as history.json
+    participant SP as state_prune
+    participant LU as log_utils
+
+    CS->>RJ: load_json_file(ROOMS_FILE)
+    RJ-->>CS: rooms[]
+    CS->>CS: active_keys = {f"{platform}|{id}" for r in rooms}
+    Note over CS: 检测每个房间状态，生成 log_entries<br/>（每条带 rid = r["id"]，新增字段）
+    CS->>LU: append_history(HISTORY_FILE, log_entries, HISTORY_MAX)
+    LU->>H: 原子写回（保留最近 N 条）
+    CS->>LU: load_history(HISTORY_FILE)
+    LU-->>CS: history[]
+    CS->>SP: prune_history_orphans(history, active_keys)
+    SP->>SP: 仅保留 entry["platform"]+"|"+entry["rid"] ∈ active_keys 的记录
+    SP-->>CS: 干净的 history[]
+    CS->>LU: save_json_file(HISTORY_FILE, 干净 history)
+    Note over CS: 已删直播房间（rooms.json 移除）的<br/>历史日志被级联清除，不再"假活着"
+
+%% ===== 图3：check_new_posts 固化阶段 —— post_tracking 级联清理（应急补丁归一） =====
+sequenceDiagram
+    autonumber
+    participant CNP as check_new_posts.main
+    participant PR as post_rooms.json
+    participant TR as post_tracking.json
+    participant SP as state_prune
+
+    Note over CNP: 遍历 post_rooms 抓取作品，解析 sec_uid/昵称
+    CNP->>PR: load_json_file(CONFIG_FILE)  # 重新读磁盘最新版
+    PR-->>CNP: current_rooms[]
+    CNP->>SP: merge_post_rooms_fields(CONFIG_FILE, resolved)
+    Note right of SP: 仅对仍存在的账号原地更新 sec_uid/name<br/>不复活已被前端删除的账号（替代原 772-801 补丁）
+    SP-->>CNP: rooms_changed? → save_json_file
+    CNP->>CNP: cur_keys = {f"douyin_{rid}" for rid in current_rooms}
+    CNP->>SP: prune_tracking_orphans(tracking, cur_keys)
+    SP->>SP: 删除 tracking 中 key∉cur_keys 的孤儿
+    SP-->>CNP: 干净的 tracking{}
+    CNP->>TR: save_json_file(TRACKING_FILE, tracking)
+    Note over CNP: 已删抖音号（post_rooms.json 移除）的<br/>tracking 状态被级联清除

@@ -1,0 +1,77 @@
+classDiagram
+    class LogUtils {
+        <<module: log_utils.py>>
+        +HISTORY_MAX: int = 500
+        +LOG_DIR: str = "logs"
+        +init_runtime_logging(level, log_dir) void
+        +get_logger(name, account) Logger
+        +load_history(path) List~HistoryEntry~
+        +append_history(path, new_entries, max_n) int
+        +cap_history(entries, max_n) List~HistoryEntry~
+    }
+
+    class StatePrune {
+        <<module: state_prune.py>>
+        +prune_history_orphans(history, active_keys) List~HistoryEntry~
+        +prune_tracking_orphans(tracking, active_keys) dict
+        +merge_post_rooms_fields(config_file, resolved) bool
+    }
+
+    class HistoryEntry {
+        +time: str
+        +name: str
+        +platform: str
+        +status: str
+        +title: str
+        +changed: bool
+        +prev: str
+        +push: str
+        +rid: str  %% 新增：用于孤儿识别（向后兼容，前端忽略）
+    }
+
+    class RoomEntry {
+        +platform: str
+        +id: str
+        +name: str
+        +sec_uid: str
+    }
+
+    class TrackingEntry {
+        +latest_aweme_id: str
+        +latest_ct: int
+        +mode: str
+        +latest_count: int
+        +nickname: str
+        +sec_uid: str
+        +need_cookie: bool
+        +latest_desc: str
+        +latest_type: str
+        +latest_url: str
+    }
+
+    class CheckStatus {
+        <<consumer: check_status.py>>
+        +main() void
+    }
+
+    class CheckNewPosts {
+        <<consumer: check_new_posts.py>>
+        +main() void
+    }
+
+    class MergeState {
+        <<module: merge_state.py>>
+        +merge_history(local, remote) List
+    }
+
+    LogUtils <.. CheckStatus : 调用
+    LogUtils <.. CheckNewPosts : 调用
+    StatePrune <.. CheckStatus : 调用
+    StatePrune <.. CheckNewPosts : 调用
+    LogUtils <.. MergeState : 提供 HISTORY_MAX
+    HistoryEntry <.. LogUtils : 读写
+    HistoryEntry <.. StatePrune : 裁剪
+    RoomEntry <.. StatePrune : 提供 active_keys
+    TrackingEntry <.. StatePrune : 裁剪
+    RoomEntry <.. CheckStatus : 加载 rooms.json
+    TrackingEntry <.. CheckNewPosts : 加载 post_tracking.json

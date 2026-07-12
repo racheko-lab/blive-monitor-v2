@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b12">
+<title>直播 &amp; 新作监控</title>
+<style>
+:root{
+  --bg:#0b0b12;--card:#15151f;--card2:#1b1b27;--line:rgba(255,255,255,.07);
+  --text:#ECECF1;--text2:#9a9aae;--text3:#66667a;
+  --bili:#fb7299;--dy:#22d3ee;--live:#ff4757;--green:#2ed573;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 50% -10%,rgba(251,114,153,.10),transparent),var(--bg);color:var(--text);min-height:100dvh;padding:0 0 40px;-webkit-font-smoothing:antialiased}
+.topbar{text-align:center;padding:40px 20px 22px}
+.logo{width:54px;height:54px;border-radius:16px;margin:0 auto 14px;display:grid;place-items:center;font-size:26px;background:linear-gradient(135deg,var(--bili),#ff7676);box-shadow:0 6px 20px rgba(251,114,153,.4)}
+h1{font-size:22px;font-weight:800}
+.sub{font-size:13px;color:var(--text2);margin-top:8px;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.6}
+.wrap{max-width:780px;margin:24px auto 0;padding:0 18px;display:grid;gap:14px}
+.opt{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:.2s;position:relative;overflow:hidden}
+.opt:hover{transform:translateY(-2px);border-color:rgba(251,114,153,.4)}
+.opt.official{border-color:rgba(46,213,115,.45);background:linear-gradient(135deg,rgba(46,213,115,.08),var(--card))}
+.opt .row{display:flex;align-items:center;gap:14px}
+.opt .ic{width:48px;height:48px;border-radius:13px;flex-shrink:0;display:grid;place-items:center;font-size:24px;background:var(--card2);border:1px solid var(--line)}
+.opt h2{font-size:17px;font-weight:800}
+.opt .tag{display:inline-block;font-size:10px;font-weight:800;padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
+.tag.rec{background:rgba(46,213,115,.18);color:var(--green)}
+.tag.alt{background:rgba(255,255,255,.08);color:var(--text2)}
+.opt p{font-size:13px;color:var(--text2);margin-top:10px;line-height:1.6}
+.opt .go{margin-top:12px;font-size:13px;font-weight:800;color:var(--bili)}
+.opt.official .go{color:var(--green)}
+.opt .arrow{position:absolute;right:18px;top:18px;font-size:18px;color:var(--text3)}
+.foot{text-align:center;color:var(--text3);font-size:12px;margin-top:26px;line-height:1.7}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">📡</div>
+  <h1>直播 &amp; 新作监控</h1>
+  <p class="sub">已采用 <strong>标签切换式</strong> 作为正式版（底部 tab 切换 直播 / 新作 / 日志）。下方三个为备选结构方案，可随时切换。</p>
+</header>
+
+<div class="wrap">
+  <a class="opt official" href="monitor.html">
+    <span class="arrow">→</span>
+    <div class="row"><div class="ic">🗂️</div><div><h2>标签切换式<span class="tag rec">✅ 当前正式版</span></h2></div></div>
+    <p>底部标签栏切换「直播 / 新作 / 日志」三个独立视图，首页只留概览+正在直播。移动端体验最佳，结构变化最大。</p>
+    <div class="go">进入正式版 →</div>
+  </a>
+
+  <a class="opt" href="monitor-dashboard.html">
+    <span class="arrow">→</span>
+    <div class="row"><div class="ic">🧱</div><div><h2>双栏仪表盘<span class="tag alt">备选方案</span></h2></div></div>
+    <p>桌面端左栏直播房间、右栏新作品+日志；移动端自动堆叠成单列。网格化、信息密度高。</p>
+    <div class="go">查看此方案 →</div>
+  </a>
+
+  <a class="opt" href="monitor-feed.html">
+    <span class="arrow">→</span>
+    <div class="row"><div class="ic">📰</div><div><h2>统一动态流<span class="tag alt">备选方案</span></h2></div></div>
+    <p>把直播状态、新作品、日志合并成一条按时间排序的信息流，正在直播的房间置顶。像社媒时间线。</p>
+    <div class="go">查看此方案 →</div>
+  </a>
+
+  <a class="opt" href="monitor-hero.html">
+    <span class="arrow">→</span>
+    <div class="row"><div class="ic">🌟</div><div><h2>英雄区+网格<span class="tag alt">备选方案</span></h2></div></div>
+    <p>顶部大英雄区展示正在直播（标题/人气/进入按钮），下方新作品网格卡片，日志折叠在底部。突出"当下在播"。</p>
+    <div class="go">查看此方案 →</div>
+  </a>
+</div>
+
+<div class="foot">
+  数据每 5 分钟自动刷新 · 切换方案不会丢失监控配置<br>
+  正式版随时可改回其他结构
+</div>
+</body>
+</html>

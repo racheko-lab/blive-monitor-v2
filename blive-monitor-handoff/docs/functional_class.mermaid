@@ -1,0 +1,86 @@
+classDiagram
+    direction TB
+
+    class HistoryEntry {
+        <<data model · dict>>
+        +str time        // "YYYY-MM-DD HH:MM:SS" (北京时间)
+        +str name
+        +str platform    // bilibili | douyin
+        +str status      // live|offline|replay|error|unknown (旧字段, 保留)
+        +str title
+        +bool changed
+        +str prev
+        +str push
+        +str rid         // 账号主键 (上轮已加)
+        +str type        // NEW: live_on|live_off|new_post|error|cookie_warn|system
+        +str level       // NEW: info|warn|error (可选, 由 type 推导)
+        +str detail      // NEW: 自由文本 (错误原因/作品链接/风控提示)
+        +str account     // NEW: 账号唯一键 (==rid, 供按账号视图)
+    }
+
+    class LogUtils {
+        <<module: log_utils.py · 横切收口>>
+        +EVENT_TYPES: frozenset
+        +LEVELS: frozenset
+        +ERROR_THROTTLE_MINUTES: int = 30
+        +STATUS_TO_TYPE: dict
+        +TYPE_TO_LEVEL: dict
+        +HISTORY_MAX: int = 500
+        +type_from_status(status) str
+        +level_from_type(t) str
+        +should_suppress(rid, etype, now, history_path, in_memory, window_minutes) bool
+        +dedupe_by_throttle(entries, now, history_path, in_memory) list
+        +compute_stats(history, days, now) dict
+        +load_history(path) list
+        +append_history(path, entries, max_n) int
+        +cap_history(entries, max_n) list
+        +init_runtime_logging(level, log_dir)
+        +get_logger(name, account)
+    }
+
+    class StatePrune {
+        <<module: state_prune.py · 级联清理>>
+        +prune_history_orphans(history, active_keys) list
+        +prune_tracking_orphans(tracking, active_keys) dict
+        +merge_post_rooms_fields(config_file, resolved) bool
+    }
+
+    class CheckStatus {
+        <<module: check_status.py>>
+        +main()
+        +build_log_entries(rooms, results, now) list~HistoryEntry~
+        +write_graded_log(entries, now, history_path)
+    }
+
+    class CheckNewPosts {
+        <<module: check_new_posts.py>>
+        +main()
+        +collect_hist_entries(now) list~HistoryEntry~
+        +append_event(rid, name, platform, etype, detail, level, now)
+    }
+
+    class MigrateHistoryTypes {
+        <<tool: tools/migrate_history_types.py>>
+        +run(history_path) int
+        +backfill_type(entry) entry
+    }
+
+    class FrontendLogView {
+        <<monitor.html JS · 纯原生>>
+        -logState: object
+        +loadHistory()
+        +computeStatsJS(hist, days) object
+        +applyFilters() list
+        +renderStats()
+        +renderLogList()
+        +onExpand(item)
+        +onLoadMore()
+        +readViewParam()
+    }
+
+    LogUtils ..> HistoryEntry : 产生/读取
+    CheckStatus ..> LogUtils : append_history / dedupe_by_throttle / type_from_status
+    CheckNewPosts ..> LogUtils : append_history / should_suppress / type_from_status
+    MigrateHistoryTypes ..> LogUtils : STATUS_TO_TYPE / TYPE_TO_LEVEL
+    StatePrune ..> HistoryEntry : 按 rid 裁剪孤儿
+    FrontendLogView ..> HistoryEntry : 渲染 (忽略未知字段即兼容)

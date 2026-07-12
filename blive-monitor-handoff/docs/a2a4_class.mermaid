@@ -1,0 +1,46 @@
+classDiagram
+    class common {
+        <<已有 · 与 monitor.html JS 逐字节一致>>
+        +resolve_channel(cfg, ctx) Dict
+        +render_template(tpl, ctx) str
+    }
+
+    class push_utils {
+        <<新增 API>>
+        +channel_to_push_cfg(ch) Dict
+        +dispatch_event(cfg_all, ctx, title, desp) SendResult
+        <<既有 · 不变>>
+        +dispatch_push(push_cfg, title, desp) SendResult
+        +load_push_cfg(raw, fallback) Dict
+    }
+
+    class check_status {
+        +load_config() Dict  // 新增返回 cfg_all
+        +format_push_title(name, result) str
+        +format_push_desp(name, platform, rid, result) str
+        +notify_step(newly_live, cfg_all, silence_cfg)
+    }
+
+    class check_new_posts {
+        +notify_new_post(room, title, desp, cfg_all, silence_cfg)
+    }
+
+    class auto_summary {
+        +main()
+    }
+
+    class notify_dedup {
+        +should_notify(key) bool
+        +record(key)
+        +prune()
+    }
+
+    push_utils ..> common : resolve_channel / render_template
+    check_status ..> push_utils : dispatch_event
+    check_new_posts ..> push_utils : dispatch_event
+    auto_summary ..> push_utils : dispatch_event
+    check_status ..> notify_dedup : record / should_notify
+    check_new_posts ..> notify_dedup : record / should_notify
+
+    note for push_utils "channel_to_push_cfg: 新通道{id,type,fields}→{type,**fields}；\nlegacy 扁平 dict 原样透传"
+    note for dispatch_event "内部: ch=resolve_channel → pcfg=channel_to_push_cfg(ch) → dispatch_push"

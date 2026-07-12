@@ -1,0 +1,4959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0F">
+<title>直播 &amp; 新作监控</title>
+<style id="theme-vars">
+/* ===== BLive Monitor - Brand CSS (Dark Mobile Dashboard) ===== */
+:root {
+  /* Brand primary - vibrant coral/red matching the original app icon */
+  --brand-primary: #FF4D6A;
+  --brand-primary-hover: #FF6B82;
+  --brand-primary-active: #E83D58;
+  --brand-primary-light: rgba(255, 77, 106, 0.12);
+  --brand-primary-lighter: rgba(255, 77, 106, 0.06);
+
+  /* Neutral scale - deep dark theme */
+  --color-bg-body: #0A0A0F;
+  --color-bg-surface: #141419;
+  --color-bg-surface-raised: #1A1A21;
+  --color-bg-surface-elevated: #22222A;
+  --color-bg-input: #1E1E26;
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-text-primary: #F5F5F7;
+  --color-text-secondary: rgba(245, 245, 247, 0.7);
+  --color-text-tertiary: rgba(245, 245, 247, 0.45);
+  --color-text-quaternary: rgba(245, 245, 247, 0.25);
+
+  /* Platform colors */
+  --color-bilibili: #00D4F5;
+  --color-bilibili-bg: rgba(0, 212, 245, 0.1);
+  --color-douyin: #FE2C55;
+  --color-douyin-bg: rgba(254, 44, 85, 0.1);
+
+  /* State / semantic colors */
+  --state-success: #30D158;
+  --state-success-bg: rgba(48, 209, 88, 0.12);
+  --state-warning: #FF9F0A;
+  --state-warning-bg: rgba(255, 159, 10, 0.12);
+  --state-error: #FF453A;
+  --state-error-bg: rgba(255, 69, 58, 0.12);
+  --state-info: #0A84FF;
+  --state-info-bg: rgba(10, 132, 255, 0.12);
+
+  /* Live indicator pulse */
+  --state-live: #FF3B30;
+  --state-live-glow: rgba(255, 59, 48, 0.4);
+  --state-offline: rgba(255, 255, 255, 0.2);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --font-size-display: 28px;
+  --font-size-h1: 22px;
+  --font-size-h2: 18px;
+  --font-size-h3: 16px;
+  --font-size-body: 14px;
+  --font-size-caption: 12px;
+  --font-size-tiny: 11px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.6;
+
+  /* Radius scale - restrained */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  /* Shadows - subtle for dark theme, alpha <= 0.05 for static surfaces */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.05);
+  --shadow-glow-live: 0 0 8px var(--state-live-glow);
+  --shadow-glow-primary: 0 0 12px rgba(255, 77, 106, 0.25);
+
+  /* Tab bar */
+  --tab-bar-height: 64px;
+  --header-height: 56px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== Base Reset ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background: var(--color-bg-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Mobile viewport container */
+.mobile-container {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-bg-body);
+  position: relative;
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom));
+}
+
+/* ===== Typography Classes ===== */
+.blm-display {
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.blm-h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+}
+
+.blm-h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.blm-h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.blm-body {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.blm-caption {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-tertiary);
+}
+
+.blm-tiny {
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.blm-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Header ===== */
+.blm-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 var(--spacing-lg);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.blm-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.blm-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #FF6B82, #FF4D6A, #E83D58);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-primary);
+  flex-shrink: 0;
+}
+
+.blm-header-info h1 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.blm-header-info .blm-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--state-success-bg);
+  border: 1px solid rgba(48, 209, 88, 0.2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--state-success);
+}
+
+.blm-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--state-success);
+  flex-shrink: 0;
+}
+
+.blm-status-dot.live {
+  background: var(--state-live);
+  box-shadow: 0 0 6px var(--state-live-glow);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.blm-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.blm-icon-btn:active {
+  background: var(--color-bg-surface-elevated);
+  transform: scale(0.95);
+}
+
+/* ===== Content Area ===== */
+.blm-content {
+  padding: var(--spacing-lg);
+  padding-bottom: calc(var(--spacing-2xl) + var(--tab-bar-height));
+}
+
+/* ===== Quick Stats Bar ===== */
+.blm-stats-bar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-stat-card {
+  flex: 1;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.blm-stat-card:active {
+  background: var(--color-bg-surface-raised);
+  transform: scale(0.98);
+}
+
+.blm-stat-card.primary {
+  background: linear-gradient(135deg, rgba(255, 77, 106, 0.15), rgba(255, 77, 106, 0.05));
+  border-color: rgba(255, 77, 106, 0.2);
+}
+
+.blm-stat-value {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-stat-card.primary .blm-stat-value {
+  color: var(--brand-primary);
+}
+
+.blm-stat-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ===== Section ===== */
+.blm-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.blm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.blm-section-title {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-section-action {
+  font-size: var(--font-size-caption);
+  color: var(--brand-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ===== Filter Tabs ===== */
+.blm-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.blm-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.blm-filter-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.blm-filter-chip.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: white;
+}
+
+.blm-filter-chip:active {
+  transform: scale(0.96);
+}
+
+/* ===== Search Bar ===== */
+.blm-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 8px var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.blm-search-bar input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+}
+
+.blm-search-bar input::placeholder {
+  color: var(--color-text-quaternary);
+}
+
+.blm-search-icon {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ===== Room Card (Live Monitor) ===== */
+.blm-room-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-room-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.blm-room-card:active {
+  background: var(--color-bg-surface-raised);
+  transform: scale(0.99);
+}
+
+.blm-room-card.live {
+  border-color: rgba(255, 59, 48, 0.3);
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.08), var(--color-bg-surface));
+}
+
+.blm-room-card.live::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--state-live);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: var(--shadow-glow-live);
+}
+
+.blm-room-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.blm-room-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-room-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: 4px;
+}
+
+.blm-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.blm-platform-badge.bilibili {
+  background: var(--color-bilibili-bg);
+  color: var(--color-bilibili);
+}
+
+.blm-platform-badge.douyin {
+  background: var(--color-douyin-bg);
+  color: var(--color-douyin);
+}
+
+.blm-room-name {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--state-error-bg);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-bold);
+  color: var(--state-live);
+  flex-shrink: 0;
+}
+
+.blm-live-badge .blm-status-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.blm-offline-badge {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+}
+
+.blm-room-title {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+
+.blm-room-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.blm-room-meta-item {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.blm-room-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+
+.blm-room-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: var(--brand-primary-light);
+  color: var(--brand-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.blm-room-link:active {
+  background: rgba(255, 77, 106, 0.2);
+}
+
+.blm-room-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-quaternary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.blm-room-remove:active {
+  background: var(--state-error-bg);
+  color: var(--state-error);
+}
+
+.blm-add-room-btn {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 2px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.blm-add-room-btn:active {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-primary-lighter);
+}
+
+.blm-update-time {
+  text-align: center;
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-quaternary);
+  margin-bottom: var(--spacing-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Log Timeline ===== */
+.blm-log-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-log-summary-item {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  text-align: center;
+}
+
+.blm-log-summary-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-log-summary-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.blm-log-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.blm-log-item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  position: relative;
+  align-items: flex-start;
+}
+
+.blm-log-item:last-child {
+  border-bottom: none;
+}
+
+.blm-log-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.blm-log-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-text-quaternary);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+/* 配色类必须与冻结的 renderLogItem 输出严格对齐（JS 不改）：
+   cls ∈ {live, off, err, warn, dy}（typeMeta 的 c 字段映射后取值）。
+   live=直播红 / off=离线灰 / err=异常黄 / warn=风控黄 / dy=新作品抖音红。 */
+.blm-log-dot.live { background: var(--state-live); }
+.blm-log-dot.off { background: var(--color-text-tertiary); }
+.blm-log-dot.err { background: var(--state-warning); }
+.blm-log-dot.warn { background: var(--state-warning); }
+.blm-log-dot.dy { background: var(--color-douyin); }
+
+.blm-log-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-log-room {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.blm-log-stream-title {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-regular);
+  margin-left: 4px;
+}
+
+.blm-log-detail-btn {
+  font-size: var(--font-size-tiny);
+  color: var(--brand-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-weight: var(--font-weight-medium);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ===== Settings / Config ===== */
+.blm-config-group {
+  margin-bottom: var(--spacing-xl);
+}
+
+.blm-config-group-title {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--spacing-sm);
+  padding: 0 var(--spacing-sm);
+}
+
+.blm-config-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.blm-config-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+  gap: var(--spacing-md);
+}
+
+.blm-config-item:last-child {
+  border-bottom: none;
+}
+
+.blm-config-item.vertical {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.blm-config-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-config-item-title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-config-item-desc {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-relaxed);
+}
+
+.blm-config-status {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.blm-config-status.success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+
+.blm-config-status.warning {
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+
+.blm-config-status.error {
+  background: var(--state-error-bg);
+  color: var(--state-error);
+}
+
+.blm-config-status.neutral {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-tertiary);
+}
+
+.blm-input {
+  width: 100%;
+  padding: 10px var(--spacing-md);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s ease;
+  margin-top: var(--spacing-sm);
+}
+
+.blm-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.blm-input::placeholder {
+  color: var(--color-text-quaternary);
+}
+
+.blm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-family);
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.blm-btn-primary {
+  background: var(--brand-primary);
+  color: white;
+}
+
+.blm-btn-primary:active {
+  background: var(--brand-primary-active);
+  transform: scale(0.98);
+}
+
+.blm-btn-secondary {
+  background: var(--color-bg-surface-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+}
+
+.blm-btn-secondary:active {
+  background: var(--color-bg-surface-raised);
+}
+
+.blm-btn-block {
+  width: 100%;
+}
+
+.blm-push-option {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.blm-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.blm-radio.selected {
+  border-color: var(--brand-primary);
+}
+
+.blm-radio.selected::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--brand-primary);
+}
+
+.blm-push-option-text {
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+}
+
+.blm-push-option-note {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+}
+
+/* ===== Dashboard ===== */
+.blm-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-dash-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+}
+
+.blm-dash-card.full-width {
+  grid-column: 1 / -1;
+}
+
+/* ===== 阶段二 2a：定时摘要卡片 / 开关 / 分段控件 / 批量添加 ===== */
+.blm-summary-card {
+  margin-bottom: var(--spacing-md, 12px);
+}
+.blm-summary-card .blm-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.blm-summary-title {
+  font-size: var(--font-size-h3, 15px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary);
+}
+.blm-summary-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: var(--color-text-secondary);
+}
+.blm-summary-badge.sent {
+  color: var(--color-text-tertiary);
+}
+.blm-summary-badge.pending {
+  color: var(--yellow, #f1c40f);
+  background: rgba(241,196,15,0.12);
+}
+.blm-summary-text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 8px 0 12px;
+}
+.blm-summary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 开关（checkbox 样式化） */
+.blm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.blm-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-border-strong, #2a2f3a);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .2s;
+  margin: 0;
+}
+.blm-switch:checked {
+  background: var(--color-accent, #3b82f6);
+}
+.blm-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+}
+.blm-switch:checked::after {
+  transform: translateX(20px);
+}
+
+/* 分段控件（每日/每周） */
+.blm-segmented {
+  display: inline-flex;
+  background: var(--color-bg-surface, #14171d);
+  border: 1px solid var(--color-border-subtle, #2a2f3a);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.blm-segmented button {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.blm-segmented button.active {
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+}
+
+/* 批量添加 */
+.blm-batch-add {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--color-border-subtle, #2a2f3a);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,0.02);
+}
+.blm-batch-add textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 84px;
+  resize: vertical;
+}
+.blm-batch-preview {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.blm-batch-preview .blm-batch-item {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.blm-batch-preview .blm-batch-bad {
+  color: var(--yellow, #f1c40f);
+}
+.blm-batch-preview .blm-pf-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+}
+
+.blm-dash-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.blm-dash-value {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-dash-sub {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.blm-dash-chart {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-chart-title {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+  padding-top: var(--spacing-sm);
+}
+
+.blm-chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.blm-chart-bar {
+  width: 100%;
+  max-width: 28px;
+  background: linear-gradient(180deg, var(--brand-primary), rgba(255, 77, 106, 0.4));
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+.blm-chart-label {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-quaternary);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-rank-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.blm-rank-num {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+}
+
+.blm-rank-num.gold {
+  background: linear-gradient(135deg, #FFD60A, #FF9500);
+  color: #000;
+}
+
+.blm-rank-num.silver {
+  background: linear-gradient(135deg, #E5E5EA, #8E8E93);
+  color: #000;
+}
+
+.blm-rank-num.bronze {
+  background: linear-gradient(135deg, #FFA07A, #CD7F32);
+  color: #000;
+}
+
+.blm-rank-num.normal {
+  background: var(--color-bg-surface-elevated);
+  color: var(--color-text-tertiary);
+}
+
+.blm-rank-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-rank-name {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-rank-count {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-tertiary);
+}
+
+.blm-platform-dist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.blm-dist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.blm-dist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-caption);
+}
+
+.blm-dist-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.blm-dist-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.blm-dist-bar {
+  height: 6px;
+  background: var(--color-bg-input);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.blm-dist-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.5s ease;
+}
+
+.blm-dist-fill.bilibili { background: var(--color-bilibili); }
+.blm-dist-fill.douyin { background: var(--color-douyin); }
+
+.blm-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.blm-health-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--state-warning-bg);
+  border: 1px solid rgba(255, 159, 10, 0.15);
+  border-radius: var(--radius-md);
+}
+
+.blm-health-icon {
+  flex-shrink: 0;
+  color: var(--state-warning);
+  margin-top: 2px;
+}
+
+.blm-health-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.blm-health-title {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.blm-health-desc {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.blm-health-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+/* ===== New Works Grid ===== */
+.blm-works-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-sm);
+}
+
+.blm-work-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.blm-work-card:active {
+  transform: scale(0.98);
+}
+
+.blm-work-thumb {
+  width: 100%;
+  aspect-ratio: 3/4;
+  background: linear-gradient(135deg, var(--color-bg-surface-elevated), var(--color-bg-surface-raised));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-decoration: none;
+}
+
+.blm-work-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blm-work-thumb-placeholder {
+  color: var(--color-text-quaternary);
+  font-size: 32px;
+}
+
+.blm-work-platform-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-semibold);
+  backdrop-filter: blur(8px);
+}
+
+.blm-work-platform-tag.bilibili {
+  background: rgba(0, 212, 245, 0.9);
+  color: #000;
+}
+
+.blm-work-platform-tag.douyin {
+  background: rgba(254, 44, 85, 0.9);
+  color: white;
+}
+
+.blm-work-info {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.blm-work-author {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blm-work-desc {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-secondary);
+  margin: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blm-work-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+/* ===== Bottom Tab Bar ===== */
+.blm-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  background: rgba(20, 20, 25, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  padding-bottom: var(--safe-area-bottom);
+  z-index: 100;
+}
+
+.blm-tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 0 calc(8px + var(--safe-area-bottom));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  border: none;
+  background: none;
+  font-family: var(--font-family);
+  color: var(--color-text-quaternary);
+}
+
+.blm-tab-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-text-quaternary);
+  transition: color 0.15s ease;
+}
+
+.blm-tab-label {
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-quaternary);
+  transition: color 0.15s ease;
+}
+
+.blm-tab-item.active .blm-tab-icon,
+.blm-tab-item.active .blm-tab-label {
+  color: var(--brand-primary);
+}
+
+.blm-tab-item.active .blm-tab-icon {
+  transform: scale(1.1);
+}
+
+/* ===== Freshness Banner ===== */
+.blm-freshness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--state-success-bg);
+  border: 1px solid rgba(48, 209, 88, 0.15);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.blm-freshness-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.blm-freshness-text {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--state-success);
+}
+
+.blm-freshness-time {
+  font-size: var(--font-size-tiny);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Animations ===== */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.blm-room-card, .blm-log-item, .blm-dash-card, .blm-config-card, .blm-work-card {
+  animation: fade-in 0.3s ease forwards;
+}
+
+/* ===== Scrollbar (minimal) ===== */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ============================================================= */
+/* ===== 集成兼容层：遗留变量别名（§2.2） ===== */
+/* ============================================================= */
+:root {
+  --green: #30D158;
+  --yellow: #FF9F0A;
+  --live: #FF3B30;
+  --bili: #00D4F5;
+  --dy: #FE2C55;
+  --text: #F5F5F7;
+  --text2: rgba(245, 245, 247, 0.7);
+  --text3: rgba(245, 245, 247, 0.45);
+  --card: #141419;
+  --card2: #1A1A21;
+  --line: rgba(255, 255, 255, 0.07);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --bili-soft: rgba(0, 212, 245, 0.14);
+  --dy-soft: rgba(254, 44, 85, 0.13);
+  --bg: #0A0A0F;
+  --radius: 16px;
+}
+
+/* ============================================================= */
+/* ===== Phase-1 保留类（§2.3）—— 供 JS 内联 / 详情展开依赖 ===== */
+/* ============================================================= */
+
+/* 视图显隐（show() 切换 .active）—— 必须保留 */
+.view {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0;
+  display: none;
+}
+.view.active { display: block; animation: fade .25s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* 健康条：renderHealthBar 兜底（其输出 className 改为 blm-freshness，但旧规则保留兼容） */
+.health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(10, 10, 15, 0.55);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  transition: .3s;
+}
+.health .h-ic { font-size: 14px; line-height: 1; flex-shrink: 0; }
+.health .h-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.health .h-time { color: var(--text2); font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.health.ok { color: var(--green); }
+.health.ok .h-time { color: rgba(48, 209, 88, 0.7); }
+.health.warn { color: var(--yellow); }
+.health.warn .h-time { color: rgba(255, 165, 2, 0.75); }
+.health.stale, .health.fail { color: var(--live); }
+.health.stale .h-time, .health.fail .h-time { color: rgba(255, 71, 87, 0.75); }
+
+/* .blm-freshness 状态配色（renderHealthBar 输出 .blm-freshness.{state}） */
+.blm-freshness.ok { background: var(--state-success-bg); border-color: rgba(48, 209, 88, 0.15); }
+.blm-freshness.ok .blm-freshness-text { color: var(--state-success); }
+.blm-freshness.warn { background: var(--state-warning-bg); border-color: rgba(255, 159, 10, 0.15); }
+.blm-freshness.warn .blm-freshness-text { color: var(--state-warning); }
+.blm-freshness.warn .blm-status-dot { background: var(--state-warning); }
+.blm-freshness.stale, .blm-freshness.fail { background: var(--state-error-bg); border-color: rgba(255, 69, 58, 0.15); }
+.blm-freshness.stale .blm-freshness-text, .blm-freshness.fail .blm-freshness-text { color: var(--state-error); }
+.blm-freshness.stale .blm-status-dot, .blm-freshness.fail .blm-status-dot { background: var(--state-error); }
+
+/* 状态点（ld() 写入 <span class="dot ...">） */
+.blm-status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; transition: .3s; }
+.blm-status-pill .dot.on { background: var(--state-live); box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.22); animation: pulse-dot 1.6s infinite; }
+.blm-status-pill .dot.err { background: var(--state-warning); }
+.blm-status-pill .dot.ok { background: var(--state-success); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); } 70% { box-shadow: 0 0 0 7px rgba(255, 59, 48, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); } }
+
+/* 平台徽标 / 状态（.pf.ok/.pf.bad 为 P0-5 保留；.pf.bili/.pf.dy 供配置页平台标签） */
+.pf { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 7px; }
+.pf.bili { background: var(--bili-soft); color: var(--bili); }
+.pf.dy { background: var(--dy-soft); color: var(--dy); }
+.pf.ok { background: rgba(48, 213, 115, 0.15); color: var(--green); }
+.pf.bad { background: rgba(255, 71, 87, 0.15); color: var(--live); }
+
+/* 推送标记（renderLogItem；.pt-* 内联用 --green/--live） */
+.push-tag { font-size: 9px; padding: 1px 5px; border-radius: 6px; font-weight: 800; margin-left: 5px; }
+.pt-ok { background: rgba(48, 213, 115, 0.16); color: var(--green); }
+.pt-fail { background: rgba(255, 71, 87, 0.16); color: var(--live); }
+.pt-skip { background: rgba(255, 255, 255, 0.08); color: var(--text2); }
+.chg { color: var(--yellow); font-weight: 800; }
+
+/* 轻量 toast（toast()） */
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(20px); z-index: 50; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #fff; box-shadow: var(--shadow); opacity: 0; transition: .25s; pointer-events: none; max-width: 80vw; text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.ok { background: rgba(48, 213, 115, 0.95); }
+.toast.err { background: rgba(255, 71, 87, 0.95); }
+
+/* 空态（各 render 空态） */
+.empty { text-align: center; padding: 40px 16px; color: var(--color-text-tertiary); font-size: 13px; }
+
+/* 筛选 chip 兼容（fil() 用 .chip / setChipActive 用 .lchip；叠加 .blm-filter-chip 外观） */
+.blm-filter-chip, .chip, .lchip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.blm-filter-chip.active, .chip.active, .lchip.active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+/* 添加监控表单容器（toggleAddForm 用 display 切换） */
+.blm-add-form {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  background: var(--color-bg-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+}
+
+/* 日志筛选行（账号 / 日期 / 排序） */
+.blm-log-filter { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.blm-log-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.blm-log-row .blm-input { flex: 1; min-width: 120px; margin-top: 0; }
+#logSearch { flex: 1; min-width: 140px; }
+#logAccount, #logDate { flex: 0 1 auto; min-width: 120px; }
+
+/* 加载更多（日志分页） */
+.loadmore { text-align: center; padding: 11px; color: var(--brand-primary); font-size: 12px; font-weight: 700; cursor: pointer; border: 1px dashed var(--color-border-default); border-radius: 10px; margin-top: 6px; }
+
+/* 日志详情展开（Phase-1：.log-detail / .chev / .ld-* 必须保留） */
+.log-item-clickable { cursor: pointer; }
+.log-detail { display: none; margin-top: 8px; padding: 9px 11px; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 10px; font-size: 11.5px; line-height: 1.7; }
+.log-detail.open { display: block; }
+.ld-row { display: flex; gap: 8px; }
+.ld-k { color: var(--color-text-tertiary); min-width: 42px; flex-shrink: 0; }
+.ld-v { color: var(--color-text-primary); word-break: break-all; }
+.chev { margin-left: auto; color: var(--color-text-tertiary); font-size: 10px; transition: .2s; transform: rotate(-90deg); flex-shrink: 0; }
+.log-item-clickable.open .chev { transform: rotate(0); }
+
+/* kpiFresh 长 label 缩小字号避免溢出 */
+#kpiFresh { font-size: 12px; line-height: 1.2; }
+
+/* ===================== 阶段二 2c：新增样式（全部套 .blm-* 设计系统） ===================== */
+/* C2 趋势区间分段控件 */
+.blm-segmented { display: inline-flex; gap: 4px; background: var(--color-bg-surface-raised, #161b22); border: 1px solid var(--color-border-subtle, #2a2f3a); border-radius: 999px; padding: 3px; margin-bottom: 10px; }
+.blm-seg-item { border: 0; background: transparent; color: var(--color-text-secondary, #9aa4b2); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.blm-seg-item.active { background: var(--brand-primary); color: #fff; }
+.blm-seg-item:hover:not(.active) { color: var(--color-text-primary, #e6edf3); }
+
+/* C2 趋势数据不足提示 */
+.blm-chart-note { padding: 18px; text-align: center; color: var(--color-text-tertiary, #6e7681); font-size: 13px; background: var(--color-bg-surface-raised, #161b22); border: 1px dashed var(--color-border-default, #30363d); border-radius: 12px; }
+
+/* C1 开播时长卡片 */
+#kpiDuration { font-size: 12px; line-height: 1.5; }
+.blm-duration-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.blm-duration-item .dk { color: var(--color-text-tertiary, #6e7681); }
+.blm-duration-item .dv { color: var(--color-text-primary, #e6edf3); font-weight: 700; }
+.blm-duration-ongoing { color: var(--brand-primary); font-size: 11px; margin-top: 4px; }
+
+/* C3 详情弹层（复用 .blm-modal 结构，扩展关闭/内容样式） */
+.blm-modal-close { margin-left: auto; border: 0; background: transparent; color: var(--color-text-tertiary, #6e7681); font-size: 16px; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 8px; }
+.blm-modal-close:hover { color: var(--color-text-primary, #e6edf3); background: var(--color-bg-surface-raised, #161b22); }
+.blm-detail-section { margin: 14px 0; }
+.blm-detail-section h4 { margin: 0 0 8px; font-size: 13px; color: var(--color-text-secondary, #9aa4b2); display: flex; align-items: center; gap: 6px; }
+.blm-detail-section h4::before { content: ""; width: 3px; height: 12px; background: var(--brand-primary); border-radius: 2px; display: inline-block; }
+.blm-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.blm-detail-grid .dk { color: var(--color-text-tertiary, #6e7681); font-size: 12px; }
+.blm-detail-grid .dv { color: var(--color-text-primary, #e6edf3); font-size: 13px; font-weight: 600; word-break: break-all; }
+.blm-detail-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--brand-primary-light, rgba(255,77,106,0.12)); color: var(--brand-primary); font-size: 11px; font-weight: 700; margin-right: 4px; }
+.blm-detail-mini-bars { display: flex; align-items: flex-end; gap: 2px; height: 60px; }
+.blm-detail-mini-bar { flex: 1; background: var(--brand-primary); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+.blm-detail-mini-bar span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--color-text-tertiary, #6e7681); }
+.blm-detail-mini-label { font-size: 10px; color: var(--color-text-tertiary, #6e7681); text-align: center; margin-top: 4px; }
+.blm-dash-export { margin-left: auto; }
+
+/* 房间卡详情按钮（复用 .blm-room-edit 视觉语言） */
+.blm-room-detail { border: 0; background: transparent; color: var(--color-text-tertiary, #6e7681); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 6px; }
+.blm-room-detail:hover { color: var(--brand-primary); background: var(--brand-primary-light, rgba(255,77,106,0.12)); }
+
+/* ============================================================= */
+/* ===== 响应式布局（布局与视觉层重构：桌面端不再死锁 430px） ===== */
+/* ============================================================= */
+
+/* 平板：容器放宽到舒适阅读宽度（移动端 ≤640px 的 430px 手机框体验不变） */
+@media (min-width: 768px) {
+  .mobile-container { max-width: 720px; }
+  .blm-tab-bar { max-width: 720px; }
+}
+
+/* 桌面：宽屏结构化布局，内容多列网格，告别「窄条漂浮在空白里」 */
+@media (min-width: 1100px) {
+  .mobile-container { max-width: 1080px; }
+  .blm-tab-bar { max-width: 1080px; }
+  .blm-header { padding-left: var(--spacing-3xl); padding-right: var(--spacing-3xl); }
+  .blm-content {
+    padding: var(--spacing-2xl) var(--spacing-3xl);
+    padding-bottom: calc(var(--spacing-3xl) + var(--tab-bar-height));
+  }
+
+  /* 直播房间卡：2 列网格（首行更新时间条跨整行） */
+  #liveBody {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    align-items: start;
+  }
+  #liveBody > .blm-update-time { grid-column: 1 / -1; }
+
+  /* 新作卡：3 列网格 */
+  .blm-works-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* 日志：2 列网格降低滚动，加载更多跨整行 */
+  #logBody {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: var(--spacing-lg);
+    row-gap: 0;
+  }
+  #logBody > .loadmore { grid-column: 1 / -1; }
+
+  /* 仪表盘图表块：趋势 / 排行 / 分布 / 通知 两两并排 */
+  .blm-dash-charts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+  }
+
+  /* 筛选 chip 行在宽屏下换行而非横向滚动溢出 */
+  #logTypeChips, #logPfChips { flex-wrap: wrap; overflow-x: visible; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-container">
+  <!-- Header -->
+  <header class="blm-header">
+    <div class="blm-header-left">
+      <div class="blm-logo">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="16" height="16" rx="3" stroke="white" stroke-width="1.8"/>
+          <path d="M7 7L13 10L7 13V7Z" fill="white"/>
+        </svg>
+      </div>
+      <div class="blm-header-info">
+        <h1>直播 &amp; 新作监控</h1>
+        <div class="blm-time blm-mono" id="stime">--:--:--</div>
+      </div>
+    </div>
+    <div class="blm-header-right">
+      <button class="blm-icon-btn" onclick="ld()" title="刷新">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 8a6 6 0 0 1 10.3-4.2L14 2v4h-4l1.5-1.5A4 4 0 1 0 12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="blm-status-pill" id="sdot"><span class="dot"></span><span class="txt">加载中</span></div>
+    </div>
+  </header>
+
+  <!-- P0-1 监控自检健康条：常驻跨 tab，复用 calcFreshness / renderHealthBar -->
+  <div class="blm-freshness" id="healthBar">
+    <div class="blm-freshness-left">
+      <span class="blm-status-dot"></span>
+      <span class="blm-freshness-text">监控自检中…</span>
+    </div>
+    <span class="blm-freshness-time blm-mono">--</span>
+  </div>
+
+  <main class="blm-content">
+    <!-- 全局概览三卡（ld() 直写 #statLive/#statRooms/#statPosts） -->
+    <div class="blm-stats-bar">
+      <div class="blm-stat-card primary">
+        <div class="blm-stat-value" id="statLive">0</div>
+        <div class="blm-stat-label">直播中</div>
+      </div>
+      <div class="blm-stat-card">
+        <div class="blm-stat-value" id="statRooms">0</div>
+        <div class="blm-stat-label">监控房间</div>
+      </div>
+      <div class="blm-stat-card">
+        <div class="blm-stat-value" id="statPosts">0</div>
+        <div class="blm-stat-label">新作品号</div>
+      </div>
+    </div>
+
+    <!-- Live Monitor Section -->
+    <section class="view active" id="view-live">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="1.5" y="4" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M12.5 7l4-2.5v7l-4-2.5V7z" fill="currentColor"/>
+            </svg>
+            直播监控
+          </h2>
+        </div>
+
+        <!-- 阶段二 2a：A1 定时摘要卡（直播视图顶部） -->
+        <div id="summaryCard" class="blm-summary-card blm-dash-card full-width" style="display:none">
+          <div class="blm-summary-head">
+            <span id="summaryTitle" class="blm-summary-title">今日摘要</span>
+            <span id="summaryBadge" class="blm-summary-badge">—</span>
+          </div>
+          <div id="summaryText" class="blm-summary-text">暂无新动态</div>
+          <div class="blm-summary-actions">
+            <button class="blm-btn blm-btn-secondary" id="btnCopySummary" onclick="copySummary()">📋 复制摘要</button>
+            <button class="blm-btn blm-btn-primary" id="btnPushSummary" onclick="requestPushSummary()">📨 请求推送</button>
+          </div>
+        </div>
+
+        <!-- Filter Chips（fil() 用 .chip 按索引设 active，叠加 .blm-filter-chip 外观） -->
+        <div class="blm-filter-bar">
+          <button class="blm-filter-chip chip active" onclick="fil('all')">全部</button>
+          <button class="blm-filter-chip chip" onclick="fil('bilibili')">哔哩哔哩</button>
+          <button class="blm-filter-chip chip" onclick="fil('douyin')">抖音</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="blm-search-bar">
+          <svg class="blm-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <input id="liveSearch" type="search" placeholder="搜索房间名 / ID" oninput="onLiveSearch(this.value)">
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('liveSearch').value='';onLiveSearch('')">✕</button>
+        </div>
+
+        <!-- 阶段二 2b：B2 标签筛选 + B4 排序（与 .chip 平台 / q 搜索 AND 叠加） -->
+        <div class="blm-filter-bar" id="liveTagBar" style="margin-top:10px">
+          <!-- 标签 chip 由 renderTagChips() 动态填充（全部 + 各 tag） -->
+        </div>
+        <div class="blm-sort-bar" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span class="blm-config-item-title" style="margin:0">排序</span>
+          <select id="sortSel" class="blm-input blm-select" onchange="onSortChange(this.value)" style="max-width:180px">
+            <option value="default">默认</option>
+            <option value="live">直播中优先</option>
+            <option value="platform">平台（B站→抖音）</option>
+            <option value="recent">最近活跃</option>
+          </select>
+        </div>
+
+        <!-- 阶段二 2b B3：批量操作条（勾选后出现） -->
+        <div id="batchBar" class="blm-batch-bar" style="display:none">
+          <button class="blm-btn" onclick="selectAllInView('live')">全选</button>
+          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <span id="batchCount" class="blm-batch-count">已选 0</span>
+        </div>
+
+
+        <!-- Add Room（保留 #addWrap/#addForm/#addPlatform/#addId/#addName 及 handler） -->
+        <div id="addWrap" style="display:none">
+          <button class="blm-add-room-btn" onclick="toggleAddForm()">＋ 添加监控</button>
+          <div class="blm-add-form" id="addForm" style="display:none">
+            <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
+              <option value="bilibili">B站</option>
+              <option value="douyin">抖音</option>
+            </select>
+            <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
+            <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
+            <input id="roomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+            <button class="blm-btn blm-btn-primary" onclick="submitAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="toggleAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 批量添加直播房间 -->
+        <div class="blm-batch-add">
+          <div class="blm-config-item-title">批量添加房间</div>
+          <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
+          <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
+          <div id="batchPreview" class="blm-batch-preview"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
+          </div>
+        </div>
+
+        <div id="liveBody"><div class="empty">🔄 加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- New Works Section -->
+    <section class="view" id="view-posts">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
+            </svg>
+            新作监控
+          </h2>
+          <span class="blm-section-action" id="postsCount"></span>
+        </div>
+
+        <div class="blm-search-bar">
+          <svg class="blm-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <input id="postsSearch" type="search" placeholder="搜索 备注名/抖音号/昵称…" oninput="onPostsSearch(this.value)">
+          <button class="blm-room-remove" title="清除搜索" onclick="document.getElementById('postsSearch').value='';onPostsSearch('')">✕</button>
+        </div>
+
+        <!-- 阶段二 2b B2：标签筛选（与 q 搜索 AND 叠加） -->
+        <div class="blm-filter-bar" id="postsTagBar" style="margin-top:10px"></div>
+
+        <div id="postAddWrap" style="display:none">
+          <button class="blm-add-room-btn" onclick="togglePostAddForm()">＋ 添加抖音号</button>
+          <div class="blm-add-form" id="postAddForm" style="display:none">
+            <input id="postAddId" class="blm-input" placeholder="抖音号 / sec_uid（粘贴 sec_uid 可立即生效）" autocomplete="off">
+            <input id="postAddName" class="blm-input" placeholder="备注名（可选）" autocomplete="off">
+            <input id="postRoomTags" class="blm-input" placeholder="标签（可选，逗号分隔，如 游戏,学习）" autocomplete="off">
+            <button class="blm-btn blm-btn-primary" onclick="submitPostAdd()">添加</button>
+            <button class="blm-btn blm-btn-secondary" onclick="togglePostAddForm(false)">取消</button>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 批量添加抖音号（新作） -->
+        <div class="blm-batch-add">
+          <div class="blm-config-item-title">批量添加抖音号</div>
+          <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
+          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+          <div id="postBatchPreview" class="blm-batch-preview"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b B3：抖音号批量操作条（与直播共用 selected 全局） -->
+        <div id="batchBarPosts" class="blm-batch-bar" style="display:none">
+          <button class="blm-btn" onclick="selectAllInView('posts')">全选</button>
+          <button class="blm-btn blm-btn-warning" onclick="pauseSelected()">暂停选中</button>
+          <button class="blm-btn blm-btn-primary" onclick="resumeSelected()">恢复选中</button>
+          <span id="batchCountPosts" class="blm-batch-count">已选 0</span>
+        </div>
+
+        <div id="postsBody" class="blm-works-grid"></div>
+      </div>
+    </section>
+
+    <!-- Log Section -->
+    <section class="view" id="view-log">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M7 8h8M7 11h8M7 14h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            监控日志
+          </h2>
+          <span class="blm-section-action" id="logCount"></span>
+        </div>
+
+        <div id="logStats" class="blm-log-summary"></div>
+
+        <div id="logFilter" class="blm-log-filter">
+          <input id="logSearch" class="blm-input" placeholder="搜索 名称/标题/详情…" oninput="onLogSearch()">
+          <div class="blm-filter-bar" id="logTypeChips" style="margin-bottom:0">
+            <button class="blm-filter-chip lchip active" data-type="all" onclick="onLogType('all')">全部</button>
+            <button class="blm-filter-chip lchip" data-type="live_on" onclick="onLogType('live_on')">开播</button>
+            <button class="blm-filter-chip lchip" data-type="live_off" onclick="onLogType('live_off')">下播</button>
+            <button class="blm-filter-chip lchip" data-type="new_post" onclick="onLogType('new_post')">新作品</button>
+            <button class="blm-filter-chip lchip" data-type="error" onclick="onLogType('error')">异常</button>
+            <button class="blm-filter-chip lchip" data-type="cookie_warn" onclick="onLogType('cookie_warn')">风控</button>
+            <button class="blm-filter-chip lchip" data-type="system" onclick="onLogType('system')">系统</button>
+          </div>
+          <div class="blm-filter-bar" id="logPfChips" style="margin-bottom:0">
+            <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
+            <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
+            <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+          </div>
+          <div class="blm-log-row">
+            <select id="logAccount" class="blm-input" onchange="onLogAccount()"><option value="">全部账号</option></select>
+            <input id="logDate" class="blm-input" type="date" onchange="onLogDate()">
+            <button class="blm-filter-chip lchip" id="logSort" onclick="onLogSort()">↓ 新→旧</button>
+          </div>
+        </div>
+
+        <div id="logBody"></div>
+      </div>
+    </section>
+
+    <!-- Config Section -->
+    <section class="view" id="view-config">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M9 2v2M9 14v2M4.2 4.2l1.4 1.4M12.4 12.4l1.4 1.4M2 9h2M14 9h2M4.2 13.8l1.4-1.4M12.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            配置
+          </h2>
+        </div>
+
+        <!-- P0-5 支持平台区块（保留 #supportedPlatforms、.pf.ok/.pf.bad） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">支持平台</div>
+          <div class="blm-config-card" id="supportedPlatforms">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-title">📡 支持平台</div>
+                <div class="blm-config-item-desc">本项目当前支持以下平台的直播监控。平台定位已正式确定，无隐藏能力。</div>
+              </div>
+            </div>
+            <div class="blm-config-item">
+              <span class="blm-platform-badge bilibili">B站</span>
+              <span class="blm-config-item-desc">直播开播</span>
+              <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
+            </div>
+            <div class="blm-config-item">
+              <span class="blm-platform-badge douyin">抖音</span>
+              <span class="blm-config-item-desc">直播开播 + 新作品</span>
+              <span class="pf ok" style="margin-left:auto">✅ 已支持</span>
+            </div>
+            <div class="blm-config-item">
+              <span class="pf bad">🔴 小红书</span>
+              <span class="blm-config-item-desc">直播（曾尝试，已移除）</span>
+              <span class="pf bad" style="margin-left:auto">❌ 已放弃，不计划支持</span>
+            </div>
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">小红书直播监控已于 2026-07-10 从代码中移除：开播短链每次都变、数据中心 IP 触发风控，维护成本高且误判/漏推难根除。当前专注 B站 / 抖音。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">GitHub Token</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">用于前端直接写回 rooms.json / post_rooms.json（无需后端）。推荐用<b>细粒度 Token</b>，仅授权本仓库 <code>racheko-lab/blive-monitor</code> 的 <b>Contents: Read &amp; Write</b>。<br><span style="color:var(--yellow)">页面已内置一个默认 Token 以便开箱即用（无需配置即可增删监控）；如需更高安全性，可在此填入你自己的细粒度 Token 覆盖它。注意：内置 Token 暴露于公开源码，可随时在 GitHub 吊销轮换。</span></div>
+                <input id="tokenInput" class="blm-input" placeholder="github_pat_xxx 或 ghp_xxx" autocomplete="off">
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveToken()">保存</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="clearToken()">清除</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">连接与检测</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">检测浏览器能否直连 api.github.com（中国大陆一般可直连）。</div>
+                <button class="blm-btn blm-btn-secondary" style="margin-top:8px" onclick="checkApi()">🔌 检测 GitHub API 连接</button>
+                <div id="apiStatus" style="display:none;margin-top:10px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">手动触发</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">立即让监控脚本跑一次（新增/移除房间或抖音号后会自动触发；此处可手动补触发）。</div>
+                <button class="blm-btn blm-btn-secondary" style="margin-top:8px" onclick="triggerMonitor().then(function(){toast('已触发检测',true);}).catch(function(e){toast('触发失败：'+(e&&e.message||''),false);})">▶️ 立即触发一次监控</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送渠道</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">选择开播 / 新作品通知的推送方式。保存时配置会以加密方式写入仓库的 <b>Actions Secret（BLIVE_CONFIG）</b>，不会出现在公开源码里（方糖每日限额 5 条，推荐 Bark / 企业微信 / PushPlus 不限量）。</div>
+                <select id="pushChannel" class="blm-input" onchange="onPushChannelChange()" style="margin-top:8px">
+                  <option value="bark">Bark（iPhone 通知，无限）</option>
+                  <option value="serverchan">Server酱 / 方糖（个人微信，5 条/天）</option>
+                  <option value="wecom">企业微信群机器人（无限）</option>
+                  <option value="pushplus">PushPlus（个人微信，额度高）</option>
+                  <option value="telegram">Telegram Bot（无限）</option>
+                </select>
+                <div id="pushFields"></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存推送配置</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="copyPushJson()">复制 JSON</button>
+                </div>
+                <div id="pushStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：A1 定时摘要配置组 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">定时摘要（A1）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">开启后，直播视图顶部展示「今日/本周摘要」（N 人开播 · M 条新作），可一键复制或请求推送。自动投递由 CI 读取仓库 Secret（BLIVE_CONFIG.summary）完成。</div>
+                <div class="blm-switch-row">
+                  <span class="blm-config-item-title">启用定时摘要</span>
+                  <input type="checkbox" id="summaryEnabled" class="blm-switch">
+                </div>
+                <div class="blm-config-item-title" style="margin-top:8px">频率</div>
+                <div class="blm-segmented" style="margin-top:4px">
+                  <button type="button" data-v="daily" class="active" onclick="var s=document.getElementById('summaryFreq');s.value='daily';this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('active',b.dataset.v==='daily');})">每日</button>
+                  <button type="button" data-v="weekly" onclick="var s=document.getElementById('summaryFreq');s.value='weekly';this.parentNode.querySelectorAll('button').forEach(function(b){b.classList.toggle('active',b.dataset.v==='weekly');})">每周</button>
+                </div>
+                <input type="hidden" id="summaryFreq" value="daily">
+                <div class="blm-config-item-title" style="margin-top:8px">发送时间（北京时）</div>
+                <input type="time" id="summarySendTime" class="blm-input" value="09:00" style="margin-top:4px;max-width:160px">
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveSummaryConfig()">保存摘要配置</button>
+                </div>
+                <div id="summaryStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2a：B1 数据备份与迁移 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">数据备份与迁移（B1）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">导出当前监控列表（直播房间 + 抖音号）为备份 JSON；或粘贴/上传备份 JSON 合并导入（保留既有字段，不覆盖）。</div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <button class="blm-btn blm-btn-secondary" onclick="exportRooms()">⬇️ 导出备份 JSON</button>
+                  <button class="blm-btn blm-btn-secondary" onclick="document.getElementById('importFile').click()">⬆️ 导入备份</button>
+                  <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="onImportFile(event)">
+                </div>
+                <textarea id="importBox" class="blm-input" placeholder="或在此粘贴备份 JSON，然后点「合并导入」" style="margin-top:8px;height:80px"></textarea>
+                <button class="blm-btn blm-btn-primary" onclick="importRooms(document.getElementById('importBox').value)">合并导入</button>
+                <div id="importStatus" style="display:none;margin-top:8px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b：A3 静默时段 -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">静默时段（A3）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">设定静默时段后，CI 在推送前会暂缓开播 / 新作推送（仅跳过推送，状态抓取与看板不受影响）。支持跨午夜（如 23:00–08:00）。</div>
+                <div class="blm-switch-row">
+                  <span class="blm-config-item-title">启用静默</span>
+                  <input type="checkbox" id="silenceEnabled" class="blm-switch">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <label class="blm-config-item-title">起
+                    <input type="time" id="silenceStart" class="blm-input" value="23:00" style="max-width:140px">
+                  </label>
+                  <label class="blm-config-item-title">止
+                    <input type="time" id="silenceEnd" class="blm-input" value="08:00" style="max-width:140px">
+                  </label>
+                </div>
+                <div id="silenceHint" class="blm-caption">未启用静默时段</div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="saveSilenceConfig()">保存静默配置</button>
+                </div>
+                <div id="silenceStatus" style="display:none;margin-top:10px;font-size:12px;line-height:1.6"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b：A2 多通道路由（前端 schema + UI；CI 多通道消费留后续） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送通道与路由（A2）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">配置多个推送通道，并按「平台 / 标签 / 事件」设定路由规则（最具体优先 + default 兜底）。CI 多通道消费将在后续协调落地；当前仍走上方单通道推送。</div>
+                <div id="channelRoutes" class="blm-channel-routes"></div>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                  <button class="blm-btn" onclick="addChannelRoute('channel')">＋ 新增通道</button>
+                  <button class="blm-btn" onclick="addChannelRoute('route')">＋ 新增路由</button>
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存配置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 阶段二 2b：A4 推送模板（前端 schema + UI；CI 模板拼接留后续） -->
+        <div class="blm-config-group">
+          <div class="blm-config-group-title">推送文案模板（A4）</div>
+          <div class="blm-config-card">
+            <div class="blm-config-item vertical">
+              <div class="blm-config-item-info">
+                <div class="blm-config-item-desc">自定义开播 / 新作推送文案。可用占位符：<code>{name}</code> <code>{title}</code> <code>{platform}</code> <code>{time}</code> <code>{url}</code>。</div>
+                <div id="templateEditor" class="blm-template-editor"></div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="blm-btn blm-btn-primary" onclick="savePushConfig()">保存配置</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dashboard Section -->
+    <section class="view" id="view-dashboard">
+      <div class="blm-section">
+        <div class="blm-section-header">
+          <h2 class="blm-section-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;">
+              <rect x="3" y="11" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.6"/>
+              <rect x="9" y="6" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.6"/>
+              <rect x="14" y="3" width="3" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/>
+            </svg>
+            健康仪表盘
+          </h2>
+          <button class="blm-btn blm-btn-secondary blm-dash-export" id="btnExportCsv" onclick="exportReport('csv')">导出 CSV</button>
+        </div>
+
+        <div class="blm-dash-grid">
+          <div class="blm-dash-card"><div class="blm-dash-label">监控房间</div><div class="blm-dash-value blm-mono"><span id="kpiRooms">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">直播中</div><div class="blm-dash-value blm-mono"><span id="kpiLive">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">今日开播</div><div class="blm-dash-value blm-mono"><span id="kpiToday">0</span></div></div>
+          <div class="blm-dash-card"><div class="blm-dash-label">通知异常</div><div class="blm-dash-value blm-mono"><span id="kpiNotify">0</span></div></div>
+          <div class="blm-dash-card full-width"><div class="blm-dash-label">数据新鲜度</div><div class="blm-dash-value" id="kpiFresh">—</div></div>
+          <div class="blm-dash-card full-width"><div class="blm-dash-label">开播时长（累计 / 平均 / 近30天）</div><div class="blm-dash-value" id="kpiDuration">—</div></div>
+        </div>
+
+        <div class="blm-dash-charts">
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <rect x="2" y="9" width="3" height="5" rx="0.5" fill="var(--brand-primary)"/>
+              <rect x="6.5" y="5" width="3" height="9" rx="0.5" fill="var(--brand-primary)" opacity="0.85"/>
+              <rect x="11" y="2" width="3" height="12" rx="0.5" fill="var(--brand-primary)" opacity="0.7"/>
+            </svg>
+            开播趋势（近 7 天）
+          </div>
+          <div class="blm-segmented" id="trendRange">
+            <button class="blm-seg-item active" onclick="applyTrendRange(7)">7天</button>
+            <button class="blm-seg-item" onclick="applyTrendRange(30)">30天</button>
+            <button class="blm-seg-item" onclick="applyTrendRange(90)">90天</button>
+          </div>
+          <div id="dashTrend"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <path d="M8 2l1.8 3.6 4 .6-2.9 2.8.7 4L8 11.1 4.4 13l.7-4L2.2 6.2l4-.6L8 2z" fill="#FFD60A"/>
+            </svg>
+            开播排行 Top5
+          </div>
+          <div id="dashRank"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <circle cx="8" cy="8" r="6" stroke="var(--color-text-secondary)" stroke-width="1.5"/>
+              <path d="M8 2a6 6 0 0 1 0 12V2z" fill="var(--brand-primary)" opacity="0.8"/>
+              <path d="M8 2v6l4 4" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            平台分布
+          </div>
+          <div id="dashPlatform" class="blm-platform-dist"></div>
+        </div>
+
+        <div class="blm-dash-chart">
+          <div class="blm-chart-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;">
+              <path d="M8 1.5l6 12H2l6-12z" stroke="var(--state-warning)" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M8 6v3.5" stroke="var(--state-warning)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8" cy="12" r="0.8" fill="var(--state-warning)"/>
+            </svg>
+            通知健康
+          </div>
+          <div id="dashNotify"></div>
+        </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Tab Bar（tab 用 onclick=show('KEY')，同时保留 .tab 供 show() 选择器） -->
+  <nav class="blm-tab-bar">
+    <a class="blm-tab-item tab active" onclick="show('live')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="2" y="5" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M16 9l4-2v8l-4-2V9z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">直播</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('posts')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M9 8l5 3-5 3V8z" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">新作</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('log')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="3" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 8h8M7 11h8M7 14h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">日志</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('config')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="11" r="3" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M11 2v2M11 18v2M4.2 4.2l1.4 1.4M16.4 16.4l1.4 1.4M2 11h2M18 11h2M4.2 17.8l1.4-1.4M16.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">配置</span>
+    </a>
+    <a class="blm-tab-item tab" onclick="show('dashboard')">
+      <span class="blm-tab-icon">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="11" width="4" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="9" y="6" width="4" height="12" rx="1" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="15" y="3" width="4" height="15" rx="1" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </span>
+      <span class="blm-tab-label">仪表盘</span>
+    </a>
+  </nav>
+</div>
+
+<!-- 多通道推送加密依赖（libsodium，用于把 BLIVE_CONFIG 加密写入 Actions Secret） -->
+<script src="libsodium.js"></script>
+
+    <!-- 阶段二 2b B3：编辑房间（轻量弹层：名称 + 标签 + 启停开关） -->
+    <div id="roomEdit" class="blm-modal" style="display:none">
+      <div class="blm-modal-mask" onclick="closeRoomEdit()"></div>
+      <div class="blm-modal-card">
+        <div class="blm-modal-title">编辑房间</div>
+        <input type="hidden" id="editKey">
+        <div class="blm-config-item-title" style="margin-top:8px">名称</div>
+        <input id="editName" class="blm-input" placeholder="名称（可选）">
+        <div class="blm-config-item-title" style="margin-top:8px">标签（逗号分隔）</div>
+        <input id="editTags" class="blm-input" placeholder="如 游戏,学习">
+        <div class="blm-switch-row" style="margin-top:10px">
+          <span class="blm-config-item-title">启用监控</span>
+          <input type="checkbox" id="editEnabled" class="blm-switch" checked>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+          <button class="blm-btn blm-btn-secondary" onclick="closeRoomEdit()">取消</button>
+          <button class="blm-btn blm-btn-primary" onclick="saveRoomEdit()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 阶段二 2c C3：单房间详情弹层（overlay，不新增 tab，不动 show() 5-tab 索引） -->
+    <div id="roomDetail" class="blm-modal" style="display:none">
+      <div class="blm-modal-mask" onclick="closeRoomDetail()"></div>
+      <div class="blm-modal-card">
+        <div class="blm-modal-title">
+          <span id="roomDetailTitle">房间详情</span>
+          <button class="blm-modal-close" title="关闭" onclick="closeRoomDetail()">✕</button>
+        </div>
+        <div id="roomDetailBody"></div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+          <button class="blm-btn blm-btn-secondary" id="btnExportCsvDetail" onclick="exportReport('csv')">导出 CSV</button>
+          <button class="blm-btn blm-btn-primary" onclick="closeRoomDetail()">关闭</button>
+        </div>
+      </div>
+    </div>
+
+<script>
+var stat=null,rooms=[],hist=[],postRooms=[],postTrack={},fl='all',q='';
+/* 阶段二 2b：列表筛选 / 排序 / 批量启停 全局状态 */
+var tag='';                       // 当前标签筛选（''=全部；与 fl/q AND 叠加）
+var sortKey='default';            // 'default'|'live'|'platform'|'recent'
+var selected={};                // 批量选中：'platform|id' -> true
+window.__channels=[];           // A2 多通道（前端 schema + UI，CI 多通道消费留后续）
+window.__routes=[];             // A2 路由规则
+window.__silenceState={enabled:false,start:'23:00',end:'08:00'}; // A3 静默可读镜像（silence_state.json）
+/* build 2026-07-07: 添加/删除采用乐观更新（直接采用写回结果，不二次 GET），无需刷新页面即可生效 */
+
+/* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
+/* 仓库与分支（与监控脚本一致） */
+var GH_REPO="racheko-lab/blive-monitor";
+var GH_BRANCH="master";
+/* GitHub REST API 直接写回 rooms.json；Token 优先取用户在「配置」页设置并仅存于本机 localStorage 的值，缺失时兜底使用下方内置的默认 Token。 */
+var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
+/* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
+/* 读取 Token：优先返回用户在「配置」页填入并存于本机 localStorage 的 Token；缺失时回退到内置的 DEFAULT_GH_TOKEN。 */
+var DEFAULT_GH_TOKEN=""; /* [HANDOFF-REDACTED] 原内置默认 PAT 已从交付包中移除——公开源码曾硬编码全权限 Token，属严重安全债。请在「配置」页自行填入你自己的细粒度 Token，或轮换并吊销原 Token。 */
+function getGhToken(){
+  try{
+    var s=(localStorage.getItem('blive_gh_token')||'').trim();
+    if(s) return s;
+  }catch(e){}
+  return DEFAULT_GH_TOKEN; // 内置默认 Token：用户未自行配置时兜底，使增删监控开箱即用（token 暴露于公开源码，可随时在 GitHub 吊销/轮换）
+}
+/* 写操作 UI 常驻显示；实际写回（增删房间）前会再校验 Token：现在内置默认 Token 兜底，
+   普通用户无需配置即可增删监控，也可在「配置」页填入自己的 Token 覆盖默认。 */
+var hasApi=true;
+
+function e(s){return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function ago(ts){if(!ts)return '';var d=Date.now()-ts*1000,m=Math.floor(d/60000);if(m<1)return '刚刚';if(m<60)return m+'分钟前';var h=Math.floor(m/60);if(h<24)return h+'小时前';var day=Math.floor(h/24);if(day<30)return day+'天前';var mo=Math.floor(day/30);if(mo<12)return mo+'个月前';return Math.floor(mo/12)+'年前';}
+
+function show(t){
+  var views={'live':'view-live','posts':'view-posts','log':'view-log','config':'view-config','dashboard':'view-dashboard'};
+  Object.keys(views).forEach(function(k){var el=document.getElementById(views[k]); if(el) el.classList.toggle('active',k===t);});
+  var tabs=document.querySelectorAll('.tab');
+  tabs.forEach(function(b,i){b.classList.toggle('active',['live','posts','log','config','dashboard'][i]===t);});
+  /* P0-4：切视图时把两个搜索框的显示值同步为全局 q（单 q 跨 tab 共享，不丢搜索词） */
+  var ls=document.getElementById('liveSearch'); if(ls) ls.value=q;
+  var ps=document.getElementById('postsSearch'); if(ps) ps.value=q;
+}
+
+function fil(f){fl=f;var cs=document.querySelectorAll('.chip');cs[0].className='chip'+(f==='all'?' active':'');cs[1].className='chip'+(f==='bilibili'?' active':'');cs[2].className='chip'+(f==='douyin'?' active':'');renderLive();}
+
+/* ===== P0-4 列表文本搜索：输入 handler（写全局 q → 仅重渲染本 tab body，严禁调 ld） ===== */
+function onLiveSearch(v){
+  q = (v || '').trim();
+  renderLive();                 // 仅重渲染 #liveBody，不调 ld / 不发网络
+}
+function onPostsSearch(v){
+  q = (v || '').trim();
+  renderPosts();                // 仅重渲染 #postsBody，不调 ld / 不发网络
+}
+/* ===== P0-4 列表文本搜索：匹配函数（大小写不敏感子串匹配，不触发网络/ld） ===== */
+function matchQ(r, q){
+  var s = (q || '').toLowerCase();
+  return (r.name || '').toLowerCase().indexOf(s) >= 0
+      || String(r.id || '').toLowerCase().indexOf(s) >= 0;
+}
+function matchPostQ(r, q){
+  var s = (q || '').toLowerCase();
+  var tt = postTrack['douyin_' + r.id] || {};
+  return (r.name || '').toLowerCase().indexOf(s) >= 0
+      || String(r.id || '').toLowerCase().indexOf(s) >= 0
+      || (tt.nickname || '').toLowerCase().indexOf(s) >= 0;
+}
+
+function renderLive(){
+  var lb=document.getElementById('liveBody');
+  if(!rooms.length){lb.innerHTML='<div class="empty">📭 暂无监控房间</div>';return;}
+  var rs=rooms.slice();
+  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
+  try{ renderTagChips('liveTagBar'); }catch(_e){}
+  if(fl==='bilibili')rs=rs.filter(function(r){return r.platform==='bilibili';});
+  else if(fl==='douyin')rs=rs.filter(function(r){return r.platform==='douyin';});
+  /* ★ P0-4 文本搜索：与 fl 顺序 AND 叠加（仅过滤已加载数据，绝不调用 ld） */
+  if(q) rs = rs.filter(function(r){ return matchQ(r, q); });
+  /* ★ 阶段二 2b B2：标签筛选（与 fl/q AND 叠加；缺 tags 视为无标签） */
+  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') rs = applyTagsFilter(rs, tag);
+  var _rk={live:0,replay:1,offline:2,error:3}, _rm={};
+  if(stat&&stat.rooms){for(var k=0;k<stat.rooms.length;k++){var _x=stat.rooms[k];var _key=_x.platform+'|'+_x.id;_rm[_key]=(_rk.hasOwnProperty(_x.status)?_rk[_x.status]:2);}}
+  /* ★ 阶段二 2b B4：最近活跃依据（hist 中最近 live_on/new_post 时间；无记录排末尾） */
+  var _lastActive={};
+  if(typeof hist!=='undefined' && hist){
+    for(var hi=0; hi<hist.length; hi++){
+      var _h=hist[hi]; if(!_h) continue;
+      var _ht=_h.type||_h.status;
+      if(_ht!=='live_on' && _ht!=='new_post') continue;
+      var _hts=parseBeijing(_h.time); if(_hts===null) continue;
+      var _hk=(_h.platform||'')+'|'+String(_h.rid||_h.account||'');
+      if(!_lastActive.hasOwnProperty(_hk) || _hts>_lastActive[_hk]) _lastActive[_hk]=_hts;
+    }
+  }
+  /* ★ 阶段二 2b B4：排序（default=状态排名稳定次序；live/platform/recent 见 applySort） */
+  rs = (typeof applySort==='function') ? applySort(rs, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:_rm, lastActive:_lastActive}) : rs;
+  if(!rs.length){lb.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':(fl!=='all'?'该平台暂无房间':'暂无监控房间'))+'</div>';return;}
+  var up=(stat&&stat.updated)||'等待数据';
+  var h='<div class="blm-update-time blm-mono">更新于 '+e(up)+'</div>';
+  for(var i=0;i<rs.length;i++){
+    var r=rs[i],s=null;
+    if(stat&&stat.rooms){for(var j=0;j<stat.rooms.length;j++){if(stat.rooms[j].platform===r.platform&&String(stat.rooms[j].id)===String(r.id)){s=stat.rooms[j];break;}}}
+    var st, sc, stxt, sp;
+    if(!s){
+      /* 房间已加入监控，但监控脚本尚未抓取到它的状态（status.json 由定时任务刷新，最长约 5 分钟滞后） */
+      st='pending'; sc='s-pending'; stxt='状态获取中'; sp='';
+    }else{
+      st=s.status;
+      sc={live:'s-live',replay:'s-replay',offline:'s-offline',error:'s-error'}[st]||'s-offline';
+      stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
+      sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
+    }
+    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':'');
+    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'');
+    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'#';
+    var isLive = st==='live';
+    var meta=[];
+    if(s&&s.online)meta.push('人气 '+e(s.online));
+    if(s&&s.area)meta.push(e(s.area));
+    if(s&&s.last_live)meta.push('上次 '+e(s.last_live).substring(5,16));
+    var rmArg=JSON.stringify({platform:r.platform,id:r.id});
+    var rmbtn=hasApi?'<button class="blm-room-remove" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'';
+    var metaHtml=meta.length?'<div class="blm-room-meta">'+meta.map(function(m){return '<span class="blm-room-meta-item">'+m+'</span>';}).join('')+'</div>':'';
+    var titleHtml=s&&s.title?'<div class="blm-room-title">'+e(s.title)+'</div>':'';
+    var badge=isLive
+      ? '<span class="blm-live-badge"><span class="blm-status-dot live"></span>LIVE</span>'
+      : '<span class="blm-offline-badge">'+stxt+'</span>';
+    var linkHtml=(u!=='#')?'<div style="display:flex;justify-content:flex-end;margin-top:8px"><a class="blm-room-link" href="'+u+'" target="_blank">'+(isLive?'进入直播间 →':'查看直播间 →')+'</a></div>':'';
+    /* ★ 阶段二 2b B3：批量启停 checkbox（保留 .blm-room-link / .blm-room-card） */
+    var roomKey=r.platform+'|'+String(r.id);
+    var _sel=(typeof selected!=='undefined' && selected.hasOwnProperty(roomKey))?' checked':'';
+    var _paused=(r.enabled===false);
+    var _pauseBadge=_paused?'<span class="blm-status-badge muted">已暂停</span>':'';
+    var selHtml='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(roomKey)+'"'+(r.enabled===false?' disabled':'')+_sel+' onchange="toggleRoomSelect(\''+e(roomKey)+'\',this)"></label>';
+    h+='<div class="blm-room-card'+(isLive?' live':'')+(_paused?' paused':'')+'">'+
+         selHtml+
+         '<div class="blm-room-top"><div class="blm-room-info"><div class="blm-room-name-row"><span class="blm-platform-badge '+pl+'">'+pln+'</span><span class="blm-room-name">'+e(s?s.name:r.name)+'</span>'+badge+_pauseBadge+'</div></div><div class="blm-room-actions">'+rmbtn+'</div></div>'+
+         titleHtml+metaHtml+         linkHtml+
+         '<button class="blm-room-detail" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')">ⓘ</button>'+
+         '<button class="blm-room-edit" title="编辑" onclick=\'editRoom('+rmArg+')\'>✎</button>'+
+       '</div>';
+  }
+  lb.innerHTML=h;
+  try{ updateBatchBar(); }catch(_e){}
+}
+
+function renderPosts(){
+  var body=document.getElementById('postsBody');
+  var cnt=document.getElementById('postsCount');
+  if(!postRooms||!postRooms.length){body.innerHTML='<div class="empty">⌛ 暂无监控的抖音号</div>';if(cnt)cnt.textContent='';return;}
+  var list=postRooms.slice();
+  /* ★ 阶段二 2b B2：刷新标签 chip 行 */
+  try{ renderTagChips('postsTagBar'); }catch(_e){}
+  /* ★ P0-4 文本搜索：name/id/nickname 任一命中（仅过滤已加载数据，绝不调用 ld） */
+  if(q) list=list.filter(function(r){return matchPostQ(r,q);});
+  /* ★ 阶段二 2b B2：标签筛选（与 q AND 叠加；缺 tags 视为无标签） */
+  if(typeof tag!=='undefined' && tag && typeof applyTagsFilter==='function') list = applyTagsFilter(list, tag);
+  /* ★ 阶段二 2b B4：按最近活跃（postTrack.latest_ct）排序（recent 生效） */
+  var _postLast={};
+  for(var pi=0;pi<list.length;pi++){
+    var _tt=postTrack['douyin_'+list[pi].id]||{};
+    var _ct=parseInt(_tt.latest_ct||'0',10)||0;
+    _postLast['douyin|'+String(list[pi].id)] = _ct;
+  }
+  list = (typeof applySort==='function') ? applySort(list, typeof sortKey!=='undefined'?sortKey:'default', {statusRank:{}, lastActive:_postLast}) : list;
+  if(!list.length){
+    body.innerHTML='<div class="empty">'+(q?'未找到匹配「'+e(q)+'」':'⌛ 暂无监控的抖音号')+'</div>';
+    if(cnt)cnt.textContent='';   // 搜索态空：清空计数，避免与「未找到匹配」矛盾
+    return;
+  }
+  if(cnt)cnt.textContent=q?('匹配 '+list.length+' / '+postRooms.length):('共 '+postRooms.length+' 个');
+  var h='';
+  for(var i=0;i<list.length;i++){
+    var r=list[i],id=r.id;
+    var tt=postTrack['douyin_'+id]||{};
+    // 显示名优先级：用户自定义名（且不同于裸 id）> 主页真实昵称 > 兜底 id
+    var name=(r.name && r.name!==id) ? r.name : (tt.nickname || r.name || id);
+    var sec_id=tt.sec_uid||'';
+    var aid=tt.latest_aweme_id||'';
+    var link=tt.latest_url||(sec_id?'https://www.douyin.com/user/'+sec_id:'https://www.douyin.com/');
+    var isNote=tt.latest_type==='图文';
+    var type=tt.latest_type||'';
+    var desc=tt.latest_desc||'';
+    var time=ago(tt.latest_ct);
+    var needCookie=tt.need_cookie; // 稳定走 count 退化（风控/未登录）时由 CI 标记
+    var rmArg=JSON.stringify({id:r.id});
+    var rmbtn=hasApi?'<button class="blm-room-remove" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'';
+    var platformTag='<span class="blm-work-platform-tag douyin">抖音</span>';
+    var placeholder='<svg class="blm-work-thumb-placeholder" width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    var coverImg=tt.latest_cover?'<img class="blm-work-cover" src="'+e(tt.latest_cover)+'" alt="" onerror="this.remove()">':'';
+    var titleLine=name, descLine='', linkLine=link, linkLabel='查看作品 →';
+    if(aid && !String(aid).startsWith('count:')){
+      descLine=desc||'(无描述)';
+    }else if(aid && String(aid).startsWith('count:')){
+      // 退化计数模式：抖音接口被风控（未登录），只拿到作品总数，无具体作品。
+      var c=String(aid).replace('count:','');
+      descLine=needCookie?'⚠️ 仅检测到 '+c+' 个作品（抖音接口风控）。到仓库 Settings→Secrets 的 BLIVE_CONFIG 配置 douyin_cookie 即可获取具体作品':'已检测 '+c+' 个作品';
+      linkLabel='打开主页 →';
+    }else{
+      descLine='⌛ 等待首次抓取…';
+      linkLabel='打开主页 →';
+    }
+    /* ★ 阶段二 2b B3：批量启停 checkbox（保留 .blm-room-link / .blm-work-card） */
+    var _pausePost=(r.enabled===false);
+    var _pauseBadgePost=_pausePost?'<span class="blm-status-badge muted">已暂停</span>':'';
+    var _postKey='douyin|'+String(r.id);
+    var _selP=(typeof selected!=='undefined' && selected.hasOwnProperty(_postKey))?' checked':'';
+    var selHtmlP='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(_postKey)+'"'+(_pausePost?' disabled':'')+_selP+' onchange="toggleRoomSelect(\''+e(_postKey)+'\',this)"></label>';
+    h+='<div class="blm-work-card'+(r.enabled===false?' paused':'')+'">'+
+         selHtmlP+
+         '<a class="blm-work-thumb" href="'+linkLine+'" target="_blank">'+placeholder+coverImg+platformTag+'</a>'+
+         '<div class="blm-work-info">'+
+           '<div class="blm-work-author">'+e(titleLine)+' '+_pauseBadgePost+'</div>'+
+           '<div class="blm-work-desc">'+e(descLine)+'</div>'+
+           '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">'+
+             '<span class="blm-work-time">'+time+'</span>'+
+             '<a class="blm-room-link" href="'+linkLine+'" target="_blank" style="padding:4px 10px;font-size:11px">'+linkLabel+'</a>'+
+             rmbtn+
+             '<button class="blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
+             '<button class="blm-room-edit" title="编辑" onclick=\'editRoom({id:"'+e(id)+'")\'>✎</button>'+
+           '</div>'+
+         '</div>'+
+       '</div>';
+  }
+  body.innerHTML=h;
+  try{ updateBatchBar(); }catch(_e){}
+}
+
+/* 推送标记映射（status 兼容字段，新代码主要看 type） */
+var PM={'pushed_ok':'<span class="push-tag pt-ok">已推送</span>','pushed_fail':'<span class="push-tag pt-fail">推送失败</span>','no_sendkey':'<span class="push-tag pt-skip">无密钥</span>','first_live_ok':'<span class="push-tag pt-ok">首次</span>','first_live_fail':'<span class="push-tag pt-fail">首次失败</span>','push_error':'<span class="push-tag pt-fail">异常</span>','error':'<span class="push-tag pt-fail">检测异常</span>'};
+
+/* 日志视图单一状态（P0-3/4/5 筛选/分页/排序） */
+var logState={search:'',type:'all',platform:'all',account:'',date:'',sort:'desc',visible:50};
+var logFiltered=[];      // 当前过滤结果缓存
+var logExpanded={};      // 已展开条目的索引集合（按 logFiltered 下标）
+
+/* type → 图标/中文标签/配色类（缺 type 时按旧 status 懒推导，向后兼容） */
+function typeMeta(t){
+  var map={
+    live_on:{i:'🔴',l:'开播',c:'live'},
+    live_off:{i:'⚫',l:'下播',c:'off'},
+    new_post:{i:'🎬',l:'新作品',c:'dy'},
+    error:{i:'❌',l:'异常',c:'err'},
+    cookie_warn:{i:'⚠️',l:'风控',c:'warn'},
+    system:{i:'⚙️',l:'系统',c:'off'}
+  };
+  if(map[t])return map[t];
+  // 兼容无 type 的存量条目（按旧 status 推导图标）
+  var si={live:'🔴',replay:'▶️',offline:'⚫',error:'❌'}[t]||'⚫';
+  var sc=(t==='live')?'live':(t==='replay'?'off':'off');
+  return {i:si,l:t||'事件',c:sc};
+}
+
+/* 纯函数：输入全局 hist + logState → 输出过滤+排序后列表（P0-3/4） */
+function applyFilters(){
+  var out=[];
+  var q=logState.search.trim().toLowerCase();
+  var date=logState.date||'';
+  for(var i=0;i<hist.length;i++){
+    var l=hist[i];
+    var t=l.type||l.status;
+    // 类型（异常+风控 合并为严重度快捷时由调用方先映射，这里按单一 type 匹配）
+    if(logState.type!=='all' && t!==logState.type)continue;
+    // 平台
+    if(logState.platform!=='all' && l.platform!==logState.platform)continue;
+    // 账号（account==rid）
+    if(logState.account){
+      var acc=l.account||l.rid||'';
+      if(acc!==logState.account)continue;
+    }
+    // 日期（按 time 的日期部分）
+    if(date && (l.time||'').substring(0,10)!==date)continue;
+    // 搜索：name + title + detail 子串
+    if(q){
+      var hay=((l.name||'')+' '+(l.title||'')+' '+(l.detail||'')).toLowerCase();
+      if(hay.indexOf(q)<0)continue;
+    }
+    out.push(l);
+  }
+  // 排序：按 time（默认倒序 新→旧）
+  out.sort(function(a,b){
+    var ta=Date.parse((a.time||'').replace(/-/g,'/')); var tb=Date.parse((b.time||'').replace(/-/g,'/'));
+    if(isNaN(ta))ta=0; if(isNaN(tb))tb=0;
+    return logState.sort==='desc'? tb-ta : ta-tb;
+  });
+  return out;
+}
+
+/* 统计条（P0-6）：按 type + 北京时间日期聚合到天；选中账号时仅统计该账号
+ * 日期标签与分桶 key 统一用零填充 MM-DD（与 Python log_utils.compute_stats 的
+ * strftime("%m-%d") 一致），否则标签 "7-10" 与时间字段子串 "07-10" 不匹配导致聚合失效。
+ * 窗口基准统一用北京时间（与 compute_stats 的 common.bjnow() 一致），分桶 key 取自
+ * time 字符串本身（本就是北京时间），故全链路按北京时间聚合。 */
+function bjNow(){
+  var d=new Date();
+  // local = UTC - offset(min) ；Beijing = UTC + 480(min) ⇒ Beijing = local + (offset + 480)
+  return new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+}
+/* ===== P0-1 监控自检心跳：北京时间解析 + 新鲜度计算 =====
+ * 统一复用 bjNow() 的时区折算思路（北京时间 → 真实 UTC 毫秒），
+ * 严禁 new Date(str) 直解析（会按运行环境本地时区，差 8 小时）。 */
+/* 新鲜度阈值（分钟），集中定义避免散落魔法数字；后续调阈值改一处即可 */
+var FRESH_WARN_MIN  = 10;   // ≤10 分钟 → ok（绿）
+var FRESH_STALE_MIN = 30;   // >30 分钟 → stale（红）；10<mins≤30 → warn（黄）
+
+/**
+ * 将北京时间字符串 "YYYY-MM-DD HH:MM:SS"（无时区）转为真实 UTC 毫秒。
+ * @param {string} s - 北京时间字符串（空格或 T 分隔均可）。
+ * @return {number|null} 成功返回 UTC 毫秒；空串/非法格式返回 null（上层据此判 loadfail）。
+ */
+function parseBeijing(s){
+  if(!s) return null;
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if(!m) return null;
+  // 先按「本地时区」解释该墙上时间，再叠回与北京的时差，得到真实 UTC 毫秒。
+  var d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+  return d.getTime() - (d.getTimezoneOffset() + 480) * 60000;
+}
+
+/**
+ * 计算监控数据新鲜度（基于 status.json.updated）。
+ * @param {string} [updated] - 北京时间更新串；缺省取全局 stat.updated。
+ * @param {number} [now] - 参考当前时间（UTC 毫秒），默认 Date.now()；注入便于测试。
+ * @return {{state:string, mins:number|null, updated:string|null, label:string}}
+ *   state: 'ok'|'warn'|'stale'|'loadfail'；mins: 距更新的分钟数（loadfail 为 null）。
+ */
+function calcFreshness(updated, now){
+  updated = (updated === undefined) ? (stat && stat.updated) : updated;
+  now = (now === undefined || now === null) ? Date.now() : now;
+  var ms = parseBeijing(updated);
+  if(!updated || ms === null){
+    return {
+      state:'loadfail', mins:null, updated:updated||null,
+      label:'加载失败·无法读取状态文件，请检查网络 / GitHub Pages 部署'
+    };
+  }
+  var mins = Math.max(0, Math.round((now - ms) / 60000));
+  var state, label;
+  if(mins <= FRESH_WARN_MIN){
+    state = 'ok';
+    label = (mins < 1) ? '刚刚更新' : (mins + ' 分钟前更新');
+  } else if(mins <= FRESH_STALE_MIN){
+    state = 'warn';
+    label = '数据偏旧·' + mins + ' 分钟前更新，留意是否即将停更';
+  } else {
+    state = 'stale';
+    label = '已超过 ' + mins + ' 分钟无更新·监控可能已停更，请检查 CI / PAT';
+  }
+  return { state:state, mins:mins, updated:updated, label:label };
+}
+function computeStatsJS(histData, days, now){
+  now=now||bjNow();
+  function pad(n){ return (n<10?'0':'')+n; }
+  var labels=[], idx={};
+  for(var i=days-1;i>=0;i--){
+    var d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+    var lab=pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    labels.push(lab); idx[lab]=days-1-i;
+  }
+  var buckets={new_post:new Array(days).fill(0),live_on:new Array(days).fill(0),error:new Array(days).fill(0),cookie_warn:new Array(days).fill(0)};
+  for(var k=0;k<histData.length;k++){
+    var e=histData[k];
+    var t=e.type||e.status;
+    if(!(t in buckets))continue;
+    var lab=(e.time||'').substring(5,10);
+    if(lab in idx) buckets[t][idx[lab]]++;
+  }
+  var totals={}; for(var b in buckets) totals[b]=buckets[b].reduce(function(a,c){return a+c;},0);
+  return {days:labels,new_post:buckets.new_post,live_on:buckets.live_on,error:buckets.error,cookie_warn:buckets.cookie_warn,totals:totals};
+}
+
+function renderStats(){
+  var box=document.getElementById('logStats'); if(!box)return;
+  // 选中账号时统计该账号（按账号视图迷你统计，P1-1）
+  var base = logState.account ? hist.filter(function(l){return (l.account||l.rid)==logState.account;}) : hist;
+  var s=computeStatsJS(base,7);
+  box.innerHTML=
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+s.totals.new_post+'</div><div class="blm-log-summary-label">近7天新作品</div></div>'+
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+s.totals.live_on+'</div><div class="blm-log-summary-label">近7天开播</div></div>'+
+    '<div class="blm-log-summary-item"><div class="blm-log-summary-value">'+(s.totals.error+s.totals.cookie_warn)+'</div><div class="blm-log-summary-label">近7天异常/风控</div></div>';
+}
+
+/* ===================== P0-7 统一健康仪表盘 ===================== */
+/* 纯前端聚合：复用 ld() 已载入的全局 hist/stat/rooms，不发起任何网络请求。
+ * 仅在 ld() 成功路径末尾统一调用 renderDashboard()（切 tab 不重算，数据由 90s 刷新重渲染）。 */
+
+var DASH_TOP_N = 5;     // 开播排行 Top N
+var DASH_NOTIFY_N = 5;  // 通知健康最近 N 条
+
+/** 今日北京时间 YYYY-MM-DD（复用 bjNow 思路，严禁本地时区 new Date() 直读）。 */
+function todayBJ(){
+  var d = bjNow();
+  function p(n){ return (n<10?'0':'')+n; }
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+
+/** 今日开播次数：type==='live_on' 且 time 前 10 位 === 今日北京时间。 */
+function liveOnToday(hist){
+  var t = todayBJ();
+  return (hist||[]).filter(function(l){
+    return (l.type||l.status)==='live_on' && (l.time||'').substring(0,10)===t;
+  }).length;
+}
+
+/** 通知异常计数：level 优先，type 兜底（保证不漏 cookie_warn/error）。 */
+function notifyAnomalyCount(hist){
+  return (hist||[]).filter(function(l){
+    var lv = l.level, tp = l.type||l.status;
+    return lv==='warn' || lv==='error' || tp==='error' || tp==='cookie_warn';
+  }).length;
+}
+
+/** 开播排行 Top N：按 name 聚合 live_on 次数，降序；并列按最近开播时间倒序。 */
+function liveOnRank(hist, n){
+  var m={}, last={};
+  (hist||[]).forEach(function(l){
+    if((l.type||l.status)==='live_on'){
+      m[l.name]=(m[l.name]||0)+1;
+      if(!last[l.name] || l.time>last[l.name]) last[l.name]=l.time;
+    }
+  });
+  return Object.keys(m).map(function(k){ return {name:k, count:m[k], last:last[k]||''}; })
+    .sort(function(a,b){ return b.count-a.count || (b.last>a.last?1:-1); })
+    .slice(0, n);
+}
+
+/** 平台分布：rooms 按 platform 计数；hist 的 live_on 按 platform 分桶。 */
+function platformDist(rooms, hist){
+  var r={bilibili:0,douyin:0,other:0}, lv={bilibili:0,douyin:0,other:0};
+  (rooms||[]).forEach(function(r0){
+    if(r0.platform==='bilibili')r.bilibili++; else if(r0.platform==='douyin')r.douyin++; else r.other++;
+  });
+  (hist||[]).forEach(function(l){
+    if((l.type||l.status)!=='live_on') return;
+    if(l.platform==='bilibili')lv.bilibili++; else if(l.platform==='douyin')lv.douyin++; else lv.other++;
+  });
+  return {rooms:r, live:lv};
+}
+
+/** 最近 N 条异常（通知健康列表）：与 notifyAnomalyCount 同口径，按 time 倒序。 */
+function recentAnomalies(hist, n){
+  return (hist||[]).filter(function(l){
+    var lv=l.level, tp=l.type||l.status;
+    return lv==='warn' || lv==='error' || tp==='error' || tp==='cookie_warn';
+  }).sort(function(a,b){ return (b.time||'')>(a.time||'')?1:-1; }).slice(0, n);
+}
+
+/** 平台分布比例条 HTML（B站 var(--bili) / 抖音 var(--dy)）。 */
+function buildPlatformHTML(plat){
+  function row(label, bili, dy){
+    var tot=bili+dy, bp=tot?Math.round(bili/tot*100):0, dp=100-bp;
+    return '<div class="blm-dist-item">'+
+      '<div class="blm-dist-header"><span class="blm-dist-label">'+e(label)+'</span><span class="blm-dist-value">'+tot+'</span></div>'+
+      '<div class="blm-dist-bar"><div class="blm-dist-fill bilibili" style="width:'+bp+'%"></div></div>'+
+      '<div class="blm-dist-header" style="margin-top:6px"><span class="blm-dist-label">B站</span><span class="blm-dist-value">'+bili+' ('+bp+'%)</span></div>'+
+      '<div class="blm-dist-bar"><div class="blm-dist-fill douyin" style="width:'+dp+'%"></div></div>'+
+      '<div class="blm-dist-header" style="margin-top:6px"><span class="blm-dist-label">抖音</span><span class="blm-dist-value">'+dy+' ('+dp+'%)</span></div>'+
+      '</div>';
+  }
+  return row('房间数', plat.rooms.bilibili, plat.rooms.douyin)
+       + row('开播数', plat.live.bilibili,  plat.live.douyin);
+}
+
+/** 主渲染：把全局 hist/stat/rooms 聚合写入 #view-dashboard 各容器。 */
+function renderDashboard(){
+  var dash = document.getElementById('view-dashboard');
+  if(!dash) return;
+  // 防御：数据未载入时优雅降级（global 为空也不会抛错）
+  var fresh = calcFreshness();                       // 复用 P0-1 → {state,label}
+  var roomTotal = rooms.length;
+  var liveNow = (stat&&stat.rooms) ? stat.rooms.filter(function(r){return r.status==='live';}).length : 0;
+  var todayLive = liveOnToday(hist);                 // 今日北京时间口径
+  var notifyCnt = notifyAnomalyCount(hist);
+  // 趋势：复用 computeStatsJS 的北京日分桶，live_on[] 与 days[] 对齐（oldest→newest）
+  // C2：区间由全局 trendDays 控制（applyTrendRange 切换 7/30/90）
+  var s = computeStatsJS((hist||[]), trendDays);
+  var trend = s.live_on, days = s.days;
+  // 排行 / 平台 / 通知
+  var rank = liveOnRank(hist, DASH_TOP_N);
+  var plat = platformDist(rooms, hist);
+  var recent = recentAnomalies(hist, DASH_NOTIFY_N);
+
+  // —— KPI ——
+  var kRooms=document.getElementById('kpiRooms');
+  var kLive=document.getElementById('kpiLive');
+  var kToday=document.getElementById('kpiToday');
+  var kNotify=document.getElementById('kpiNotify');
+  var kFresh=document.getElementById('kpiFresh');
+  if(kRooms)kRooms.textContent = roomTotal;
+  if(kLive)kLive.textContent = liveNow;
+  if(kToday)kToday.textContent = todayLive;
+  if(kNotify)kNotify.textContent = notifyCnt;
+  if(kFresh){
+    var fc = {ok:'var(--green)',warn:'var(--yellow)',stale:'var(--live)',fail:'var(--live)'}[fresh.state]||'var(--text2)';
+    kFresh.textContent = fresh.label;
+    kFresh.style.color = fc;
+  }
+
+  // —— 开播时长卡片（C1，renderDurationCard 内部调用 computeLiveDurationAll）——
+  renderDurationCard();
+
+  // —— 趋势 CSS 条形（复用 .blm-chart-bar，高度按最大值归一；标 MM-DD 标签）——
+  // C2：daysCovered（hist 不同 YYYY-MM-DD 数）< trendDays 时显示「数据不足 N 天」提示，不报错。
+  var dt=document.getElementById('dashTrend');
+  if(dt){
+    if(daysCovered(hist) < trendDays){
+      dt.innerHTML = '<div class="blm-chart-note">数据不足 '+trendDays+' 天（当前仅 '+daysCovered(hist)+' 天）。切换 7 天可见完整趋势。</div>';
+    } else {
+      var max = Math.max(1, Math.max.apply(null, trend));
+      var barsHtml = trend.map(function(v,i){
+        return '<div class="blm-chart-bar-group"><div class="blm-chart-bar" title="'+e(days[i]+': '+v)+'" style="height:'+Math.round(v/max*100)+'%"></div><div class="blm-chart-label">'+e(days[i])+'</div></div>';
+      }).join('');
+      dt.innerHTML = '<div class="blm-chart-bars">'+barsHtml+'</div>';
+    }
+  }
+
+  // —— 排行列表 ——
+  var dr=document.getElementById('dashRank');
+  if(dr){
+    dr.innerHTML = rank.length ? rank.map(function(r,i){
+      var medal = i===0?'gold':i===1?'silver':i===2?'bronze':'normal';
+      return '<div class="blm-rank-item"><div class="blm-rank-num '+medal+'">'+(i+1)+'</div><div class="blm-rank-info"><div class="blm-rank-name">'+e(r.name)+'</div><div class="blm-rank-count">'+r.count+' 场</div></div></div>';
+    }).join('') : '<div class="empty" style="padding:18px">暂无开播记录</div>';
+  }
+
+  // —— 平台分布（比例条）——
+  var dp=document.getElementById('dashPlatform');
+  if(dp){ dp.innerHTML = buildPlatformHTML(plat); }
+
+  // —— 通知健康最近 N 条 ——
+  var dn=document.getElementById('dashNotify');
+  if(dn){
+    dn.innerHTML = recent.length ? recent.map(function(l){
+      var cls = (l.level==='error'||l.type==='error')?'error':'system';
+      var detail = e(l.detail || l.title || l.type || '—');
+      var pname = l.platform==='bilibili'?'B站':(l.platform==='douyin'?'抖音':'—');
+      var badge = l.platform==='bilibili'?'bilibili':'douyin';
+      return '<div class="blm-health-item"><div class="blm-health-icon">⚠</div><div class="blm-health-info"><div class="blm-health-title">'+e(l.name||'—')+' <span class="blm-platform-badge '+badge+'">'+pname+'</span></div><div class="blm-health-desc">'+detail+'</div><div class="blm-health-time blm-mono">'+(l.time||'').substring(5,16)+'</div></div></div>';
+    }).join('') : '<div class="empty" style="padding:18px">✅ 近期无通知异常</div>';
+  }
+}
+
+function populateLogAccounts(){
+  var sel=document.getElementById('logAccount'); if(!sel)return;
+  var map={};
+  for(var i=0;i<hist.length;i++){ var l=hist[i]; var rid=l.rid||l.account; if(rid) map[rid]=l.name||rid; }
+  for(var j=0;j<rooms.length;j++){ var r=rooms[j]; if(r.id) map[r.id]=r.name||r.id; }
+  for(var k=0;k<postRooms.length;k++){ var p=postRooms[k]; if(p.id) map[p.id]=p.name||p.id; }
+  var cur=sel.value;
+  sel.innerHTML='<option value="">全部账号</option>';
+  Object.keys(map).forEach(function(rid){
+    var o=document.createElement('option'); o.value=rid; o.textContent=map[rid]+' ('+rid+')'; sel.appendChild(o);
+  });
+  sel.value=cur;
+}
+
+function logRow(k,v){ return '<div class="ld-row"><span class="ld-k">'+k+'</span><span class="ld-v">'+v+'</span></div>'; }
+
+function renderLogItem(l, idx){
+  var m=typeMeta(l.type||l.status);
+  var cls=l.platform==='bilibili'?'bili':'dy';
+  if(m.c==='live')cls='live'; else if(m.c==='err')cls='err'; else if(m.c==='warn')cls='warn'; else if(m.c==='dy')cls='dy'; else cls='off';
+  var chg=l.changed?' <span class="chg">[变化]</span>':'';
+  var pt=PM[l.push]||'';
+  var timeStr=(l.time||'').substring(11,16);
+  var title=l.title?'<span class="blm-log-stream-title">'+e(l.title)+'</span>':'';
+  var open=logExpanded[idx]?' open':'';
+  var detail=
+    '<div class="log-detail'+open+'" id="ld_'+idx+'">'+
+    logRow('时间', e(l.time))+
+    logRow('平台', e(l.platform))+
+    logRow('类型', m.i+' '+m.l+(l.type?(' ('+e(l.type)+')'):''))+
+    logRow('名称', e(l.name))+
+    logRow('标题', e(l.title))+
+    logRow('推送', e(l.push||'-'))+
+    logRow('详情', e(l.detail))+
+    logRow('rid', e(l.rid))+
+    '</div>';
+  return '<div class="blm-log-item log-item-clickable'+open+'" onclick="toggleExpand('+idx+')">'+
+    '<span class="blm-log-time">'+timeStr+'</span>'+
+    '<span class="blm-log-dot '+cls+'"></span>'+
+    '<div class="blm-log-content"><span class="blm-log-room">'+m.i+' '+e(l.name)+'</span>'+chg+pt+title+'</div>'+
+    '<span class="blm-log-detail-btn">详情</span>'+
+    '<span class="chev">▾</span></div>'+detail;
+}
+
+function renderLogList(){
+  logFiltered=applyFilters();
+  var lb=document.getElementById('logBody');
+  var cnt=document.getElementById('logCount');
+  if(cnt)cnt.textContent='('+logFiltered.length+')';
+  if(!logFiltered.length){lb.innerHTML='<div class="empty">暂无符合条件的日志</div>';return;}
+  var n=Math.min(logState.visible, logFiltered.length);
+  var h='';
+  for(var i=0;i<n;i++){ h+=renderLogItem(logFiltered[i], i); }
+  if(n<logFiltered.length){
+    h+='<div class="loadmore" onclick="onLoadMore()">加载更早 ↓（剩余 '+(logFiltered.length-n)+' 条）</div>';
+  }
+  lb.innerHTML=h;
+}
+
+/* 点击展开/收起（P0-5） */
+function toggleExpand(idx){ logExpanded[idx]=!logExpanded[idx]; renderLogList(); }
+
+function renderLog(){
+  renderStats();
+  populateLogAccounts();
+  renderLogList();
+}
+
+/* ===== 筛选栏交互（P0-3） ===== */
+function setChipActive(containerId, attr, val){
+  var box=document.getElementById(containerId); if(!box)return;
+  var chips=box.querySelectorAll('.lchip');
+  chips.forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-'+attr)===val); });
+}
+function onLogSearch(){ logState.search=document.getElementById('logSearch').value; logState.visible=50; renderLogList(); }
+function onLogType(t){ logState.type=t; setChipActive('logTypeChips','type',t); renderLogList(); }
+function onLogPlatform(p){ logState.platform=p; setChipActive('logPfChips','pf',p); renderLogList(); }
+function onLogAccount(){ logState.account=document.getElementById('logAccount').value; logState.visible=50; renderLog(); }
+function onLogDate(){ logState.date=document.getElementById('logDate').value; logState.visible=50; renderLogList(); }
+function onLogSort(){ logState.sort= logState.sort==='desc'?'asc':'desc'; document.getElementById('logSort').textContent= logState.sort==='desc'?'↓ 新→旧':'↑ 旧→新'; renderLogList(); }
+function onLoadMore(){ logState.visible+=50; renderLogList(); }
+
+/* ===== ?view= 预选（四视图整合 Option A） =====
+ * 三个入口页（monitor-dashboard/feed/hero.html）均已改为轻量重定向壳，
+ * 统一跳转到本 canonical 主视图并带上 ?view=xxx：
+ *   dashboard → monitor.html?view=dashboard
+ *   feed      → monitor.html?view=feed
+ *   hero      → monitor.html?view=hero
+ */
+var VIEW_TARGETS={
+  'dashboard':'monitor.html?view=dashboard',
+  'feed':'monitor.html?view=feed',
+  'hero':'monitor.html?view=hero'
+};
+function readViewParam(){
+  try{
+    var p=new URLSearchParams(location.search);
+    var v=p.get('view');
+    if(v==='dashboard'||v==='feed'||v==='hero'){
+      show(v==='dashboard'?'dashboard':'log');   // dashboard 入口直达仪表盘；feed/hero 仍落日志
+      if(v==='feed'){                    // feed：新作品优先
+        logState.type='new_post'; setChipActive('logTypeChips','type','new_post');
+      }
+      // dashboard / hero：默认日志视图（无强制预置）
+    }
+  }catch(e){}
+}
+
+/* ===================== 房间管理：Worker 代理 API ===================== */
+
+/**
+ * 轻量 toast 提示。
+ * @param {string} msg - 提示文案。
+ * @param {boolean} ok - true 绿色成功 / false 红色失败。
+ */
+var _toastTimer=null;
+function toast(msg, ok){
+  var t=document.getElementById('toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent=msg;
+  t.className='toast '+(ok?'ok':'err')+' show';
+  if(_toastTimer)clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(function(){ t.className='toast '+(ok?'ok':'err'); }, 2500);
+}
+
+/**
+ * 前端直连 GitHub Contents API：读取 / 改写 rooms.json。
+ * 与已下线的 Cloudflare Worker 逻辑完全一致（GET → 改 → 带 sha PUT，遇 409 重试），
+ * 区别是请求直接从浏览器发往 api.github.com（已验证支持 CORS，中国大陆可直连）。
+ * Token 仅存于本机 localStorage，不进入仓库源码。
+ */
+
+/** UTF-8 安全 base64 编解码（中文 name 不丢失）。 */
+function b64encUtf8(str){
+  var bytes=new TextEncoder().encode(str);
+  var bin='';
+  for(var i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64decUtf8(b64){
+  var bin=atob(b64);
+  var bytes=Uint8Array.from(bin,function(c){return c.charCodeAt(0);});
+  return new TextDecoder().decode(bytes);
+}
+
+/** GitHub 鉴权头。 */
+function ghHeaders(extra){
+  /* 注意：不要加 Cache-Control 等"非 CORS 安全头"——它会触发浏览器对 api.github.com 的
+     OPTIONS 预检，而 GitHub 的 access-control-allow-headers 不含 cache-control，
+     导致预检不通过、真实请求被拦截，表现为"无法连接 api.github.com"。 */
+  var h=Object.assign({'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'blive-monitor-web'}, extra||{});
+  h['Authorization']='Bearer '+getGhToken();
+  return h;
+}
+
+/** 统一 fetch 封装：20s 超时 + 友好错误。 */
+function ghFetch(url, opts){
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();}, 20000);
+  return fetch(url, Object.assign({}, opts, {signal:ctrl.signal}))
+    .then(function(r){
+      clearTimeout(timer);
+      return r.json().then(function(data){
+        return {ok:r.ok, status:r.status, data:data};
+      }).catch(function(){ return {ok:r.ok, status:r.status, data:null}; });
+    })
+    .catch(function(err){
+      clearTimeout(timer);
+      if(err && err.name==='AbortError') throw new Error('请求超时：GitHub API 12 秒内无响应（检查网络/代理）');
+      if(err instanceof TypeError) throw new Error('网络错误：无法连接 api.github.com（请检查网络/代理）');
+      throw err;
+    });
+}
+
+/** 读取 rooms.json → {rooms, sha}。 */
+function ghGetFile(path){
+  return ghFetch(GH_API+'/'+path+'?ref='+GH_BRANCH, {method:'GET', headers:ghHeaders()})
+    .then(function(res){
+      if(res.status===404) return {rooms:[], sha:null};
+      if(!res.ok) throw new Error('读取失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
+      var content=res.data&&res.data.content?res.data.content.replace(/\s/g,''):'';
+      var rooms=content?JSON.parse(b64decUtf8(content)):[];
+      return {rooms:rooms, sha:res.data&&res.data.sha?res.data.sha:null};
+    });
+}
+
+/** 带 sha 写回 rooms.json（sha 为空表示新建）。 */
+function ghPutFile(path, rooms, sha){
+  var body={
+    message:'chore(rooms): update monitored rooms via blive-monitor web',
+    content:b64encUtf8(JSON.stringify(rooms,null,2)),
+    branch:GH_BRANCH
+  };
+  if(sha) body.sha=sha;
+  return ghFetch(GH_API+'/'+path, {
+    method:'PUT',
+    headers:ghHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify(body)
+  }).then(function(res){
+    if(res.status===409||res.status===404) throw {conflict:true};
+    if(!res.ok) throw new Error('写入失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
+    return (res.data&&res.data.content&&res.data.content.sha)||null;
+  });
+}
+
+/* ===================== 阶段二 2c：开播时长 / 更长趋势 / 详情弹层 / 写回增强 / 报表导出 ===================== */
+
+/** 全局趋势区间（天）。C2：applyTrendRange 修改它，renderDashboard 复用 computeStatsJS(hist, trendDays)。 */
+var trendDays = 7;
+
+/** 房间 key 归一：hist 用 rid/account，rooms/postRooms 用 id，统一为 'platform|id'。 */
+function roomKeyOf(evOrRoom){
+  var p = evOrRoom.platform || '';
+  var id = String(evOrRoom.rid != null ? evOrRoom.rid
+            : (evOrRoom.account != null ? evOrRoom.account : evOrRoom.id));
+  return p + '|' + id;
+}
+
+/** 秒数格式化：Xh Ym / Ym Zs / Zs。 */
+function fmtDuration(sec){
+  sec = Math.max(0, Math.round(sec || 0));
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if(h > 0) return h + 'h' + (m > 0 ? (' ' + m + 'm') : '');
+  if(m > 0) return m + 'm' + (s > 0 ? (' ' + s + 's') : '');
+  return s + 's';
+}
+
+/* ---------- C1 开播时长统计 ---------- */
+
+/**
+ * 计算单个房间的开播时长（北京时口径）。
+ * @param {Array} hist 历史事件数组（含 type=live_on/live_off）
+ * @param {string} key 'platform|rid' 房间 key
+ * @param {{now?:Date, last30Days?:number}} [opts] 参考当前时间 / 近 30 天窗口
+ * @return {{totalSec:number, avgSec:number, last30Sec:number, completedSec:number,
+ *           completedCount:number, sessionCount:number, ongoing:boolean,
+ *           sessions:Array}} 时长聚合
+ */
+function computeLiveDuration(hist, key, opts){
+  opts = opts || {};
+  var now = opts.now || bjNow();
+  var last30ms = (opts.last30Days != null ? opts.last30Days : 30) * 86400000;
+  var events = (hist || []).filter(function(l){
+    var t = l.type || l.status;
+    return t === 'live_on' || t === 'live_off';
+  }).filter(function(l){ return roomKeyOf(l) === key; })
+    .slice().sort(function(a, b){ return (a.time || '') < (b.time || '') ? -1 : ((a.time || '') > (b.time || '') ? 1 : 0); });
+
+  var sessions = [], stack = [];
+  for(var i = 0; i < events.length; i++){
+    var ev = events[i];
+    var tp = ev.type || ev.status;
+    if(tp === 'live_on'){
+      stack.push({ startSec: parseBeijing(ev.time) });
+    } else if(tp === 'live_off'){
+      var on = stack.pop();
+      if(on && on.startSec != null){
+        var endSec = parseBeijing(ev.time);
+        if(endSec >= on.startSec){
+          sessions.push({ startSec: on.startSec, endSec: endSec, durSec: Math.round((endSec - on.startSec) / 1000), ongoing: false });
+        }
+      }
+    }
+  }
+  // 栈底剩余未配对 live_on => 进行中（endSec=现在）
+  var ongoing = false;
+  for(var j = 0; j < stack.length; j++){
+    var s0 = stack[j].startSec;
+    if(s0 != null){
+      var e1 = now.getTime();
+      sessions.push({ startSec: s0, endSec: e1, durSec: Math.max(0, Math.round((e1 - s0) / 1000)), ongoing: true });
+      ongoing = true;
+    }
+  }
+
+  var totalSec = 0, completedSec = 0, completedCount = 0, last30Sec = 0;
+  for(var k = 0; k < sessions.length; k++){
+    var ss = sessions[k];
+    totalSec += ss.durSec;
+    if(ss.ongoing){
+      // 进行中不计入均值，但计入累计与近30天（若起始在近30天内）
+    } else {
+      completedSec += ss.durSec;
+      completedCount += 1;
+    }
+    if(ss.startSec != null && (now.getTime() - ss.startSec) <= last30ms){
+      last30Sec += ss.durSec;
+    }
+  }
+  return {
+    totalSec: totalSec,
+    avgSec: completedCount ? Math.round(completedSec / completedCount) : 0,
+    last30Sec: last30Sec,
+    completedSec: completedSec,
+    completedCount: completedCount,
+    sessionCount: sessions.length,
+    ongoing: ongoing,
+    sessions: sessions
+  };
+}
+
+/**
+ * 跨所有房间的开播时长聚合（供仪表盘 kpiDuration）。
+ * 累计 = 各房间总和（含进行中）；平均 = 全部已完成场次均值；近30天 = 全部房间近30天之和。
+ */
+function computeLiveDurationAll(hist){
+  var keySet = {};
+  (hist || []).forEach(function(l){
+    var t = l.type || l.status;
+    if(t === 'live_on' || t === 'live_off') keySet[roomKeyOf(l)] = true;
+  });
+  var totalSec = 0, last30Sec = 0, completedSec = 0, completedCount = 0, ongoing = false, sessionCount = 0;
+  for(var key in keySet){
+    if(!Object.prototype.hasOwnProperty.call(keySet, key)) continue;
+    var d = computeLiveDuration(hist, key);
+    totalSec += d.totalSec;
+    last30Sec += d.last30Sec;
+    completedSec += d.completedSec;
+    completedCount += d.completedCount;
+    sessionCount += d.sessionCount;
+    if(d.ongoing) ongoing = true;
+  }
+  return {
+    totalSec: totalSec,
+    avgSec: completedCount ? Math.round(completedSec / completedCount) : 0,
+    last30Sec: last30Sec,
+    completedSec: completedSec,
+    completedCount: completedCount,
+    sessionCount: sessionCount,
+    ongoing: ongoing,
+    sessions: []
+  };
+}
+
+/** 渲染仪表盘 kpiDuration 卡片（累计 / 平均 / 近30天；有进行中标注「·进行中」）。 */
+function renderDurationCard(){
+  var el = document.getElementById('kpiDuration');
+  if(!el) return;
+  var d = computeLiveDurationAll(hist);
+  var html =
+    '<div class="blm-duration-item"><span class="dk">累计</span><span class="dv">'
+      + e(fmtDuration(d.totalSec))
+      + (d.ongoing ? ' <span class="blm-duration-ongoing">·进行中</span>' : '')
+      + '</span></div>'
+    + '<div class="blm-duration-item"><span class="dk">平均(已完成)</span><span class="dv">' + e(fmtDuration(d.avgSec)) + '</span></div>'
+    + '<div class="blm-duration-item"><span class="dk">近30天</span><span class="dv">' + e(fmtDuration(d.last30Sec)) + '</span></div>';
+  el.innerHTML = html;
+}
+
+/* ---------- C2 更长趋势 ---------- */
+
+/** hist 中不同 YYYY-MM-DD 的数量（数据覆盖天数）。 */
+function daysCovered(histData){
+  var set = {};
+  (histData || []).forEach(function(l){ if(l && l.time) set[String(l.time).substring(0, 10)] = true; });
+  return Object.keys(set).length;
+}
+
+/**
+ * 切换趋势区间（7/30/90 天）。更新全局 trendDays，重渲染 #dashTrend（复用 computeStatsJS）。
+ * renderDashboard 内部已处理 daysCovered < trendDays 时显示「数据不足 N 天」提示。
+ */
+function applyTrendRange(N){
+  trendDays = (N === 7 || N === 30 || N === 90) ? N : 7;
+  // 更新分段控件高亮
+  try{
+    var seg = document.getElementById('trendRange');
+    if(seg){
+      var items = seg.querySelectorAll('.blm-seg-item');
+      var vals = [7, 30, 90];
+      items.forEach(function(b, i){
+        b.classList.toggle('active', vals[i] === trendDays);
+      });
+    }
+  }catch(_e){}
+  if(document.getElementById('view-dashboard')) renderDashboard();
+}
+
+/* ---------- C3 单房间详情弹层（overlay，不新增 tab，不动 show() 5-tab 索引） ---------- */
+
+/** 打开单房间详情弹层：定位房间 + 渲染 + 显示。key 为 'platform|id'（抖音号平台为 douyin）。 */
+function openRoomDetail(key){
+  var parts = String(key || '').split('|');
+  var platform = parts[0] || '';
+  var id = parts[1] || '';
+  var room = null;
+  if(platform === 'douyin' && postRooms){
+    room = (postRooms.filter(function(r){ return String(r.id) === String(id); }))[0] || null;
+  } else if(rooms){
+    room = (rooms.filter(function(r){ return r.platform === platform && String(r.id) === String(id); }))[0] || null;
+  }
+  window.__roomDetailKey = key;
+  window.__roomDetailRoom = room;
+  renderRoomDetail(key);
+  var m = document.getElementById('roomDetail');
+  if(m) m.style.display = 'block';
+}
+
+/** 关闭详情弹层（mask 点击 / 关闭按钮 / Esc 通用）。 */
+function closeRoomDetail(){
+  var m = document.getElementById('roomDetail');
+  if(m) m.style.display = 'none';
+}
+
+/** 渲染详情弹层内容：基础信息 + 近期时间线(复用 .blm-log-item) + 开播时长(C1) + mini 趋势(.blm-chart-bar)。 */
+function renderRoomDetail(key){
+  var box = document.getElementById('roomDetailBody');
+  if(!box) return;
+  var parts = String(key || '').split('|');
+  var platform = parts[0] || '';
+  var id = parts[1] || '';
+  var room = window.__roomDetailRoom;
+  var name = room ? (room.name || id) : id;
+  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : '其他');
+
+  var titleEl = document.getElementById('roomDetailTitle');
+  if(titleEl) titleEl.textContent = name + ' · ' + platName;
+
+  // 状态标签
+  var stLabel = '—';
+  if(stat && stat.rooms){
+    for(var si = 0; si < stat.rooms.length; si++){
+      var sr = stat.rooms[si];
+      if(sr.platform === platform && String(sr.id) === String(id)){
+        stLabel = ({live:'直播中', replay:'回放中', offline:'未开播', error:'检测失败'})[sr.status] || '未开播';
+        break;
+      }
+    }
+  }
+
+  // 基础信息
+  var info = '<div class="blm-detail-section"><h4>基础信息</h4><div class="blm-detail-grid">'
+    + '<div><div class="dk">平台</div><div class="dv">' + e(platName) + '</div></div>'
+    + '<div><div class="dk">ID</div><div class="dv">' + e(id) + '</div></div>'
+    + '<div><div class="dk">名称</div><div class="dv">' + e(name) + '</div></div>'
+    + '<div><div class="dk">标签</div><div class="dv">' + (room && room.tags && room.tags.length ? e(room.tags.join(',')) : '—') + '</div></div>'
+    + '<div><div class="dk">状态</div><div class="dv"><span class="blm-detail-badge">' + e(stLabel) + '</span></div></div>'
+    + '</div></div>';
+
+  // 开播时长（C1 复用）
+  var dur = computeLiveDuration(hist, key);
+  var durHtml = '<div class="blm-detail-section"><h4>开播时长</h4><div class="blm-detail-grid">'
+    + '<div><div class="dk">累计</div><div class="dv">' + e(fmtDuration(dur.totalSec)) + (dur.ongoing ? ' <span class="blm-duration-ongoing">·进行中</span>' : '') + '</div></div>'
+    + '<div><div class="dk">平均(已完成)</div><div class="dv">' + e(fmtDuration(dur.avgSec)) + '</div></div>'
+    + '<div><div class="dk">近30天</div><div class="dv">' + e(fmtDuration(dur.last30Sec)) + '</div></div>'
+    + '<div><div class="dk">场次</div><div class="dv">' + dur.sessionCount + '</div></div>'
+    + '</div></div>';
+
+  // 近期时间线（复用既有 .blm-log-item / .blm-log-dot / .blm-log-content 设计系统）
+  var hr = (hist || []).filter(function(l){ return roomKeyOf(l) === key; });
+  var tl = hr.slice().sort(function(a, b){ return (a.time || '') > (b.time || '') ? -1 : 1; }).slice(0, 12);
+  var tlHtml = '<div class="blm-detail-section"><h4>近期时间线</h4>'
+    + (tl.length ? tl.map(function(l){
+        var tp = l.type || l.status;
+        var tlabel = {live_on:'开播', live_off:'下播', new_post:'新作品', error:'异常', cookie_warn:'风控'}[tp] || tp;
+        var cls = 'off';
+        if(tp === 'live_on') cls = 'live';
+        else if(tp === 'new_post') cls = 'dy';
+        else if(tp === 'error' || tp === 'cookie_warn') cls = 'warn';
+        return '<div class="blm-log-item">'
+          + '<span class="blm-log-time">' + e((l.time || '').substring(5, 16)) + '</span>'
+          + '<span class="blm-log-dot ' + cls + '"></span>'
+          + '<div class="blm-log-content"><span class="blm-log-room">' + e(tlabel) + ' ' + e(l.name || '') + '</span>'
+          + (l.title ? '<span class="blm-log-stream-title">' + e(l.title) + '</span>' : '') + '</div>'
+          + '</div>';
+      }).join('') : '<div class="empty" style="padding:12px">暂无事件</div>')
+    + '</div>';
+
+  // mini 趋势（复用 .blm-chart-bar，computeStatsJS 走 30 天分桶）
+  var s = computeStatsJS(hr, 30);
+  var mx = Math.max(1, Math.max.apply(null, s.live_on));
+  var miniBars = s.live_on.map(function(v, i){
+    var hpct = Math.round(v / mx * 100);
+    return '<div class="blm-detail-mini-bar" style="height:' + hpct + '%" title="' + e(s.days[i] + ': ' + v) + '">'
+      + (v > 0 ? '<span>' + v + '</span>' : '') + '</div>';
+  }).join('');
+  var miniHtml = '<div class="blm-detail-section"><h4>开播趋势（近30天）</h4>'
+    + '<div class="blm-detail-mini-bars">' + miniBars + '</div>'
+    + '<div class="blm-detail-mini-label">' + e(s.days[0]) + ' ~ ' + e(s.days[s.days.length - 1]) + ' · 共 ' + s.totals.live_on + ' 场</div>'
+    + '</div>';
+
+  box.innerHTML = info + durHtml + tlHtml + miniHtml;
+}
+
+/* ---------- C4 报表导出 CSV ---------- */
+
+/** CSV 字段转义（逗号/引号/换行加引号，引号翻倍）。 */
+function csvField(v){
+  var s = (v === undefined || v === null) ? '' : String(v);
+  if(/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+/**
+ * 导出监控报表 CSV（纯前端 Blob 下载；PNG 留后续）。
+ * 字段：name,platform,id,tags,enabled,累计时长秒,平均时长秒,近30天时长秒,liveOn7,newPost7,liveOn30,newPost30,status。
+ * 含 live 房间与 post（抖音号）房间。
+ */
+function exportReport(format){
+  if(format !== 'csv') return; // PNG 留后续波次
+  var histData = hist || [];
+  var rows = [];
+  var header = ['name','platform','id','tags','enabled','累计时长秒','平均时长秒','近30天时长秒','liveOn7','newPost7','liveOn30','newPost30','status'];
+  rows.push(header.join(','));
+
+  function statusOf(platform, id){
+    if(stat && stat.rooms){
+      for(var i = 0; i < stat.rooms.length; i++){
+        var r = stat.rooms[i];
+        if(r.platform === platform && String(r.id) === String(id)) return r.status || '';
+      }
+    }
+    return '';
+  }
+  function addRoomRow(platform, id, nm, tags, enabled){
+    var key = platform + '|' + id;
+    var dur = computeLiveDuration(histData, key);
+    var hr = histData.filter(function(l){ return roomKeyOf(l) === key; });
+    var s7 = computeStatsJS(hr, 7);
+    var s30 = computeStatsJS(hr, 30);
+    rows.push([
+      csvField(nm), csvField(platform), csvField(id),
+      csvField((tags || []).join('|')), csvField(enabled === false ? '否' : '是'),
+      dur.totalSec, dur.avgSec, dur.last30Sec,
+      s7.totals.live_on, s7.totals.new_post, s30.totals.live_on, s30.totals.new_post,
+      csvField(statusOf(platform, id))
+    ].join(','));
+  }
+  (rooms || []).forEach(function(r){ addRoomRow(r.platform, String(r.id), r.name || String(r.id), r.tags, r.enabled); });
+  (postRooms || []).forEach(function(r){ addRoomRow('douyin', String(r.id), r.name || String(r.id), r.tags, r.enabled); });
+
+  var csv = '﻿' + rows.join('\r\n'); // BOM 便于 Excel 中文
+  try{
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = bjNow(); function p(n){ return (n < 10 ? '0' : '') + n; }
+    a.href = url;
+    a.download = 'blive-monitor-report-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(_e){} }, 1500);
+  }catch(_e){
+    // Blob/URL 不可用时的降级：data URI 下载
+    var a2 = document.createElement('a');
+    a2.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a2.download = 'blive-monitor-report.csv';
+    document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+  }
+}
+
+/* ---------- D2 写回冲突增强（ghWriteWithRetry 签名/返回形状不变，仅内部增强） ---------- */
+
+/**
+ * 字段级合并：本地 mutate 意图（local）与远端最新 base（remote）按 platform|id（或 id）并集调和。
+ * 优先级：
+ *   - 仅一方有 -> 保留该方；
+ *   - tags / enabled            : 以 local 为准（本地 mutate 意图优先）；
+ *   - sec_uid / name（非空时）  : 以 remote 为准（CI 写回字段优先；remote 为空取 local）；
+ *   - 其余字段                  : remote 优先，local 显式非空覆盖 remote。
+ * 返回 {rooms:[...], changed:bool}。供 ghWriteWithRetry 重试兜底，且与 Python 参考实现一致。
+ */
+function enhancedMerge(local, remote){
+  local = local || [];
+  remote = remote || [];
+  function keyOf(r){
+    var id = String(r.id != null ? r.id : '');
+    return (r.platform ? r.platform + '|' : '') + id;
+  }
+  // post_rooms（无 platform）按 id 建索引
+  var idOnly = local.every(function(r){ return !r.platform; }) && remote.every(function(r){ return !r.platform; });
+  function k(r){ return idOnly ? String(r.id != null ? r.id : '') : keyOf(r); }
+  var mapL = {}, mapR = {}, out = [], seen = {};
+  local.forEach(function(r){ mapL[k(r)] = r; });
+  remote.forEach(function(r){ mapR[k(r)] = r; });
+  function pick(l, r){
+    if(l && !r) return l;
+    if(!l && r) return r;
+    var m = {}, fields = {};
+    Object.keys(l).forEach(function(x){ fields[x] = 1; });
+    Object.keys(r).forEach(function(x){ fields[x] = 1; });
+    Object.keys(fields).forEach(function(field){
+      var lv = l[field], rv = r[field];
+      var rvNonEmpty = (rv !== undefined && rv !== null && String(rv).trim() !== '');
+      var lvNonEmpty = (lv !== undefined && lv !== null && String(lv).trim() !== '');
+      if(field === 'tags' || field === 'enabled'){
+        m[field] = (lv !== undefined) ? lv : rv;                 // 本地优先
+      } else if(field === 'sec_uid' || field === 'name'){
+        m[field] = rvNonEmpty ? rv : lv;                         // 远端非空优先
+      } else {
+        m[field] = rvNonEmpty ? rv : (lvNonEmpty ? lv : rv);     // 其余 remote 优先，local 显式非空覆盖
+      }
+    });
+    return m;
+  }
+  local.forEach(function(r){
+    var key = k(r);
+    if(!seen[key]){ seen[key] = true; out.push(pick(r, mapR[key])); }
+  });
+  remote.forEach(function(r){
+    var key = k(r);
+    if(!seen[key]){ seen[key] = true; out.push(pick(mapL[key], r)); }
+  });
+  var changed = (out.length !== remote.length) || (JSON.stringify(out) !== JSON.stringify(remote));
+  return { rooms: out, changed: changed };
+}
+
+/** 判断错误是否可重试（冲突 409/404 / 5xx / 网络错误）。 */
+function isRetryableError(e){
+  if(!e) return false;
+  if(e.conflict) return true;
+  var msg = e.message || '';
+  if(/HTTP\s*5\d\d/i.test(msg)) return true;                                   // 5xx
+  if(/network|timeout|fetch|abort|failed to fetch|ECONN|ETIMEDOUT/i.test(msg)) return true; // 网络
+  return false;
+}
+
+/**
+ * 读-改-写（基于 sha 的并发安全）。
+ * 签名与返回形状严格保持：(path, mutate) => Promise<{rooms, changed, sha}>。
+ * 内部增强（相对 2a/2b）：
+ *   ① 409 / 5xx / 网络错误均退避重试（≤5 次，退避 0.5→1→2→4s 封顶 8s）；
+ *   ② 每次重试先 ghGetFile 拿远端最新 base，再重跑 mutate（=不丢并发/CI 改动）；
+ *   ③ 重试时以字段级 enhancedMerge(local, remote) 兜底（tags/enabled 本地优先、sec_uid/name 远端优先）。
+ * 首成功路径与旧版完全一致（不套 merge，保证 saveRoomEdit 等领域行为零回归）。
+ */
+function ghWriteWithRetry(path, mutate){
+  var attempt = 0;
+  var MAX = 5;
+  var backoff = [500, 1000, 2000, 4000, 8000]; // 退避序列，封顶 8s
+  function run(useMerge){
+    return ghGetFile(path).then(function(file){
+      var res = mutate(file.rooms);
+      if(!res.changed) return Object.assign({}, res, { sha: file.sha });
+      var payload = res.rooms;
+      // 仅在重试（冲突/5xx/网络）时套字段级合并兜底，避免改变首成功路径行为
+      if(useMerge){
+        var merged = enhancedMerge(res.rooms, file.rooms);
+        payload = merged.rooms;
+      }
+      return ghPutFile(path, payload, file.sha).then(function(newSha){
+        return Object.assign({}, res, { rooms: payload, changed: true, sha: newSha });
+      }).catch(function(e){
+        if(isRetryableError(e) && attempt < MAX){
+          attempt += 1;
+          var wait = backoff[Math.min(attempt - 1, backoff.length - 1)];
+          return new Promise(function(resolve){ setTimeout(resolve, wait); })
+            .then(function(){ return run(true); });
+        }
+        throw e;
+      });
+    });
+  }
+  return run(false);
+}
+
+/** Esc 键关闭弹层（详情 / 编辑），与 mask / 关闭按钮一致。 */
+document.addEventListener('keydown', function(ev){
+  if(ev && ev.key === 'Escape'){
+    try{ closeRoomDetail(); }catch(_e){}
+    try{ closeRoomEdit(); }catch(_e){}
+  }
+});
+
+/** 诊断：检测 api.github.com 是否可从浏览器访问。 */
+function checkApi(){
+  var el=document.getElementById('apiStatus');
+  if(!el) return Promise.resolve(false);
+  el.style.display='block';
+  el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#1b1f27;color:#9aa4b2;border:1px solid #2a2f3a';
+  el.innerHTML='🔄 正在检测 GitHub API 连接…';
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ctrl.abort();}, 8000);
+  // 无 Token 也能收到 401，只要有响应即代表主机可达。
+  return fetch(GH_API+'/rooms.json?ref='+GH_BRANCH, {method:'GET', signal:ctrl.signal})
+    .then(function(){ clearTimeout(timer); return true; })
+    .catch(function(){ clearTimeout(timer); return false; })
+    .then(function(ok){
+      if(ok){
+        el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#10261a;color:#3fb950;border:1px solid #1f5132';
+        var _tok=getGhToken();
+        if(_tok){
+          el.innerHTML='✅ GitHub API 可连接，已具备写回凭证（内置默认或你自己的 Token），可正常增删监控。';
+        }else{
+          el.innerHTML='✅ GitHub API 可连接，但还<b>未配置 Token</b>。请先到「⚙️ 配置」页填入你自己的 GitHub 细粒度 Token（仅本仓库 Contents 读写权限为宜），才能增删监控。';
+        }
+      }else{
+        el.style.cssText='display:block;margin:0 0 12px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.6;background:#2a1416;color:#f85149;border:1px solid #5a2329';
+        el.innerHTML='⚠️ <b>无法连接 api.github.com</b>：你的网络可能访问不了 GitHub。可尝试代理，或改用其他可直连的方案。点「🔌 检测 API」可重试。';
+      }
+      return ok;
+    });
+}
+
+/** 读取最新监控房间列表（直连 GitHub）。 */
+function apiGetRooms(){
+  return ghGetFile('rooms.json').then(function(f){ return f.rooms; });
+}
+
+/** 新增监控房间（重复时抛错提示已监控）。 */
+function apiAddRoom(o){
+  var key=o.platform+'|'+String(o.id);
+  return ghWriteWithRetry('rooms.json', function(rs){
+    if(rs.some(function(r){return r.platform+'|'+String(r.id)===key;})){
+      throw new Error('该房间已在监控列表');
+    }
+    var rec={platform:o.platform, id:String(o.id), name:o.name||String(o.id)};
+    if(o.tags&&o.tags.length) rec.tags=o.tags;          // B2 分组标签
+    if(o.enabled===false) rec.enabled=false;                  // B3 批量启停（默认 true）
+    return {rooms:rs.concat([rec]), changed:true};
+  });
+}
+
+/** 移除监控房间（不在列表时抛错）。 */
+function apiRemoveRoom(o){
+  var key=o.platform+'|'+String(o.id);
+  return ghWriteWithRetry('rooms.json', function(rs){
+    var next=rs.filter(function(r){return r.platform+'|'+String(r.id)!==key;});
+    if(next.length===rs.length) throw new Error('该房间不在监控列表');
+    return {rooms:next, changed:true};
+  });
+}
+
+/* ===== 新作品（抖音号）监控：前端直连 GitHub API 增删 ===== */
+/** 读取最新监控抖音号列表（直连 GitHub）。 */
+function apiGetPostRooms(){
+  return ghGetFile('post_rooms.json').then(function(f){ return f.rooms; });
+}
+/** 新增监控抖音号（重复时抛错提示已监控）。
+ *  o.id 可以是：sec_uid（MS4w…）、抖音 handle、或含 live.douyin.com / douyin.com/user/ 的链接；
+ *  o.sec_uid 为可选——若调用方已解析出 sec_uid（例如用户直接粘贴了 sec_uid），一并存入，
+ *  使该账号等价于「预存 sec_uid」的账号，立即生效、不再依赖后端实时解析。 */
+function apiAddPostRoom(o){
+  var key=String(o.id);
+  return ghWriteWithRetry('post_rooms.json', function(rs){
+    if(rs.some(function(r){return String(r.id)===key;})) throw new Error('该抖音号已在监控列表');
+    var rec={id:String(o.id), name:o.name||String(o.id)};
+    if(o.sec_uid) rec.sec_uid=String(o.sec_uid);
+    if(o.tags&&o.tags.length) rec.tags=o.tags;          // B2 分组标签
+    if(o.enabled===false) rec.enabled=false;                // B3 批量启停（默认 true）
+    return {rooms:rs.concat([rec]), changed:true};
+  });
+}
+/** 移除监控抖音号（不在列表时抛错）。 */
+function apiRemovePostRoom(o){
+  var key=String(o.id);
+  return ghWriteWithRetry('post_rooms.json', function(rs){
+    var next=rs.filter(function(r){return String(r.id)!==key;});
+    if(next.length===rs.length) throw new Error('该抖音号不在监控列表');
+    return {rooms:next, changed:true};
+  });
+}
+/** 同步顶部「新作品号」统计数。 */
+function updateStatPosts(){ var el=document.getElementById('statPosts'); if(el) el.textContent = postRooms.length; }
+/** 切换「添加抖音号」表单显隐。 */
+function togglePostAddForm(force){
+  var f=document.getElementById('postAddForm');
+  if(!f) return;
+  var show=(force===undefined)?(f.style.display!=='flex'&&f.style.display!=='block'):force;
+  f.style.display=show?'flex':'none';
+  if(!show){ var a=document.getElementById('postAddId'); var b=document.getElementById('postAddName'); if(a)a.value=''; if(b)b.value=''; }
+}
+/**
+ * 规范化抖音号输入：识别 sec_uid / handle / 链接，返回 {id, sec_uid, name}。
+ *  - 以 MS4w 开头 → 视为 sec_uid，直接采用（最佳：等价于预存 sec_uid，立即生效）；
+ *  - 含 live.douyin.com/<id> 或 douyin.com/user/<id> 或 douyin.com/@<handle> → 提取 id；
+ *  - 其它（纯 handle / 数字号）→ 原样作为 id，交给后端在下次检测时解析并写回 sec_uid。
+ */
+function normalizeDouyinInput(raw){
+  var s=(raw||'').trim();
+  if(!s) return {id:'', sec_uid:'', name:''};
+  if(/^MS4w/i.test(s)) return {id:s, sec_uid:s, name:''};
+  var m;
+  if((m=s.match(/live\.douyin\.com\/([^\/?#\s]+)/))) return {id:m[1], sec_uid:'', name:''};
+  if((m=s.match(/douyin\.com\/user\/([^\/?#\s]+)/))){
+    var u=m[1];
+    return {id:u, sec_uid:/^MS4w/i.test(u)?u:'', name:''};
+  }
+  if((m=s.match(/douyin\.com\/@([^\/?#\s]+)/))) return {id:m[1], sec_uid:'', name:''};
+  if(s.charAt(0)==='@') return {id:s.slice(1), sec_uid:'', name:''};
+  return {id:s, sec_uid:'', name:''};
+}
+
+/** 提交添加抖音号表单（乐观更新：直接用写回结果刷新，无需刷新页面）。 */
+function submitPostAdd(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var raw=document.getElementById('postAddId').value.trim();
+  var name=document.getElementById('postAddName').value.trim();
+  if(!raw){ toast('抖音号 ID / sec_uid 必填', false); return; }
+  var norm=normalizeDouyinInput(raw);
+  if(!norm.id){ toast('无法识别该抖音号', false); return; }
+  // B2 分组标签（逗号分隔 → tags[]）
+  var pTagsRaw=document.getElementById('postRoomTags');
+  var pTags=pTagsRaw&&pTagsRaw.value.trim()? pTagsRaw.value.trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  apiAddPostRoom({id:norm.id, name:name||norm.name||norm.id, sec_uid:norm.sec_uid, tags:pTags})
+    .then(function(res){
+      postRooms=res.rooms||[]; renderPosts(); updateStatPosts();
+      togglePostAddForm(false);
+      if(norm.sec_uid){
+        toast('已添加抖音号（已带 sec_uid，立即生效）', true);
+        // 带 sec_uid 的账号无需等 CI 解析，但触发一次检测以尽快回填昵称/作品
+        triggerMonitor().catch(function(){});
+      }else{
+        toast('已添加抖音号，正在获取昵称与作品…', true);
+        // 主动触发一次 CI：让它在几秒内解析 sec_uid + 昵称并写回 post_rooms.json，
+        // 前端最多刷新一次即可看到真实昵称（而非裸 id）。ghWriteWithRetry 已增强为
+        // 基于最新 sha 重试 ≤5 次，CI 那次 post_rooms 写回也会先合并远端最新，不再 409。
+        triggerMonitor().catch(function(){});
+      }
+    })
+    .catch(function(err){
+      // 最常见失败：409（base sha 过期）。原因几乎都是 CI 的 check.yml 刚 push 过
+      // post_rooms.json（它会在检测出 sec_uid 后写回该文件），与本次直写竞争同一文件的
+      // blob sha。重试已基于最新 sha 自愈；若仍失败提示用户稍候再试（等 CI 那次 push 落地）。
+      var msg=err && err.message ? err.message : '添加失败';
+      if(/409|conflict|冲突/i.test(msg)) msg='并发写入冲突，请稍候几秒再点「添加」';
+      toast(msg, false);
+    });
+}
+/** 移除抖音号（带二次确认，乐观更新）。 */
+function removePostRoom(arg){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var id=String(arg.id);
+  var disp=id;
+  for(var i=0;i<postRooms.length;i++){
+    if(String(postRooms[i].id)===id){ disp=postRooms[i].name||id; break; }
+  }
+  if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  apiRemovePostRoom({id:id})
+    .then(function(res){ postRooms=res.rooms||[]; renderPosts(); updateStatPosts(); toast('已移除「'+disp+'」', true); })
+    .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
+}
+
+/** 同步顶部「监控房间」统计数。 */
+function updateStatRooms(){ document.getElementById('statRooms').textContent = rooms.length; }
+
+/** 触发 check.yml 立即跑一次监控（新加/移除房间后让它尽快抓取状态，省去最长 ~5 分钟的定时等待）。 */
+function triggerMonitor(){
+  var url='https://api.github.com/repos/'+GH_REPO+'/actions/workflows/check.yml/dispatches';
+  return ghFetch(url, {
+    method:'POST',
+    headers:ghHeaders({'Content-Type':'application/json','Accept':'application/vnd.github+json'}),
+    body:JSON.stringify({ref:GH_BRANCH})
+  }).then(function(res){
+    if(!res.ok) throw new Error('触发检测失败（HTTP '+res.status+(res.data&&res.data.message?': '+res.data.message:'')+'）');
+    return true;
+  });
+}
+
+/** 切换「添加监控」表单显隐。 */
+function toggleAddForm(force){
+  var f=document.getElementById('addForm');
+  if(!f) return;
+  var show = (force===undefined) ? (f.style.display!=='flex' && f.style.display!=='block') : force;
+  f.style.display = show ? 'flex' : 'none';
+  if(!show){ document.getElementById('addId').value=''; document.getElementById('addName').value=''; }
+}
+
+/** 提交添加监控表单。 */
+function onAddPlatformChange(){
+  var p=document.getElementById('addPlatform').value;
+  var inp=document.getElementById('addId');
+  if(p==='douyin'){
+    inp.placeholder='抖音号 / 直播间号（必填）';
+    inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else{
+    inp.placeholder='直播间 ID（必填）';
+    inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
+  }
+}
+
+function submitAdd(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var platform=document.getElementById('addPlatform').value;
+  var id=document.getElementById('addId').value.trim();
+  var name=document.getElementById('addName').value.trim();
+  if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
+  if(!id){ toast('房间 ID 必填', false); return; }
+  // B2 分组标签（逗号分隔 → tags[]）
+  var tagsRaw=document.getElementById('roomTags').value.trim();
+  var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  apiAddRoom({platform:platform, id:id, name:name, tags:tags})
+    .then(function(res){
+      /* 关键修复：直接用写回时计算出的新列表更新本地 rooms，
+         而不是 PUT 之后立刻 GET（GitHub Contents API 有 CDN 缓存，刚写入即刻 GET 会读到旧数据，
+         导致“添加/删除后必须刷新页面才看得到”）。本地列表即权威，渲染立即生效。 */
+      rooms=res.rooms||[]; renderLive(); updateStatRooms();
+      toggleAddForm(false);
+      toast('已添加监控，正在获取状态…', true);
+      /* 主动触发 CI 立即抓取新房间状态（省去最长 ~5 分钟等待）。
+         此前为修 409 竞态临时去掉了触发；现 ghWriteWithRetry 已增强为基于最新 sha
+         重试 ≤5 次、CI 写回也会先合并远端最新，重启用安全。 */
+      triggerMonitor().catch(function(){});
+      setTimeout(function(){ ld(); }, 90000);
+    })
+    .catch(function(err){
+      var msg=err && err.message ? err.message : '添加失败';
+      if(/409|conflict|冲突/i.test(msg)) msg='并发写入冲突，请稍候几秒再点「添加」';
+      toast(msg, false);
+    });
+}
+
+/** 移除房间（带二次确认）。 */
+function removeRoom(arg){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var platform=arg.platform, id=String(arg.id);
+  var disp=id;
+  for(var i=0;i<rooms.length;i++){
+    if(rooms[i].platform===platform && String(rooms[i].id)===id){ disp=rooms[i].name||id; break; }
+  }
+  if(!window.confirm('确定移除监控「'+disp+'」？')) return;
+  apiRemoveRoom({platform:platform, id:id})
+    .then(function(res){
+      /* 同上：用写回时计算出的新列表直接更新本地，避免 GET 缓存导致删除后仍需刷新才消失 */
+      rooms=res.rooms||[]; renderLive(); updateStatRooms();
+      toast('已移除「'+disp+'」', true);
+    })
+    .catch(function(err){ toast(err && err.message ? err.message : '移除失败', false); });
+}
+
+/* ===== P0-1 监控自检：健康条渲染 ===== */
+/**
+ * 渲染常驻健康条 #healthBar。
+ * @param {{state:string, mins:number|null, updated:string|null, label:string}} f - calcFreshness 结果。
+ */
+function renderHealthBar(f){
+  var el = document.getElementById('healthBar');
+  if(!el || !f) return;
+  var cls = 'blm-freshness', ic = '💚';
+  if(f.state === 'ok'){ cls += ' ok'; ic = '💚'; }
+  else if(f.state === 'warn'){ cls += ' warn'; ic = '🟡'; }
+  else if(f.state === 'stale'){ cls += ' stale'; ic = '🔴'; }
+  else { cls += ' fail'; ic = '⚫'; }   // loadfail
+  // 复用已有 ago() 输出相对时间（ago 入参为秒级 unix 时间戳）
+  var rel = '';
+  if(f.state !== 'loadfail' && f.updated){
+    var ms = parseBeijing(f.updated);
+    if(ms !== null) rel = '（' + ago(Math.floor(ms / 1000)) + '）';
+  }
+  el.className = cls;
+  el.innerHTML =
+    '<div class="blm-freshness-left"><span class="blm-status-dot'+(f.state==='ok'?'':(f.state==='stale'||f.state==='fail'?' live':''))+'"></span><span class="blm-freshness-text">'+e(f.label)+'</span></div>'+
+    '<span class="blm-freshness-time blm-mono">'+e(f.updated || '') + rel + '</span>';
+}
+
+function ld(){
+  var t=Date.now();
+  var hasTok=getGhToken();
+  Promise.all([
+    fetch('status.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    /* 房间列表优先从 GitHub API 实时读取（已鉴权），避免 Pages 静态文件最长 ~5 分钟的滞后导致增删“复活”。
+       读取结果统一包成 {ok,data/err}，便于在失败时给出明确提示，而不是静默显示“暂无监控房间”。 */
+    (hasTok
+      ? apiGetRooms().then(function(r){return {ok:true,data:r};}).catch(function(err){return {ok:false,err:err};})
+      : fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(async function(r){return r.ok?{ok:true,data:await r.json()}:{ok:false};}).catch(function(){return {ok:false};})),
+    fetch('history.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}),
+    fetch('post_rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[]}).catch(function(){return [];}),
+    fetch('post_tracking.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {};})
+  ]).then(function(v){
+    if(v[0])stat=v[0];
+    var rv=v[1];
+    if(rv&&rv.ok) rooms=rv.data;
+    if(v[2])hist=v[2];if(v[3])postRooms=v[3];if(v[4])postTrack=v[4];
+    var n=new Date();document.getElementById('stime').textContent=n.toLocaleTimeString('zh-CN',{hour12:false});
+    var liveCount=stat&&stat.rooms?stat.rooms.filter(function(r){return r.status==='live'}).length:0;
+    var hasErr=stat&&stat.rooms?stat.rooms.some(function(r){return r.status==='error'}):false;
+    var dcls=liveCount>0?'on':(hasErr?'err':'ok');
+    var dtxt=liveCount>0?('直播中 '+liveCount):(hasErr?'有异常':'已更新');
+    document.getElementById('sdot').innerHTML='<span class="dot '+dcls+'"></span><span class="txt">'+dtxt+'</span>';
+    // P0-1：基于 status.updated 渲染常驻健康条（新鲜度四态：ok/warn/stale/fail）
+    var __fresh = calcFreshness();
+    renderHealthBar(__fresh);
+    window.__fresh = __fresh;
+    document.getElementById('statLive').textContent=liveCount;
+    document.getElementById('statRooms').textContent=rooms.length;
+    document.getElementById('statPosts').textContent=postRooms.length;
+    if(rv&&!rv.ok){
+      /* 读取失败（Token 失效/权限不足/网络不可达等）：明确提示原因，并尝试用静态文件降级显示，避免一片空白 */
+      var reason=(rv.err&&rv.err.message)?rv.err.message:'网络或 Token 错误';
+      fetch('rooms.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}).then(function(fb){
+        if(fb&&fb.length){
+          rooms=fb;
+          document.getElementById('liveBody').innerHTML='<div class="empty" style="color:#ffa502">⚠️ 实时读取失败：'+e(reason)+'<br>已用缓存列表显示（只读）；点「⚙️ 设置 Token」填入有效 Token 后即可正常增删</div>';
+          renderLive();renderPosts();renderLog();renderDashboard();
+        }else{
+          document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 房间列表读取失败：'+e(reason)+'<br>请点「⚙️ 设置 Token」填入有效 Token 后刷新；<br>或检查网络是否能访问 api.github.com</div>';
+          renderPosts();renderLog();
+        }
+      });
+      return;
+    }
+    readViewParam();
+    renderLive();renderPosts();renderLog();
+    renderDashboard();   // P0-7 仪表盘：数据载入即聚合渲染，切 tab 不重算
+    maybeShowSummary();  // 阶段二 2a：跨日/跨周未生成则展示摘要卡
+    loadPhase2UI();      // 阶段二 2b：标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条
+  }).catch(function(){
+    document.getElementById('sdot').innerHTML='<span class="dot err"></span><span class="txt">加载失败</span>';
+    // P0-1：总加载失败（无法读取 status.json）→ 健康条标红，指向网络 / Pages 部署
+    renderHealthBar(calcFreshness(null));
+    if(!rooms.length)document.getElementById('liveBody').innerHTML='<div class="empty">⚠️ 数据加载失败，请刷新重试</div>';
+  });
+}
+/* ===== Token 设置（仅存本机 localStorage） ===== */
+function openTokenSettings(){
+  show('config');
+  var inp=document.getElementById('tokenInput');
+  if(inp){ inp.value=getGhToken(); setTimeout(function(){inp.focus();},50); }
+}
+function closeTokenSettings(){ /* 弹层已移除，Token 设置内联到「配置」标签页 */ }
+function saveToken(){
+  var inp=document.getElementById('tokenInput');
+  if(!inp)return;
+  var v=inp.value.trim();
+  try{
+    if(v) localStorage.setItem('blive_gh_token', v);
+    else localStorage.removeItem('blive_gh_token');
+  }catch(e){}
+  closeTokenSettings();
+  // 重新评估写操作可用性并刷新连通性检测。
+  var _aw=document.getElementById('addWrap');
+  if(_aw)_aw.style.display = getGhToken() ? 'block' : 'none';
+  var _paw=document.getElementById('postAddWrap');
+  if(_paw)_paw.style.display = getGhToken() ? 'block' : 'none';
+  checkApi();
+  toast(v?'已保存 Token':'已清除 Token', true);
+}
+function clearToken(){
+  var inp=document.getElementById('tokenInput');
+  if(inp) inp.value='';
+  try{ localStorage.removeItem('blive_gh_token'); }catch(e){}
+  var _aw=document.getElementById('addWrap');
+  if(_aw)_aw.style.display = getGhToken() ? 'block' : 'none';
+  var _paw=document.getElementById('postAddWrap');
+  if(_paw)_paw.style.display = getGhToken() ? 'block' : 'none';
+  toast('已清除 Token', true);
+}
+
+/* ===== 推送渠道配置（下拉 + 加密写入 Actions Secret） ===== */
+var PUSH_FIELDS={
+  bark:[{id:'url',label:'Bark 地址',ph:'https://api.day.app/你的KEY',req:true},{id:'group',label:'分组名（可选，App 内归类）',ph:'blive'}],
+  serverchan:[{id:'sendkey',label:'Server酱 SendKey',ph:'SCTxxxxxxxx',req:true},{id:'group',label:'分组标签（可选，标题前缀 [分组名]）',ph:'B站'}],
+  wecom:[{id:'webhook',label:'企业微信机器人 Webhook',ph:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx',req:true},{id:'mention',label:'@提及（企业微信 userid，逗号分隔多人）',ph:'zhangsan'},{id:'group',label:'分组标签（可选，通知前缀 [分组名]）',ph:'直播'}],
+  pushplus:[{id:'token',label:'PushPlus Token',ph:'token',req:true},{id:'topic',label:'Topic（可选）',ph:''},{id:'group',label:'分组标签（可选，标题前缀 [分组名]）',ph:'B站'}],
+  telegram:[{id:'token',label:'Bot Token',ph:'123456:ABC-DEF',req:true},{id:'chat',label:'Chat ID',ph:'-100123456',req:true},{id:'mention',label:'@提及（Telegram @username，逗号分隔多人）',ph:'username'},{id:'group',label:'分组标签（可选，通知前缀 [分组名]）',ph:'直播'}]
+};
+function onPushChannelChange(){
+  var ch=document.getElementById('pushChannel').value;
+  var box=document.getElementById('pushFields');
+  box.innerHTML='';
+  (PUSH_FIELDS[ch]||[]).forEach(function(f){
+    var lab=document.createElement('div');
+    lab.style.cssText='font-size:12px;color:var(--text2);margin:8px 0 4px';
+    lab.textContent=f.label+(f.req?' *':'');
+    var inp=document.createElement('input');
+    inp.id='pf_'+f.id; inp.placeholder=f.ph||'';
+    inp.style.cssText='width:100%;box-sizing:border-box;padding:9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:13px';
+    box.appendChild(lab); box.appendChild(inp);
+  });
+}
+function buildPushConfig(){
+  var ch=document.getElementById('pushChannel').value;
+  var cfg={type:ch};
+  var ok=true;
+  (PUSH_FIELDS[ch]||[]).forEach(function(f){
+    var v=(document.getElementById('pf_'+f.id).value||'').trim();
+    if(f.req && !v) ok=false;
+    if(v) cfg[f.id]=v;
+  });
+  if(!ok){ toast('请填写必填项（带 *）',false); return null; }
+  // 阶段二 2b：并入 silence / channels / routes / templates（兼容旧单通道 push）
+  var full={push:cfg};
+  full.silence = buildSilenceConfig();
+  full.channels = window.__channels || [];
+  full.routes = window.__routes || [];
+  full.templates = buildTemplateConfig();
+  try { full.summary = buildSummaryConfig(); } catch(_e) {}
+  return full;
+}
+function bytesToB64(bytes){var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
+function b64ToBytes(b64){var s=atob(b64);var o=new Uint8Array(s.length);for(var i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o;}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function ghBase(){return GH_API.split('/contents')[0];}
+async function savePushConfig(){
+  var cfg=buildPushConfig(); if(!cfg)return;
+  /* 阶段二 2a/2b：并入 summary + silence + channels/routes/templates 段一并加密写入 BLIVE_CONFIG */
+  var st=document.getElementById('pushStatus');
+  st.style.display='block';
+  var ok=await _encryptSaveBlive(cfg, st);
+  if(ok){
+    st.style.color='var(--green,#2ecc71)';
+    st.innerHTML='✅ 推送配置已加密写入仓库 Secret（BLIVE_CONFIG），<b>下次监控运行即生效</b>。';
+    toast('推送配置已保存',true);
+  }
+}
+function copyPushJson(){
+  var cfg=buildPushConfig(); if(!cfg)return;
+  var json=JSON.stringify(cfg);
+  if(navigator.clipboard) navigator.clipboard.writeText(json).then(function(){toast('已复制 JSON',true);},function(){toast('复制失败，请手动选择',false);});
+  else toast(json,true);
+}
+
+/* =========================================================================
+ * 阶段二 2a：A1 定时摘要 + B1 批量增删（纯函数 + UI）
+ * 数据层既有函数（ld/ghGetFile/ghPutFile/ghWriteWithRetry/...）名称/签名/逻辑不动。
+ * 以下均为新增独立函数；grep 契约见 tests/test_phase2_*.py。
+ * ========================================================================= */
+
+/* ---------------- A1：定时摘要纯函数 ---------------- */
+
+/**
+ * 计算「今日/本周」起点的北京时 epoch 秒。
+ * @param {string} freq 'daily' | 'weekly'
+ * @param {Date} nowBJ bjNow() 风格 Date（其本地 getter 反映北京墙钟）
+ * @return {number} 北京当日 00:00（daily）或本周一 00:00（weekly）的真实 UTC 秒。
+ */
+function computeSince(freq, nowBJ){
+  var d = new Date(nowBJ.getTime());
+  d.setHours(0,0,0,0);
+  if(freq === 'weekly'){
+    var day = d.getDay();                       // 0=周日..6=周六（北京）
+    var diff = (day === 0) ? 6 : (day - 1);
+    d.setDate(d.getDate() - diff);
+  }
+  // 北京午夜 → 真实 UTC 秒：Date.UTC(y,m,d,0,0,0) 为该墙钟当 UTC 的秒，减 8h 即北京真实 UTC。
+  var beijingMidnightMs = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0) - 8 * 3600 * 1000;
+  return Math.floor(beijingMidnightMs / 1000);
+}
+
+/**
+ * 聚合 hist 中 since 之后的 live_on / new_post 事件。
+ * @param {Array} hist 历史事件（字段 type；兼容旧 status）
+ * @param {number} since 北京起点 epoch 秒（computeSince 产出）
+ * @return {{liveOnCount:number,newPostCount:number,byRoom:Array,rangeText:string}}
+ */
+function computeSummary(hist, since){
+  var byRoomMap = {};
+  var newPostTotal = 0;
+  for(var i=0;i<hist.length;i++){
+    var l = hist[i];
+    if(!l) continue;
+    var t = (l.type || l.status);
+    if(t !== 'live_on' && t !== 'new_post') continue;
+    var ts = parseBeijing(l.time);
+    if(ts === null || ts < since * 1000) continue;
+    var rid = String(l.rid || l.account || '');
+    var key = (l.platform || '') + '|' + rid;
+    var room = byRoomMap[key];
+    if(!room){
+      room = { platform: l.platform || '', id: rid, name: l.name || '', liveOn: 0, newPost: 0 };
+      byRoomMap[key] = room;
+    }
+    if(t === 'live_on') room.liveOn += 1;
+    else { room.newPost += 1; newPostTotal += 1; }
+  }
+  var byRoom = [];
+  for(var k in byRoomMap) if(byRoomMap.hasOwnProperty(k)) byRoom.push(byRoomMap[k]);
+  // rangeText：since 对应的北京日期
+  var sd = new Date(since * 1000 + 8 * 3600 * 1000);
+  var rangeText = sd.getUTCFullYear() + '-' + pad2(sd.getUTCMonth()+1) + '-' + pad2(sd.getUTCDate());
+  return { liveOnCount: byRoom.length, newPostCount: newPostTotal, byRoom: byRoom, rangeText: rangeText };
+}
+
+/** 两位补零（computeSummary 用）。 */
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+
+/**
+ * 读取「定时摘要」控件 + summary_state.json 默认值，构造 summary 配置对象。
+ * @return {{enabled:boolean,freq:string,channel:string,sendTime:string,lastSent:number}}
+ */
+function buildSummaryConfig(){
+  var enabled = false, freq = 'daily', sendTime = '09:00';
+  var enEl = document.getElementById('summaryEnabled');
+  var frEl = document.getElementById('summaryFreq');
+  var stEl = document.getElementById('summarySendTime');
+  if(enEl) enabled = !!enEl.checked;
+  if(frEl) freq = (frEl.value === 'weekly') ? 'weekly' : 'daily';
+  if(stEl && stEl.value) sendTime = stEl.value;
+  var lastSent = (window.__summaryState && window.__summaryState.lastSent) || 0;
+  return { enabled: enabled, freq: freq, channel: 'push', sendTime: sendTime, lastSent: lastSent };
+}
+
+/** 渲染直播视图顶部摘要卡。未启用时隐藏。 */
+function renderSummary(sent){
+  var card = document.getElementById('summaryCard');
+  if(!card) return;
+  var cfg = buildSummaryConfig();
+  if(!cfg.enabled){ card.style.display = 'none'; return; }
+  var freq = cfg.freq || 'daily';
+  var since = computeSince(freq, bjNow());
+  var sum = computeSummary(hist, since);
+  var titleEl = document.getElementById('summaryTitle');
+  var textEl = document.getElementById('summaryText');
+  var badgeEl = document.getElementById('summaryBadge');
+  if(titleEl) titleEl.textContent = (freq === 'weekly' ? '本周摘要' : '今日摘要') + '（' + sum.rangeText + '）';
+  if(textEl) textEl.textContent = sum.liveOnCount + ' 人开播 · ' + sum.newPostCount + ' 条新作';
+  if(badgeEl){
+    if(sent){ badgeEl.textContent = '本周期已生成'; badgeEl.className = 'blm-summary-badge sent'; }
+    else { badgeEl.textContent = '本周期未生成'; badgeEl.className = 'blm-summary-badge pending'; }
+  }
+  card.style.display = 'block';
+}
+
+/**
+ * ld() 内调用：载入摘要镜像，跨日/跨周且未生成则展示摘要卡。
+ * 自动投递（无人值守）由未来 CI job 读 BLIVE_CONFIG.summary 完成，本波仅做前端展示+手动触发。
+ */
+function maybeShowSummary(){
+  var t = Date.now();
+  fetch('summary_state.json?_=' + t, {signal: AbortSignal.timeout(8000)})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .catch(function(){ return null; })
+    .then(function(st){
+      window.__summaryState = st || { enabled: false, lastSent: 0, freq: 'daily', sendTime: '09:00' };
+      if(!window.__summaryState.freq) window.__summaryState.freq = 'daily';
+      if(window.__summaryState.sendTime === undefined) window.__summaryState.sendTime = '09:00';
+      var enEl = document.getElementById('summaryEnabled');
+      var frEl = document.getElementById('summaryFreq');
+      var stEl = document.getElementById('summarySendTime');
+      if(enEl) enEl.checked = !!window.__summaryState.enabled;
+      if(frEl) frEl.value = window.__summaryState.freq;
+      if(stEl && window.__summaryState.sendTime) stEl.value = window.__summaryState.sendTime;
+      var freq = window.__summaryState.freq || 'daily';
+      var since = computeSince(freq, bjNow());
+      var sent = (window.__summaryState.lastSent || 0) >= since;
+      renderSummary(sent);
+    });
+}
+
+/** 复制当前摘要文本到剪贴板。 */
+function copySummary(){
+  var freq = (window.__summaryState && window.__summaryState.freq) || 'daily';
+  var since = computeSince(freq, bjNow());
+  var sum = computeSummary(hist, since);
+  var label = (freq === 'weekly' ? '本周' : '今日');
+  var text = label + '摘要（' + sum.rangeText + '）：' + sum.liveOnCount + ' 人开播 · ' + sum.newPostCount + ' 条新作';
+  if(sum.byRoom.length){
+    text += '\n' + sum.byRoom.map(function(r){ return '- ' + (r.name || r.id) + '：开播' + r.liveOn + ' 次 / 新作' + r.newPost + ' 条'; }).join('\n');
+  }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(function(){ toast('已复制摘要', true); }, function(){ toast('复制失败，请手动选择', false); });
+  } else {
+    toast(text, true);
+  }
+}
+
+/** 手动触发：写 summary_state.json 的 lastSent 标记本周期已生成（自动投递留给 CI）。 */
+async function requestPushSummary(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var now = Math.floor(Date.now() / 1000);
+  var st = window.__summaryState || { enabled: false, freq: 'daily', sendTime: '09:00' };
+  st.lastSent = now;
+  try{
+    await ghWriteWithRetry('summary_state.json', function(){ return { rooms: st, changed: true }; });
+    window.__summaryState = st;
+    renderSummary(true);
+    toast('已请求推送，自动投递将由 CI 完成', true);
+  }catch(err){
+    toast('标记失败：' + (err && err.message || err), false);
+  }
+}
+
+/**
+ * 保存「定时摘要」：写可读镜像 summary_state.json（前端拥有）；
+ * 并尝试并入 BLIVE_CONFIG 加密写（需推送渠道已配，供 CI 自动投递消费）。
+ */
+async function saveSummaryConfig(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var cfg = buildSummaryConfig();
+  var st = {
+    enabled: cfg.enabled,
+    freq: cfg.freq,
+    sendTime: cfg.sendTime,
+    lastSent: (window.__summaryState && window.__summaryState.lastSent) || 0
+  };
+  var stEl = document.getElementById('summaryStatus');
+  try{
+    await ghWriteWithRetry('summary_state.json', function(){ return { rooms: st, changed: true }; });
+    window.__summaryState = st;
+  }catch(err){
+    toast('保存摘要镜像失败：' + (err && err.message || err), false);
+    return;
+  }
+  // 尝试并入 BLIVE_CONFIG（加密写给 CI 自动投递消费）。推送渠道未配时不覆盖既有 Secret。
+  var pushCfg = buildPushConfig();
+  if(pushCfg){
+    try{
+      var full = pushCfg;
+      full.summary = cfg;
+      var json = JSON.stringify(full);
+      var base = ghBase();
+      var pkResp = await fetch(base + '/actions/secrets/public-key', {headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json'}});
+      if(!pkResp.ok) throw new Error('获取公钥失败 HTTP ' + pkResp.status);
+      var pk = await pkResp.json();
+      await sodium.ready;
+      var sealed = sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
+      var putResp = await fetch(base + '/actions/secrets/BLIVE_CONFIG', {method:'PUT', headers:{'Authorization':'Bearer '+getGhToken(),'Accept':'application/vnd.github+json','Content-Type':'application/json'}, body: JSON.stringify({encrypted_value: bytesToB64(sealed), key_id: pk.key_id})});
+      if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP ' + putResp.status);
+      if(stEl){ stEl.style.display='block'; stEl.style.color='var(--green,#2ecc71)'; stEl.innerHTML='✅ 定时摘要已并入仓库 Secret（BLIVE_CONFIG.summary），下次监控运行即生效。'; }
+      toast('定时摘要已保存', true);
+    }catch(err){
+      if(stEl){ stEl.style.display='block'; stEl.style.color='var(--yellow)'; stEl.innerHTML='⚠️ 摘要镜像已保存；但自动投递需配置推送渠道并写入 Secret：' + (err && err.message || err); }
+      toast('摘要镜像已保存（自动投递待配置推送）', true);
+    }
+  } else {
+    if(stEl){ stEl.style.display='block'; stEl.style.color='var(--yellow)'; stEl.innerHTML='✅ 摘要镜像已保存（summary_state.json）。开启自动投递需在「推送渠道」配置后点「保存推送配置」。'; }
+    toast('摘要镜像已保存', true);
+  }
+  renderSummary((st.lastSent || 0) >= computeSince(st.freq, bjNow()));
+}
+
+/* ---------------- B1：批量增删纯函数 ---------------- */
+
+/** 平台别名归一化（bilibili/B站/bili；douyin/抖音/dy；xhs/小红书）。 */
+function normPlatform(p){
+  p = (p || '').toLowerCase();
+  if(p === 'bilibili' || p === 'b站' || p === 'bili') return 'bilibili';
+  if(p === 'douyin' || p === '抖音' || p === 'dy' || p === 'tiktok') return 'douyin';
+  if(p === 'xhs' || p === '小红书') return 'xhs';
+  return '';
+}
+
+/** 从对象/裸数组元素归一化为 {platform,id,name}（供 JSON/对象输入）。 */
+function normalizeBatchItem(it){
+  if(!it || typeof it !== 'object') return null;
+  var id = (it.id != null) ? String(it.id) : '';
+  if(!id) return null;
+  var platform = it.platform ? normPlatform(it.platform) : '';
+  if(!platform) platform = 'douyin';   // 新作监控仅抖音；缺省按 douyin
+  var name = (it.name != null && it.name !== '') ? String(it.name) : id;
+  var tags = (it.tags instanceof Array) ? it.tags.map(String) : [];
+  return { platform: platform, id: id, name: name, tags: tags };
+}
+
+/**
+ * 解析批量输入：多行「平台|ID|名称」或整段 / 逐行 JSON。
+ * @return {{ok:Array<{platform,id,name}>, bad:Array<{raw,reason}>}}
+ */
+function parseBatchInput(text){
+  var ok = [], bad = [];
+  if(!text) return { ok: ok, bad: bad };
+  var raw = String(text).trim();
+  // 整段 JSON 模式
+  if(raw.charAt(0) === '[' || raw.charAt(0) === '{'){
+    var data;
+    try { data = JSON.parse(raw); }
+    catch(err){ return { ok: ok, bad: [{ raw: raw.slice(0,200), reason: 'JSON 解析失败：' + (err && err.message || err) }] }; }
+    var items = (data instanceof Array) ? data : [];
+    if(data && typeof data === 'object' && !(data instanceof Array)){
+      items = (data.rooms || []).concat(data.postRooms || []);
+    }
+    for(var i=0;i<items.length;i++){
+      var r = normalizeBatchItem(items[i]);
+      if(r) ok.push(r); else bad.push({ raw: JSON.stringify(items[i]).slice(0,120), reason: '缺少 platform/id' });
+    }
+    return { ok: ok, bad: bad };
+  }
+  var lines = raw.split(/\r?\n/);
+  for(var j=0;j<lines.length;j++){
+    var line = lines[j].trim();
+    if(!line) continue;
+    if(line.charAt(0) === '[' || line.charAt(0) === '{'){
+      var it;
+      try { it = JSON.parse(line); }
+      catch(_e){ bad.push({ raw: line, reason: 'JSON 解析失败' }); continue; }
+      var ri = normalizeBatchItem(it);
+      if(ri) ok.push(ri); else bad.push({ raw: line.slice(0,120), reason: '缺少 platform/id' });
+      continue;
+    }
+    var parts = line.split('|');
+    if(parts.length < 2){ bad.push({ raw: line, reason: '格式应为 平台|ID|名称' }); continue; }
+    var platform = normPlatform(parts[0].trim());
+    var id = parts[1].trim();
+    var name = parts.length > 2 ? parts[2].trim() : id;
+    // B2 批量框可选第 4 列 tags（逗号分隔）
+    var tags = parts.length > 3 ? parts[3].trim().split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+    if(!platform){ bad.push({ raw: line, reason: '未知平台：' + parts[0] }); continue; }
+    if(!id){ bad.push({ raw: line, reason: 'ID 为空' }); continue; }
+    var rec={ platform: platform, id: id, name: name };
+    if(tags.length) rec.tags=tags;
+    ok.push(rec);
+  }
+  return { ok: ok, bad: bad };
+}
+
+/**
+ * 按 platform|id（直播）/ id（新作）去重合并，保留 existing 未知字段与顺序。
+ * @return {{rooms:Array, added:number, skipped:number}}
+ */
+function mergeRooms(existing, incoming){
+  existing = existing || [];
+  incoming = incoming || [];
+  var map = {}, out = [];
+  function keyOf(r){
+    var id = String(r.id != null ? r.id : '');
+    var p = r.platform ? r.platform + '|' : '';
+    return p + id;
+  }
+  for(var i=0;i<existing.length;i++){ var r = existing[i]; map[keyOf(r)] = r; out.push(r); }
+  var added = 0, skipped = 0;
+  for(var j=0;j<incoming.length;j++){
+    var inc = incoming[j];
+    if(!inc || inc.id == null || String(inc.id) === '') continue;
+    var item = {};
+    for (var kk in inc) if (Object.prototype.hasOwnProperty.call(inc, kk)) item[kk] = inc[kk];
+    item.id = String(inc.id);
+    if (item.name == null || item.name === '') item.name = String(inc.id);
+    if (item.platform === undefined) delete item.platform;
+    var k = keyOf(item);
+    if(map.hasOwnProperty(k)){ skipped++; }
+    else { map[k] = item; out.push(item); added++; }
+  }
+  return { rooms: out, added: added, skipped: skipped };
+}
+
+/** 预览批量解析结果到指定预览容器。 */
+function previewBatchBox(boxId, previewId){
+  var box = document.getElementById(boxId); if(!box) return;
+  var res = parseBatchInput(box.value);
+  var el = document.getElementById(previewId); if(!el) return;
+  var html = '';
+  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':'抖音') + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
+  if(res.bad.length) html += '<div class="blm-batch-bad">⚠️ 跳过 ' + res.bad.length + ' 行</div>' + res.bad.map(function(b){ return '<div class="blm-batch-item blm-batch-bad">' + e((b.raw||'').slice(0,60)) + ' — ' + e(b.reason) + '</div>'; }).join('');
+  if(!html) html = '<div class="blm-batch-item">（空）</div>';
+  el.innerHTML = html;
+}
+
+/** 批量加入：合并写回 rooms.json（target='rooms'）或 post_rooms.json（target='posts'）。 */
+function submitBatchBox(boxId, target){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var box = document.getElementById(boxId); if(!box) return;
+  var res = parseBatchInput(box.value);
+  if(!res.ok.length){ toast(res.bad.length ? ('无合法行，已跳过 ' + res.bad.length + ' 行') : '批量框为空', false); return; }
+  if(target === 'posts'){
+    var ok = res.ok.map(function(r){ return { id: r.id, name: r.name, tags: r.tags||[] }; });
+    var merged = mergeRooms(postRooms, ok);
+    ghWriteWithRetry('post_rooms.json', function(rs){ var m = mergeRooms(rs, ok); return { rooms: m.rooms, changed: m.added > 0 }; })
+      .then(function(out){ postRooms = out.rooms; renderPosts(); updateStatPosts(); toast('已批量添加 ' + merged.added + ' 个抖音号' + (merged.skipped ? ('，跳过 ' + merged.skipped + ' 个已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .catch(function(err){ toast(err && err.message ? err.message : '批量添加失败', false); });
+  } else {
+    var merged2 = mergeRooms(rooms, res.ok);
+    ghWriteWithRetry('rooms.json', function(rs){ var m = mergeRooms(rs, res.ok); return { rooms: m.rooms, changed: m.added > 0 }; })
+      .then(function(out){ rooms = out.rooms; renderLive(); updateStatRooms(); toast('已批量添加 ' + merged2.added + ' 条' + (merged2.skipped ? ('，跳过 ' + merged2.skipped + ' 条已存在') : ''), true); box.value=''; triggerMonitor().catch(function(){}); })
+      .catch(function(err){ var msg = err && err.message ? err.message : '批量添加失败'; if(/409|conflict|冲突/i.test(msg)) msg = '并发写入冲突，请稍候几秒再点「批量加入」'; toast(msg, false); });
+  }
+}
+
+/**
+ * 导出当前监控列表为备份 JSON 并触发下载；同时返回 JSON 字符串（便于测试）。
+ * 含 rooms + postRooms（含 tags/enabled 等字段）+ exportedAt。
+ */
+function exportRooms(){
+  var data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    rooms: rooms,
+    postRooms: postRooms
+  };
+  var json = JSON.stringify(data, null, 2);
+  try{
+    var blob = new Blob([json], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var d = new Date();
+    var ymd = d.getFullYear() + '' + pad2(d.getMonth()+1) + pad2(d.getDate());
+    a.href = url; a.download = 'blive-monitor-backup-' + ymd + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }catch(_e){ /* 测试环境无 DOM 时忽略下载 */ }
+  return json;
+}
+
+/**
+ * 合并导入备份 JSON（rooms + postRooms），经 ghWriteWithRetry 合并写回（保留未知字段）。
+ * @param {string} jsonText 全文备份或裸数组
+ * @return {Promise<boolean>}
+ */
+function importRooms(jsonText){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return Promise.resolve(false); }
+  var data;
+  try { data = JSON.parse(jsonText); }
+  catch(err){ toast('JSON 解析失败：' + (err && err.message || err), false); return Promise.resolve(false); }
+  if(!data || typeof data !== 'object'){ toast('备份格式不正确', false); return Promise.resolve(false); }
+  var inRooms = data.rooms || (data instanceof Array ? data : []);
+  var inPosts = data.postRooms || [];
+  var statusEl = document.getElementById('importStatus');
+  var jobs = [];
+  if(inRooms.length){
+    jobs.push(ghWriteWithRetry('rooms.json', function(rs){
+      var m = mergeRooms(rs, inRooms);
+      return { rooms: m.rooms, changed: m.added > 0 };
+    }).then(function(out){ return { kind: 'rooms', rooms: out.rooms }; }));
+  }
+  if(inPosts.length){
+    jobs.push(ghWriteWithRetry('post_rooms.json', function(rs){
+      var m = mergeRooms(rs, inPosts);
+      return { rooms: m.rooms, changed: m.added > 0 };
+    }).then(function(out){ return { kind: 'posts', rooms: out.rooms }; }));
+  }
+  if(!jobs.length){ toast('备份中没有可导入的房间', false); return Promise.resolve(false); }
+  return Promise.all(jobs).then(function(results){
+    results.forEach(function(r){ if(r.kind === 'rooms'){ rooms = r.rooms; } else { postRooms = r.rooms; } });
+    renderLive(); renderPosts(); updateStatRooms(); updateStatPosts();
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--green,#2ecc71)'; statusEl.innerHTML='✅ 已合并导入（房间 ' + rooms.length + '，新作 ' + postRooms.length + '）。'; }
+    toast('导入完成', true);
+    triggerMonitor().catch(function(){});
+    return true;
+  }).catch(function(err){
+    var msg = err && err.message ? err.message : '导入失败';
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--yellow)'; statusEl.innerHTML='⚠️ 导入失败：' + e(msg); }
+    toast(msg, false);
+    return false;
+  });
+}
+
+/** 文件选择后把内容读入导入文本框。 */
+function onImportFile(ev){
+  var f = ev && ev.target && ev.target.files && ev.target.files[0];
+  if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){ var box = document.getElementById('importBox'); if(box) box.value = reader.result; };
+  reader.readAsText(f);
+}
+
+/* ---------------- A3 预留：静默时段纯函数（2a 仅签名 + 参考测试） ---------------- */
+
+/**
+ * 判断是否处于静默时段（支持跨午夜）。
+ * @param {Date} nowBJ 北京时 Date（bjNow() 风格）
+ * @param {{enabled:boolean,start:string,end:string}} silence
+ * @return {boolean}
+ */
+function inSilence(nowBJ, silence){
+  if(!silence || !silence.enabled) return false;
+  function hm(s){
+    var p = String(s || '00:00').split(':');
+    var h = parseInt(p[0] || '0', 10), m = parseInt(p[1] || '0', 10);
+    if(isNaN(h)) h = 0; if(isNaN(m)) m = 0;
+    return h * 60 + m;
+  }
+  var start = hm(silence.start), end = hm(silence.end);
+  var cur = nowBJ.getHours() * 60 + nowBJ.getMinutes();
+  if(start <= end) return cur >= start && cur < end;
+  return cur >= start || cur < end;   // 跨午夜
+}
+
+onPushChannelChange();
+
+/* 写操作 UI 常驻显示；未配置 Token 时提交会提示先设置 */
+var _aw=document.getElementById('addWrap');
+if(_aw)_aw.style.display='block';
+var _paw=document.getElementById('postAddWrap');
+if(_paw)_paw.style.display='block';
+// 页面加载即检测 GitHub API 是否可达，并提示是否需要配置 Token。
+checkApi();
+document.addEventListener('DOMContentLoaded',ld);
+
+/* =========================================================================
+ * 阶段二 2b：A3 静默 / B2 标签 / B3 启停 / B4 排序 / A2 路由 / A4 模板
+ * 纯函数下沉（applyTagsFilter/applySort/renderTemplate/resolveChannel 等），
+ * 视图层仅在 renderLive/renderPosts 排序/筛选层叠加，核心状态查询/卡片 HTML 逻辑不动。
+ * 数据层既有函数（ld/ghGetFile/ghWriteWithRetry/...）名称/签名/逻辑不动。
+ * ========================================================================= */
+
+/* ---------------- B2：标签筛选（与 fl/q AND 叠加） ---------------- */
+/** 仅返回含 tag 的房间（缺失 tags 视为无标签，不报错）。 */
+function applyTagsFilter(rooms, tag){
+  if(!tag) return rooms;
+  var out=[];
+  for(var i=0;i<rooms.length;i++){
+    var r=rooms[i];
+    var tags=r.tags;
+    if(!tags||!tags.length) continue;
+    if(tags.indexOf(tag)>=0) out.push(r);
+  }
+  return out;
+}
+/** 设全局 tag，重渲染两列表（与 fl/q AND 叠加）。 */
+function onTagFilter(t){
+  tag = t || '';
+  renderLive(); renderPosts();
+}
+/** 动态渲染标签 chip 行（全部 + 各 tag；与当前 tag 高亮）。 */
+function renderTagChips(containerId){
+  var el=document.getElementById(containerId);
+  if(!el) return;
+  var tagsSet={};
+  for(var i=0;i<rooms.length;i++){ var ts=rooms[i]&&rooms[i].tags; if(ts&&ts.length) for(var j=0;j<ts.length;j++) tagsSet[ts[j]]=true; }
+  for(var k=0;k<postRooms.length;k++){ var pts=postRooms[k]&&postRooms[k].tags; if(pts&&pts.length) for(var j=0;j<pts.length;j++) tagsSet[pts[j]]=true; }
+  var html='<button class="blm-filter-chip'+(tag===''?' active':'')+'" onclick="onTagFilter(\'\')">全部</button>';
+  for(var tk in tagsSet) if(tagsSet.hasOwnProperty(tk)){
+    html+='<button class="blm-filter-chip'+(tag===tk?' active':'')+'" data-tag="'+e(tk)+'" onclick="onTagFilter(\''+e(tk)+'\')">'+e(tk)+'</button>';
+  }
+  el.innerHTML=html;
+}
+
+/* ---------------- B3：批量启停 ---------------- */
+/** 维护全局 selected（platform|id -> true），并更新批量条。 */
+function toggleRoomSelect(key, el){
+  if(el.checked) selected[key]=true; else delete selected[key];
+  updateBatchBar();
+}
+/** 全选当前视图已渲染房间（跳过已暂停）。 */
+function selectAllInView(view){
+  view = view || 'live';
+  if(view==='posts'){
+    for(var i=0;i<postRooms.length;i++){ if(postRooms[i].enabled!==false) selected['douyin|'+String(postRooms[i].id)]=true; }
+    renderPosts();
+  } else {
+    for(var i=0;i<rooms.length;i++){ if(rooms[i].enabled!==false) selected[rooms[i].platform+'|'+String(rooms[i].id)]=true; }
+    renderLive();
+  }
+  updateBatchBar();
+}
+/** 暂停选中（enabled=false），经 ghWriteWithRetry 合并写回。 */
+function pauseSelected(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var keys=Object.keys(selected);
+  if(!keys.length){ toast('请先勾选房间', false); return; }
+  Promise.all(keys.map(function(k){
+    var p=k.split('|'); var platform=p[0], id=p[1];
+    var isPost=!rooms.some(function(r){return r.platform===platform && String(r.id)===String(id);});
+    return setRoomEnabled(platform, id, false, isPost).then(function(res){ if(isPost) postRooms=res.rooms; else rooms=res.rooms; });
+  })).then(function(){
+    selected={}; renderLive(); renderPosts(); updateBatchBar();
+    toast('已暂停选中房间', true);
+  }).catch(function(err){ toast(err&&err.message||'批量暂停失败', false); });
+}
+/** 恢复选中（enabled=true）。 */
+function resumeSelected(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var keys=Object.keys(selected);
+  if(!keys.length){ toast('请先勾选房间', false); return; }
+  Promise.all(keys.map(function(k){
+    var p=k.split('|'); var platform=p[0], id=p[1];
+    var isPost=!rooms.some(function(r){return r.platform===platform && String(r.id)===String(id);});
+    return setRoomEnabled(platform, id, true, isPost).then(function(res){ if(isPost) postRooms=res.rooms; else rooms=res.rooms; });
+  })).then(function(){
+    selected={}; renderLive(); renderPosts(); updateBatchBar();
+    toast('已恢复选中房间', true);
+  }).catch(function(err){ toast(err&&err.message||'批量恢复失败', false); });
+}
+/** 显示/隐藏批量条并刷新计数（live/posts 两个视图均更新）。 */
+function updateBatchBar(){
+  var n=Object.keys(selected).length;
+  var b=document.getElementById('batchBar'), c=document.getElementById('batchCount');
+  var bp=document.getElementById('batchBarPosts'), cp=document.getElementById('batchCountPosts');
+  if(b&&c){ b.style.display=n?'flex':'none'; c.textContent='已选 '+n; }
+  if(bp&&cp){ bp.style.display=n?'flex':'none'; cp.textContent='已选 '+n; }
+}
+/** 经 ghWriteWithRetry 合并写回 enabled（保留其余字段 / 远端未知字段）。 */
+function setRoomEnabled(platform, id, enabled, isPost){
+  var path = isPost ? 'post_rooms.json' : 'rooms.json';
+  return ghWriteWithRetry(path, function(rs){
+    var changed=false;
+    var out=rs.map(function(r){
+      if(String(r.id)===String(id) && (isPost || r.platform===platform)){
+        if(r.enabled!==enabled){
+          var nr={}; for(var k in r) if(Object.prototype.hasOwnProperty.call(r,k)) nr[k]=r[k];
+          nr.enabled=enabled; changed=true; return nr;
+        }
+      }
+      return r;
+    });
+    return {rooms:out, changed:changed};
+  });
+}
+/** 打开轻量编辑层（live: {platform,id}；posts: {id}）。 */
+function editRoom(arg){
+  var id = arg.id;
+  var platform = arg.platform || 'douyin';
+  var isPost = !arg.platform;
+  var r=null;
+  if(isPost) r = (postRooms.filter(function(x){return String(x.id)===String(id);}))[0] || null;
+  else r = (rooms.filter(function(x){return x.platform===platform && String(x.id)===String(id);}))[0] || null;
+  if(!r) return;
+  document.getElementById('editKey').value = (isPost?'douyin|':'') + platform + '|' + id;
+  document.getElementById('editName').value = r.name || '';
+  document.getElementById('editTags').value = (r.tags&&r.tags.length)? r.tags.join(',') : '';
+  document.getElementById('editEnabled').checked = (r.enabled!==false);
+  document.getElementById('roomEdit').style.display='block';
+}
+function closeRoomEdit(){ var m=document.getElementById('roomEdit'); if(m) m.style.display='none'; }
+/** 保存编辑：合并写回 name/tags/enabled（保留其余字段）。 */
+function saveRoomEdit(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var key=document.getElementById('editKey').value;
+  var parts=key.split('|'); var isPost=(parts.length===3 && parts[0]==='douyin');
+  var platform=isPost?'douyin':parts[0]; var id=isPost?parts[2]:parts[1];
+  var name=document.getElementById('editName').value.trim();
+  var tagsRaw=document.getElementById('editTags').value.trim();
+  var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
+  var enabled=document.getElementById('editEnabled').checked;
+  var path = isPost ? 'post_rooms.json' : 'rooms.json';
+  ghWriteWithRetry(path, function(rs){
+    var changed=false;
+    var out=rs.map(function(rr){
+      if(String(rr.id)===String(id) && (isPost || rr.platform===platform)){
+        var nr={}; for(var k in rr) if(Object.prototype.hasOwnProperty.call(rr,k)) nr[k]=rr[k];
+        if(name) nr.name=name; else if(nr.name==null) nr.name=String(id);
+        nr.tags=tags; nr.enabled=enabled; changed=true; return nr;
+      }
+      return rr;
+    });
+    return {rooms:out, changed:changed};
+  }).then(function(res){
+    if(isPost) postRooms=res.rooms; else rooms=res.rooms;
+    renderLive(); renderPosts(); closeRoomEdit(); toast('已保存编辑', true);
+  }).catch(function(err){ toast(err&&err.message||'保存失败', false); });
+}
+
+/* ---------------- B4：排序（仅排序层生效，不改数据源/不网络） ---------------- */
+/**
+ * 重排序（与 fl/q/tag AND 叠加由调用方先过滤）。
+ * @param {Array} rs 已过滤的房间数组
+ * @param {string} sortKey 'default'|'live'|'platform'|'recent'
+ * @param {{statusRank:object,lastActive:object}} ctx
+ *   statusRank: platform|id -> 状态排名（live 最前）
+ *   lastActive: platform|id -> 最近 live_on/new_post 的 epoch 毫秒（无则 0，排末尾）
+ */
+function applySort(rs, sortKey, ctx){
+  ctx = ctx || {};
+  var statusRank = ctx.statusRank || {};
+  var lastActive = ctx.lastActive || {};
+  var arr = rs.slice();
+  if(sortKey==='platform'){
+    var pfRank={'bilibili':0,'douyin':1};
+    arr.sort(function(a,b){
+      var pa=pfRank.hasOwnProperty(a.platform)?pfRank[a.platform]:9;
+      var pb=pfRank.hasOwnProperty(b.platform)?pfRank[b.platform]:9;
+      if(pa!==pb) return pa-pb;
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
+    });
+  } else if(sortKey==='recent'){
+    arr.sort(function(a,b){
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      var la=lastActive.hasOwnProperty(ka)?lastActive[ka]:0;
+      var lb=lastActive.hasOwnProperty(kb)?lastActive[kb]:0;
+      return lb-la;  // 最近活跃在前
+    });
+  } else {
+    // default / live：状态排名（直播中优先），稳定次序
+    arr.sort(function(a,b){
+      var ka=a.platform+'|'+a.id, kb=b.platform+'|'+b.id;
+      return (statusRank.hasOwnProperty(ka)?statusRank[ka]:1)-(statusRank.hasOwnProperty(kb)?statusRank[kb]:1);
+    });
+  }
+  return arr;
+}
+/** 设全局 sortKey，重渲染（不网络）。 */
+function onSortChange(v){
+  sortKey = v || 'default';
+  renderLive(); renderPosts();
+}
+
+/* ---------------- A2：多通道路由（前端 schema + UI，CI 多通道消费留后续） ---------------- */
+/** 渲染通道列表 + 路由规则（id="channelRoutes"）。 */
+function renderChannelRoutes(){
+  var el=document.getElementById('channelRoutes'); if(!el) return;
+  var h='';
+  h+='<div class="blm-config-item-title">通道</div>';
+  if(!window.__channels.length) h+='<div class="blm-caption">（暂无通道）</div>';
+  for(var i=0;i<window.__channels.length;i++){
+    var c=window.__channels[i];
+    h+='<div class="blm-channel-item" data-id="'+e(c.id)+'">'+
+        '<span class="blm-channel-name">'+e(c.name||c.id)+'</span>'+
+        '<span class="blm-channel-type">'+e(c.type||'')+'</span>'+
+        '<button class="blm-room-remove" title="删除" onclick="removeChannel(\''+e(c.id)+'\')">✕</button></div>';
+  }
+  h+='<div class="blm-config-item-title" style="margin-top:8px">路由规则（最具体优先 + default 兜底）</div>';
+  if(!window.__routes.length) h+='<div class="blm-caption">（暂无规则，走默认通道）</div>';
+  for(var j=0;j<window.__routes.length;j++){
+    var r=window.__routes[j]; var m=r.match||{};
+    var mtxt=[m.event?'事件='+m.event:'', m.platform?'平台='+m.platform:'', m.tag?'标签='+m.tag:''].filter(function(x){return x;}).join(' / ')||'默认';
+    h+='<div class="blm-route-item" data-i="'+j+'">'+
+        '<span>'+e(mtxt)+' → '+e(r.channelId||'')+'</span>'+
+        '<button class="blm-room-remove" title="删除" onclick="removeRoute('+j+')">✕</button></div>';
+  }
+  el.innerHTML=h;
+}
+/** 新增通道 / 新增路由规则（轻量 prompt 录入）。 */
+function addChannelRoute(kind){
+  if(kind==='channel'){
+    var id=prompt('通道 ID（如 c_bark）：'); if(!id) return;
+    var type=prompt('通道类型（bark/wecom/pushplus/telegram/serverchan）：','bark'); if(!type) return;
+    var name=prompt('通道名称：', id)||id;
+    window.__channels.push({id:id, type:type, name:name, fields:{}});
+  } else {
+    var event=prompt('事件（live_on/new_post，留空=任意）：','live_on');
+    var platform=prompt('平台（bilibili/douyin，留空=任意）：','');
+    var tag=prompt('标签（留空=任意）：','');
+    var channelId=prompt('目标通道 ID：',''); if(!channelId) return;
+    var match={};
+    if(event) match.event=event; if(platform) match.platform=platform; if(tag) match.tag=tag;
+    window.__routes.push({match:match, channelId:channelId});
+  }
+  renderChannelRoutes();
+}
+/** 删除通道 / 路由（本波仅前端，保存时并入 BLIVE_CONFIG.channels/routes）。 */
+function removeChannel(id){
+  window.__channels=window.__channels.filter(function(c){return c.id!==id;});
+  renderChannelRoutes();
+}
+function removeRoute(i){
+  window.__routes=window.__routes.filter(function(_,idx){return idx!==i;});
+  renderChannelRoutes();
+}
+/** A2 构建完整配置（legacy push + channels/routes + templates + silence + summary）。 */
+function buildPushConfigV2(){
+  var full = buildPushConfig() || {push:{type:''}, channels:[], routes:[], templates:buildTemplateConfig(), silence:buildSilenceConfig()};
+  full.channels = window.__channels || [];
+  full.routes = window.__routes || [];
+  full.templates = buildTemplateConfig();
+  full.silence = buildSilenceConfig();
+  return full;
+}
+
+/** A2 预留：给定事件 ctx{platform?,tag?,event?} 按 routes 匹配通道（最具体优先 + default 兜底）。
+ *  JS 镜像 common.resolve_channel（CI 多通道消费留后续，本波不被调用）。 */
+function resolveChannel(cfg, ctx){
+  cfg = cfg || {};
+  var routes = cfg.routes || [];
+  var channels = {};
+  (cfg.channels||[]).forEach(function(c){ if(c && c.id) channels[c.id]=c; });
+  ctx = ctx || {};
+  var platform=ctx.platform, tag=ctx.tag, event=ctx.event;
+  function score(m){
+    var s=0;
+    if(m.platform) s+=1;
+    if(m.tag) s+=1;
+    if(m.event) s+=1;
+    return s;
+  }
+  function match(m){
+    if(m.platform && m.platform!==platform) return false;
+    if(m.tag && m.tag!==tag) return false;
+    if(m.event && m.event!==event) return false;
+    return true;
+  }
+  var defaultCh=null, cands=[];
+  for(var i=0;i<routes.length;i++){
+    var r=routes[i]; if(!r) continue;
+    var m=r.match||{};
+    if(!m || (Object.keys(m).length===0)){ defaultCh=channels[r.channelId]; continue; }
+    if(match(m)) cands.push({s:score(m), r:r});
+  }
+  if(cands.length){
+    cands.sort(function(a,b){ return b.s-a.s; });
+    return channels[cands[0].r.channelId] || {};
+  }
+  if(defaultCh) return defaultCh;
+  return cfg.push || {};
+}
+
+/* ---------------- A4：推送模板（前端 schema + UI，CI 模板拼接留后续） ---------------- */
+/** 渲染 tplLiveOn/tplNewPost 编辑器（含变量提示）。 */
+function renderTemplateEditor(){
+  var el=document.getElementById('templateEditor'); if(!el) return;
+  el.innerHTML=
+    '<div class="blm-config-item-title">开播模板</div>'+
+    '<textarea id="tplLiveOn" class="blm-input blm-textarea" style="height:54px">'+e(window.__tplLiveOn||'🔴 {name} 开播了：{title}')+'</textarea>'+
+    '<div class="blm-config-item-title" style="margin-top:8px">新作模板</div>'+
+    '<textarea id="tplNewPost" class="blm-input blm-textarea" style="height:54px">'+e(window.__tplNewPost||'🆕 {name} 发布了新作品')+'</textarea>'+
+    '<div class="blm-caption">占位符：{name} {title} {platform} {time} {url}（CI 拼接时消费）</div>';
+}
+/** 读取模板配置对象。 */
+function buildTemplateConfig(){
+  var liveOn=document.getElementById('tplLiveOn');
+  var newPost=document.getElementById('tplNewPost');
+  return {
+    live_on: liveOn ? (liveOn.value || '🔴 {name} 开播了：{title}') : '🔴 {name} 开播了：{title}',
+    new_post: newPost ? (newPost.value || '🆕 {name} 发布了新作品') : '🆕 {name} 发布了新作品'
+  };
+}
+/** 替换占位符；缺字段保留原占位符不崩（CI 拼接时消费，本波仅前端参考）。 */
+function renderTemplate(tpl, ctx){
+  if(tpl==null) return '';
+  return String(tpl).replace(/\{(\w+)\}/g, function(m, k){
+    if(ctx && Object.prototype.hasOwnProperty.call(ctx,k) && ctx[k]!=null && ctx[k]!=='') return String(ctx[k]);
+    return m;
+  });
+}
+
+/* ---------------- A3：静默时段 ---------------- */
+/** 读 silenceEnabled/silenceStart/silenceEnd → {enabled,start,end}。 */
+function buildSilenceConfig(){
+  var en=document.getElementById('silenceEnabled');
+  var st=document.getElementById('silenceStart');
+  var en2=document.getElementById('silenceEnd');
+  return {
+    enabled: en ? !!en.checked : false,
+    start: st && st.value ? st.value : '23:00',
+    end: en2 && en2.value ? en2.value : '08:00'
+  };
+}
+/** 载入可读镜像 silence_state.json，回显控件 + 渲染当前静默提示。 */
+function loadSilenceUI(){
+  var t=Date.now();
+  fetch('silence_state.json?_='+t,{signal:AbortSignal.timeout(8000)}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(st){
+    window.__silenceState = st || {enabled:false, start:'23:00', end:'08:00'};
+    var enEl=document.getElementById('silenceEnabled');
+    var stEl=document.getElementById('silenceStart');
+    var en2El=document.getElementById('silenceEnd');
+    if(enEl) enEl.checked=!!window.__silenceState.enabled;
+    if(stEl && window.__silenceState.start) stEl.value=window.__silenceState.start;
+    if(en2El && window.__silenceState.end) en2El.value=window.__silenceState.end;
+    renderSilenceHint();
+  });
+}
+/** 显示「当前是否静默」（inSilence(bjNow(), 当前配置)）。 */
+function renderSilenceHint(){
+  var el=document.getElementById('silenceHint'); if(!el) return;
+  var st=window.__silenceState || {enabled:false, start:'23:00', end:'08:00'};
+  if(!st.enabled){ el.textContent='未启用静默时段'; el.className='blm-caption'; return; }
+  var now=bjNow();
+  if(inSilence(now, st)){
+    el.textContent='当前 '+pad2(now.getHours())+':'+pad2(now.getMinutes())+' 处于静默中，推送将暂缓至 '+st.end;
+    el.className='blm-caption muted';
+  } else {
+    el.textContent='当前未静默（静默 '+st.start+'–'+st.end+'）';
+    el.className='blm-caption';
+  }
+}
+/** 保存静默配置：写可读镜像 silence_state.json + 加密并入 BLIVE_CONFIG.silence。 */
+async function saveSilenceConfig(){
+  if(!getGhToken()){ toast('请先到「配置」页设置 Token', false); show('config'); return; }
+  var silence=buildSilenceConfig();
+  var stEl=document.getElementById('silenceStatus');
+  try{
+    await ghWriteWithRetry('silence_state.json', function(){ return {rooms:silence, changed:true}; });
+    window.__silenceState = silence;
+  }catch(err){
+    toast('保存静默镜像失败：'+(err&&err.message||err), false);
+    return;
+  }
+  // 合并进 BLIVE_CONFIG 加密写（CI 推送前拦截依赖此）
+  var full;
+  var pushCfg=buildPushConfig();
+  if(pushCfg){ full=pushCfg; }
+  else { full={push:{}, silence:silence, channels:window.__channels||[], routes:window.__routes||[], templates:buildTemplateConfig()}; }
+  var ok=await _encryptSaveBlive(full, stEl);
+  if(stEl){
+    stEl.style.display='block';
+    if(ok){ stEl.style.color='var(--green,#2ecc71)'; stEl.innerHTML='✅ 静默时段已保存（镜像 silence_state.json + 仓库 Secret BLIVE_CONFIG.silence），下次监控运行即生效。'; }
+    else { stEl.style.color='var(--yellow)'; stEl.innerHTML='✅ 静默镜像已保存（silence_state.json）；但加密写入 Secret 失败，请检查 Token 或手动写入 BLIVE_CONFIG.silence。'; }
+  }
+  renderSilenceHint();
+  toast('静默配置已保存', true);
+}
+/** 复用加密链路：将完整配置写入仓库 Secret（BLIVE_CONFIG）。 */
+async function _encryptSaveBlive(fullCfg, statusEl){
+  var json=JSON.stringify(fullCfg);
+  var tok=getGhToken();
+  if(!tok){ toast('请先到「配置」页设置 Token', false); show('config'); return false; }
+  try{
+    var base=ghBase();
+    var pkResp=await fetch(base+'/actions/secrets/public-key',{headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json'}});
+    if(!pkResp.ok) throw new Error('获取公钥失败 HTTP '+pkResp.status);
+    var pk=await pkResp.json();
+    await sodium.ready;
+    var sealed=sodium.crypto_box_seal(new TextEncoder().encode(json), b64ToBytes(pk.key));
+    var putResp=await fetch(base+'/actions/secrets/BLIVE_CONFIG',{method:'PUT',headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({encrypted_value:bytesToB64(sealed),key_id:pk.key_id})});
+    if(!putResp.ok) throw new Error('写入 Secret 失败 HTTP '+putResp.status);
+    return true;
+  }catch(e){
+    if(statusEl){ statusEl.style.display='block'; statusEl.style.color='var(--yellow)'; statusEl.innerHTML='⚠️ 自动写入失败：'+(e&&e.message||e)+'<br>请复制下面 JSON，手动到 GitHub → Settings → Secrets → Actions → 新建/更新 <b>BLIVE_CONFIG</b>：<br><textarea readonly style="width:100%;height:74px;margin-top:6px;box-sizing:border-box">'+escapeHtml(json)+'</textarea>'; }
+    return false;
+  }
+}
+
+/* ---------------- 阶段二 2b：配置/列表 UI 联动 ---------------- */
+/** ld() 成功后调用：填充标签 chip / 静默镜像 / 通道路由 / 模板编辑器 / 批量条。 */
+function loadPhase2UI(){
+  try{ renderTagChips('liveTagBar'); }catch(_e){}
+  try{ renderTagChips('postsTagBar'); }catch(_e){}
+  try{ loadSilenceUI(); }catch(_e){}
+  try{ renderChannelRoutes(); }catch(_e){}
+  try{ renderTemplateEditor(); }catch(_e){}
+  try{ updateBatchBar(); }catch(_e){}
+}
+</script>
+</body>
+</html>

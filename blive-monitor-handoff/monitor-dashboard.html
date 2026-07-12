@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 四视图整合（Option A）：本页降为轻量入口，重定向到唯一 canonical 主视图 monitor.html -->
+<meta http-equiv="refresh" content="0; url=monitor.html?view=dashboard">
+<title>监控 · 重定向到主视图</title>
+<script>
+  // 优先用 JS 跳转（保留 ?view= 预选），退化到 meta refresh
+  location.replace('monitor.html?view=dashboard');
+</script>
+</head>
+<body style="margin:0;background:#0b0b12;color:#9a9aae;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif">
+<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:8px">
+  <div style="font-size:15px">正在跳转到统一监控主视图…</div>
+  <a href="monitor.html?view=dashboard" style="color:#fb7299;font-size:13px">若未自动跳转，点此进入</a>
+</div>
+</body>
+</html>
