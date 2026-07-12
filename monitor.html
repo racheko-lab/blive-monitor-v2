@@ -94,6 +94,24 @@
   --tab-bar-height: 62px;
   --header-height: 58px;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ===== 遗留变量别名 - 必须保留（文档§2.2，测试保护） ===== */
+  --green: #30D158;
+  --yellow: #FF9F0A;
+  --live: #FF3B30;
+  --bili: #00D4F5;
+  --dy: #FE2C55;
+  --text: #F0F0F5;
+  --text2: rgba(240, 240, 245, 0.68);
+  --text3: rgba(240, 240, 245, 0.42);
+  --card: #121318;
+  --card2: #181920;
+  --line: rgba(255, 255, 255, 0.07);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  --bili-soft: rgba(0, 212, 245, 0.14);
+  --dy-soft: rgba(254, 44, 85, 0.13);
+  --bg: #08090D;
+  --radius: 16px;
 }
 
 /* ===== Base Reset ===== */
@@ -883,6 +901,29 @@ body {
 /* ===== Empty State ===== */
 .empty { text-align: center; padding: 48px 16px; color: var(--color-text-tertiary); font-size: var(--font-size-body); line-height: 1.6; }
 
+/* ===== Phase-1 保留类 - 必须保留（文档§2.3，测试保护） ===== */
+.blm-status-pill .txt { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
+
+.pf { font-size: var(--font-size-caption); font-weight: var(--font-weight-medium); }
+.pf.ok { color: var(--state-success); }
+.pf.bad { color: var(--state-error); }
+.pf.bili { color: var(--color-bilibili); background: var(--color-bilibili-bg); padding: 2px 8px; border-radius: var(--radius-full); }
+.pf.dy { color: var(--color-douyin); background: var(--color-douyin-bg); padding: 2px 8px; border-radius: var(--radius-full); }
+
+.health.ok { background: var(--state-success-bg); border-color: rgba(48, 209, 88, 0.14); color: var(--state-success); }
+.health.warn { background: var(--state-warning-bg); border-color: rgba(255, 159, 10, 0.14); color: var(--state-warning); }
+.health.stale, .health.fail { background: var(--state-error-bg); border-color: rgba(255, 69, 58, 0.14); color: var(--state-error); }
+
+.stat-card { background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--spacing-md); }
+.stat-t { font-size: var(--font-size-tiny); color: var(--color-text-tertiary); }
+.stat-b { font-size: var(--font-size-h1); font-weight: var(--font-weight-bold); color: var(--color-text-primary); }
+
+.s-live { color: var(--state-live); }
+.s-replay { color: var(--state-warning); }
+.s-offline { color: var(--color-text-tertiary); }
+.s-error { color: var(--state-error); }
+.pulse { display: inline-block; width: 7px; height: 7px; border-radius: var(--radius-full); background: var(--state-live); box-shadow: 0 0 8px var(--state-live-glow); animation: pulse-dot 2s ease-in-out infinite; margin-right: 4px; }
+
 /* ===== Config / Settings ===== */
 .blm-config-group { margin-bottom: var(--spacing-xl); }
 .blm-config-group-title {
@@ -1655,14 +1696,14 @@ body {
         </div>
 
         <!-- 批量添加直播房间（默认折叠） -->
-        <div class="blm-batch-add" id="batchAddBox" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
+        <div class="blm-batch-add" id="batchAddWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
           <div class="blm-config-item-title">批量添加房间</div>
           <div class="blm-config-item-desc">每行一个：平台|ID|名称（如 douyin|123|张三）。也支持整段 JSON。</div>
-          <textarea id="batchAddText" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
+          <textarea id="batchAddBox" class="blm-input" placeholder="每行一个：平台|ID|名称（如 douyin|123|张三）"></textarea>
           <div id="batchPreview" class="blm-batch-preview"></div>
           <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
-            <button class="blm-btn" onclick="previewBatchBox('batchAddText','batchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddText','rooms')">批量加入</button>
+            <button class="blm-btn" onclick="previewBatchBox('batchAddBox','batchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('batchAddBox','rooms')">批量加入</button>
             <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="toggleBatchAdd(false)">收起</button>
           </div>
         </div>
@@ -1715,14 +1756,14 @@ body {
         </div>
 
         <!-- 批量添加抖音号（默认折叠） -->
-        <div class="blm-batch-add" id="postBatchBox" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
+        <div class="blm-batch-add" id="postBatchWrap" style="display:none;margin-top:var(--spacing-sm);margin-bottom:var(--spacing-md);">
           <div class="blm-config-item-title">批量添加抖音号</div>
           <div class="blm-config-item-desc">每行一个：douyin|ID|名称，或整段 JSON（新作监控仅抖音）。</div>
-          <textarea id="postBatchText" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
+          <textarea id="postBatchBox" class="blm-input" placeholder="每行一个：douyin|ID|名称（如 douyin|123|张三）"></textarea>
           <div id="postBatchPreview" class="blm-batch-preview"></div>
           <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
-            <button class="blm-btn" onclick="previewBatchBox('postBatchText','postBatchPreview')">解析预览</button>
-            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchText','posts')">批量加入</button>
+            <button class="blm-btn" onclick="previewBatchBox('postBatchBox','postBatchPreview')">解析预览</button>
+            <button class="blm-btn blm-btn-primary" onclick="submitBatchBox('postBatchBox','posts')">批量加入</button>
             <button class="blm-btn blm-btn-secondary" style="margin-left:auto" onclick="togglePostBatchAdd(false)">收起</button>
           </div>
         </div>
@@ -2312,7 +2353,7 @@ function renderLive(){
     var selHtml='<label class="blm-room-select-wrap"><input type="checkbox" class="blm-room-select" data-key="'+e(roomKey)+'"'+(r.enabled===false?' disabled':'')+_sel+' onchange="toggleRoomSelect(\''+e(roomKey)+'\',this)"></label>';
     var actionsHtml=
       '<div class="blm-room-actions">'+
-        '<button class="blm-icon-btn-sm" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')">ⓘ</button>'+
+        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\''+e(roomKey)+'\')">ⓘ</button>'+
         '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+rmArg+')\'>✎</button>'+
         (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removeRoom('+rmArg+')\'>✕</button>':'')+
       '</div>';
@@ -2401,7 +2442,7 @@ function renderPosts(){
     var editArg=JSON.stringify({id:r.id,platform:'douyin'});
     var actionsP=
       '<div class="blm-work-actions">'+
-        '<button class="blm-icon-btn-sm" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
+        '<button class="blm-icon-btn-sm blm-room-detail" title="详情" onclick="openRoomDetail(\'douyin|'+e(id)+'\')">ⓘ</button>'+
         '<button class="blm-icon-btn-sm" title="编辑" onclick=\'editRoom('+editArg+')\'>✎</button>'+
         (hasApi?'<button class="blm-icon-btn-sm danger" title="移除监控" onclick=\'removePostRoom('+rmArg+')\'>✕</button>':'')+
       '</div>';
@@ -3590,7 +3631,7 @@ function toggleAddForm(force){
 }
 
 function toggleBatchAdd(force){
-  var box=document.getElementById('batchAddBox');
+  var box=document.getElementById('batchAddWrap');
   if(!box) return;
   var show = (force===undefined) ? (box.style.display==='none') : force;
   box.style.display = show ? 'block' : 'none';
@@ -3607,7 +3648,7 @@ function togglePostAddForm(force){
 }
 
 function togglePostBatchAdd(force){
-  var box=document.getElementById('postBatchBox');
+  var box=document.getElementById('postBatchWrap');
   if(!box) return;
   var show = (force===undefined) ? (box.style.display==='none') : force;
   box.style.display = show ? 'block' : 'none';
