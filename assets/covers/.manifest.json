@@ -2,5 +2,17 @@
   "douyin_81197422897": {
     "aweme_id": "7659466394198609830",
     "sha256": "5942e33a14715a15d3205a8f99f6325c99922c1e922d6b643adba718d389430f"
+  },
+  "douyin_zhuizhuguang61": {
+    "aweme_id": "count:850",
+    "sha256": "b8e0ce32fa49617fd1717d961cdd8bde05370573512b932fc930b84c5d1d1c9b"
+  },
+  "douyin_601914453": {
+    "aweme_id": "count:54",
+    "sha256": "1bd21934bf9dc204823b4ea8288c6dd77dc8bff2d9f05fabbdb6cb1aaab53479"
+  },
+  "douyin_XiaoyaoDx": {
+    "aweme_id": "7659255579152725994",
+    "sha256": "a1e4963e7374e089a694067a4999d8f8230a4dec18cdd2a44f83cf9926579c84"
   }
 }
