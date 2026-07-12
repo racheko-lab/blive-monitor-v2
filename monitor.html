@@ -2369,8 +2369,8 @@ window.__silenceState={enabled:false,start:'23:00',end:'08:00'}; // A3 静默可
 
 /* ===== 房间管理：前端直连 GitHub API（无需后端 / 域名） ===== */
 /* 仓库与分支（与监控脚本一致） */
-var GH_REPO="racheko-lab/blive-monitor";
-var GH_BRANCH="master";
+var GH_REPO="racheko-lab/blive-monitor-v2";
+var GH_BRANCH="main";
 /* GitHub REST API 直接写回 rooms.json；Token 优先取用户在「配置」页设置并仅存于本机 localStorage 的值，缺失时兜底使用下方内置的默认 Token。 */
 var GH_API="https://api.github.com/repos/"+GH_REPO+"/contents";
 /* 页面内置一个默认 Token（DEFAULT_GH_TOKEN）作为兜底：写回 rooms.json 所需的 Token 优先取用户在「配置」页填入并存于本机 localStorage 的值，缺失时回退到该内置默认 Token（见下方 getGhToken）。该默认 Token 暴露于公开源码，可随时在 GitHub 吊销 / 轮换。 */
