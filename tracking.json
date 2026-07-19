@@ -80,20 +80,21 @@
     "sec_uid": "MS4wLjABAAAA748bJkv_wU-g1LF4VEoe8UsgrjSoiyVe2yqRapRcsP2bFDhLdfreP1qRwBOBfG1u"
   },
   "douyin_jiubugaosuni315": {
-    "last_live": "",
-    "live_start": "2026-07-19 22:44:02",
-    "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU"
+    "last_live": "2026-07-19 22:44:02",
+    "live_start": "",
+    "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU",
+    "last_duration": "3h22min"
   },
   "bilibili_dy571881": {
     "last_live": "",
     "live_start": ""
   },
   "douyin_dy571881": {
-    "last_live": "2026-07-18 22:36:59",
-    "live_start": "2026-07-19 22:44:02",
+    "last_live": "2026-07-19 22:44:02",
+    "live_start": "",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
     "live_duration": "2h35min",
-    "last_duration": "3h6min"
+    "last_duration": "3h22min"
   },
   "douyin_26341732116": {
     "last_live": "",
