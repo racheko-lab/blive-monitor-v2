@@ -1,8 +1,8 @@
 {
   "bilibili_22230707": {
-    "last_live": "2026-07-29 23:22:19",
-    "live_start": "2026-07-30 20:18:11",
-    "last_duration": "1h19min",
+    "last_live": "2026-07-30 20:18:11",
+    "live_start": "",
+    "last_duration": "3h53min",
     "live_duration": "2h18min"
   },
   "douyin_wsyzxz6688": {
@@ -80,10 +80,10 @@
     "sec_uid": "MS4wLjABAAAA748bJkv_wU-g1LF4VEoe8UsgrjSoiyVe2yqRapRcsP2bFDhLdfreP1qRwBOBfG1u"
   },
   "douyin_jiubugaosuni315": {
-    "last_live": "2026-07-28 21:21:57",
-    "live_start": "2026-07-30 22:36:16",
+    "last_live": "2026-07-30 22:36:16",
+    "live_start": "",
     "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU",
-    "last_duration": "2h17min"
+    "last_duration": "1h35min"
   },
   "bilibili_dy571881": {
     "last_live": "",
@@ -93,7 +93,7 @@
     "last_live": "2026-07-29 23:22:19",
     "live_start": "2026-07-30 22:36:16",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
-    "live_duration": "1h19min",
+    "live_duration": "1h35min",
     "last_duration": "2h32min"
   },
   "douyin_26341732116": {
