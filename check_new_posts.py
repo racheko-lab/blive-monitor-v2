@@ -50,7 +50,7 @@ import common  # A2/A4 统一路由：common.resolve_channel（dispatch_event �
 # 统一路由入口直接复用 push_utils.dispatch_event（与 check_status/auto_summary 同范式，不再本地薄封装）
 from push_utils import SendResult, load_push_cfg, channel_to_push_cfg, dispatch_event
 # 通知去重账本：与 post_tracking.json 持久化解耦，同一作品永久不重复推送
-from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune, sync_from_remote as dedup_sync_from_remote
 # 横切模块：运行时日志（init_runtime_logging）+ 统一 history 读写/上限/节流
 from log_utils import (
     init_runtime_logging, append_history, dedupe_by_throttle,
@@ -657,6 +657,10 @@ def main() -> None:
     _dedup_health_check(tracking)
 
     logger.info("开始检测 %d 个抖音用户的新作品...", len(post_rooms))
+
+    # 推送前从远端拉取最新去重账本并合并，吸收并发 run 重叠导致的重复推送
+    # （根因/修复见 notify_dedup 模块 docstring；push_to_remote 已保证 record 后立即回写）
+    dedup_sync_from_remote()
 
     from playwright.sync_api import sync_playwright
 

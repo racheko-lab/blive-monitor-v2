@@ -1,0 +1,49 @@
+name: Reap stuck runs
+
+# 看门狗：清理卡在 waiting/queued 的僵尸 run，防止 concurrency 组被永久堵死。
+#
+# ## 为什么需要（2026-10-07 事故）
+#
+# check.yml 的 concurrency 组是 live-check-v2 + cancel-in-progress: false。
+# GitHub 的规则是「同组只允许 1 个 pending，新来的挤掉旧的」——只要有一个 run 卡住
+# 不结束，之后每 5 分钟一次的触发全部 pending → 被下一个挤掉 → cancelled，
+# 永远轮不到执行，监控**静默停更**。
+#
+# 实测：run 37438236822 卡在 waiting 状态 12 小时 22 分钟，status.json 停更，
+# 且没有任何告警（2026-08-28 也发作过一次，当时靠改 group 名临时绕过）。
+#
+# 关键：timeout-minutes: 30 对 waiting 状态**无效**——job 还没分配到 runner，
+# 超时计时器没启动。所以只能靠外部看门狗。in_progress 的 run 由 GitHub 自己的
+# timeout 兜底，本作业不去动它（避免误杀慢但正常的抓取，一轮 4~5 分钟）。
+#
+# 阈值 20 分钟留足余量；作业本身几秒完成，不写任何文件、不产生 commit。
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# 独立并发组：万一本作业自己堆积，直接取消旧的（它几秒就跑完，无所谓）
+concurrency:
+  group: blive-reaper
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 目标 workflow（check.yml 的 live-check-v2 组）
+      REAP_TARGET_WORKFLOW: "check.yml"
+      # 判定卡死的持续时间（分钟）；一轮正常抓取 4~5 分钟，留足余量
+      REAP_STUCK_MINUTES: "20"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reap stuck runs
+        # 任何失败都只打印、不 fail：看门狗自己不该把仓库弄红
+        run: python3 tools/reap_stuck_runs.py || echo "reaper 运行失败（不影响监控）"

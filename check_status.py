@@ -35,7 +35,7 @@ import common  # A2/A4 统一路由：common.resolve_channel / common.render_tem
 # 多通道推送（与 check_new_posts.py 共用 push_utils.py）
 from push_utils import load_push_cfg, dispatch_event, channel_to_push_cfg
 # 通知去重账本：与状态持久化解耦的独立防线，杜绝重复推送
-from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune
+from notify_dedup import should_notify as dedup_should_notify, record as dedup_record, prune as dedup_prune, sync_from_remote as dedup_sync_from_remote
 # 横切模块：运行时日志 + history 读写/上限（HISTORY_MAX 唯一来源）
 from log_utils import (
     HISTORY_MAX, init_runtime_logging, load_history, append_history,
@@ -555,6 +555,50 @@ def calculate_duration(start_str: str, now_dt: datetime) -> str:
         return ""
 
 
+def _parse_ts(s: Optional[str]) -> Optional[datetime]:
+    """解析 "%Y-%m-%d %H:%M:%S"，失败返回 None（旧数据/空值兼容）。"""
+    try:
+        return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+
+
+# 单次直播时长的可信上限（秒）。超过则说明 live_start 极旧（状态丢失/停摆后残留），
+# 宁可不显示时长，也不要把「37小时50分钟」这种荒谬值推给用户。
+MAX_PLAUSIBLE_DURATION_SECONDS = 24 * 3600
+
+
+def settle_live_duration(t: Dict[str, Any], live_start_str: str, now: datetime) -> str:
+    """结算一次直播的时长（下播时调用），返回 "1h30min" 形式；不可信时返回 ""。
+
+    为什么不用 now 直接减 live_start
+    --------------------------------
+    下播是在两次检测之间发生的，脚本只在下一轮才发现。若直接用「发现时刻」减
+    live_start，那么 CI 停摆 / 状态文件丢失造成的空档会被**全部计入**直播时长
+    ——实测推过「本次直播时长: 37小时50分钟」（2026-10-06，B站 22230707），
+    其中绝大部分是监控停摆的空档，而非真实直播时长。
+
+    因此以「最后一次确认在线的时刻」（``live_last_seen``，每轮检测到 live 时刷新）
+    作为结束参考：它才是被观测证据支持的下界。停摆空档不计入。
+    """
+    start_dt = _parse_ts(live_start_str)
+    end_dt = _parse_ts(t.get("live_last_seen")) or now
+    if start_dt is None:
+        return ""
+    secs = int((end_dt - start_dt).total_seconds())
+    if secs < 0:
+        return ""
+    if secs > MAX_PLAUSIBLE_DURATION_SECONDS:
+        logger.warning(
+            "直播时长 %ds 超过可信上限（live_start=%s, last_seen=%s），判定为状态残留，不输出时长",
+            secs, live_start_str, t.get("live_last_seen"),
+        )
+        return ""
+    h, m = divmod(secs, 3600)
+    m, _ = divmod(m, 60)
+    return f"{h}h{m}min" if h > 0 else f"{m}min"
+
+
 # ==================== 主逻辑 ====================
 
 def main() -> None:
@@ -592,6 +636,10 @@ def main() -> None:
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     logger.info("开始检测 %d 个房间...", len(rooms))
+
+    # 推送前从远端拉取最新去重账本并合并，吸收并发 run 重叠导致的重复推送
+    # （根因/修复见 notify_dedup 模块 docstring；push_to_remote 已保证 record 后立即回写）
+    dedup_sync_from_remote()
 
     # Step 1: 批量查询所有 B站房间
     bili_rooms = [(r, i) for i, r in enumerate(rooms) if r.get("platform", "bilibili") == "bilibili"]
@@ -692,11 +740,13 @@ def main() -> None:
                 live_start_str = now_str
             else:
                 live_duration = calculate_duration(live_start_str, now)
+            t["live_last_seen"] = now_str
         elif live_start_str:
             # 刚下播，记录上次直播信息
             last_live = live_start_str
-            t["last_duration"] = calculate_duration(live_start_str, now)
+            t["last_duration"] = settle_live_duration(t, live_start_str, now)
             live_start_str = ""
+            t.pop("live_last_seen", None)
 
         t["last_live"] = last_live
         t["live_start"] = live_start_str
@@ -1079,10 +1129,12 @@ def run_live_check(*, cfg_all: Dict[str, Any], persist: Any, now: Optional[datet
                 live_start_str = now_str
             else:
                 live_duration = calculate_duration(live_start_str, now)
+            t["live_last_seen"] = now_str
         elif live_start_str:
             last_live = live_start_str
-            t["last_duration"] = calculate_duration(live_start_str, now)
+            t["last_duration"] = settle_live_duration(t, live_start_str, now)
             live_start_str = ""
+            t.pop("live_last_seen", None)
         t["last_live"] = last_live
         t["live_start"] = live_start_str
         if live_duration:
