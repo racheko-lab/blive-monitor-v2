@@ -93,10 +93,11 @@
   },
   "douyin_dy571881": {
     "last_live": "2026-10-13 01:02:29",
-    "live_start": "",
+    "live_start": "2026-10-15 01:03:49",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
     "live_duration": "1h48min",
-    "last_duration": "6h32min"
+    "last_duration": "6h32min",
+    "live_last_seen": "2026-10-15 01:03:49"
   },
   "douyin_26341732116": {
     "last_live": "",
@@ -138,7 +139,7 @@
   "douyu_15000": {
     "last_live": "",
     "live_start": "2026-10-14 14:21:13",
-    "live_last_seen": "2026-10-14 20:06:49",
-    "live_duration": "5h45min"
+    "live_last_seen": "2026-10-15 01:03:49",
+    "live_duration": "10h42min"
   }
 }
