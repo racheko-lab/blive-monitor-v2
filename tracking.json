@@ -92,12 +92,11 @@
     "live_start": ""
   },
   "douyin_dy571881": {
-    "last_live": "2026-10-13 01:02:29",
-    "live_start": "2026-10-15 01:03:49",
+    "last_live": "2026-10-15 01:03:49",
+    "live_start": "",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
     "live_duration": "1h48min",
-    "last_duration": "6h32min",
-    "live_last_seen": "2026-10-15 01:03:49"
+    "last_duration": "0min"
   },
   "douyin_26341732116": {
     "last_live": "",
@@ -137,9 +136,9 @@
     "sec_uid": "MS4wLjABAAAAOB4y0oN1FO5qo-OdvNf0hGubotW1KT_MdJfGxH126i8"
   },
   "douyu_15000": {
-    "last_live": "",
-    "live_start": "2026-10-14 14:21:13",
-    "live_last_seen": "2026-10-15 01:03:49",
-    "live_duration": "10h42min"
+    "last_live": "2026-10-14 14:21:13",
+    "live_start": "",
+    "live_duration": "10h42min",
+    "last_duration": "10h42min"
   }
 }
