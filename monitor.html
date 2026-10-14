@@ -34,6 +34,8 @@
   --color-douyin-bg: rgba(254, 44, 85, 0.1);
   --color-kuaishou: #FF6600;
   --color-kuaishou-bg: rgba(255, 102, 0, 0.1);
+  --color-douyu: #FF5D1F;
+  --color-douyu-bg: rgba(255, 93, 31, 0.12);
 
   --state-success: #30D158;
   --state-success-bg: rgba(48, 209, 88, 0.10);
@@ -630,6 +632,7 @@ body {
 .blm-platform-badge.bilibili { background: var(--color-bilibili-bg); color: var(--color-bilibili); }
 .blm-platform-badge.douyin { background: var(--color-douyin-bg); color: var(--color-douyin); }
 .blm-platform-badge.kuaishou { background: var(--color-kuaishou-bg); color: var(--color-kuaishou); }
+.blm-platform-badge.douyu { background: var(--color-douyu-bg); color: var(--color-douyu); }
 
 .blm-room-name {
   font-size: var(--font-size-h3);
@@ -1820,6 +1823,7 @@ body {
             <select id="addPlatform" class="blm-input" onchange="onAddPlatformChange()">
               <option value="bilibili">B站</option>
               <option value="douyin">抖音</option>
+              <option value="douyu">斗鱼</option>
             </select>
             <input id="addId" class="blm-input" placeholder="房间 ID（必填）" inputmode="numeric" autocomplete="off">
             <input id="addName" class="blm-input" placeholder="名称（可选）" autocomplete="off">
@@ -1947,6 +1951,7 @@ body {
             <button class="blm-filter-chip lchip active" data-pf="all" onclick="onLogPlatform('all')">全部</button>
             <button class="blm-filter-chip lchip" data-pf="bilibili" onclick="onLogPlatform('bilibili')">哔哩哔哩</button>
             <button class="blm-filter-chip lchip" data-pf="douyin" onclick="onLogPlatform('douyin')">抖音</button>
+            <button class="blm-filter-chip lchip" data-pf="douyu" onclick="onLogPlatform('douyu')">斗鱼</button>
           </div>
           <div class="blm-log-row">
             <select id="logAccount" class="blm-input" onchange="onLogAccount()"><option value="">全部账号</option></select>
@@ -2472,9 +2477,9 @@ function renderLive(){
       stxt={live:'直播中',replay:'回放中',offline:'未开播',error:'检测失败'}[st]||'未开播';
       sp={live:'<span class="pulse"></span>',replay:'',offline:'',error:''}[st]||'';
     }
-    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':'');
-    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':'');
-    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:'#';
+    var pl=r.platform==='bilibili'?'bilibili':(r.platform==='douyin'?'douyin':(r.platform==='douyu'?'douyu':''));
+    var pln=r.platform==='bilibili'?'B站':(r.platform==='douyin'?'抖音':(r.platform==='douyu'?'斗鱼':''));
+    var u=r.platform==='bilibili'?'https://live.bilibili.com/'+r.id:r.platform==='douyin'?'https://live.douyin.com/'+r.id:r.platform==='douyu'?'https://www.douyu.com/'+r.id:'#';
     var isLive = st==='live';
     var meta=[];
     if(s&&s.online)meta.push('人气 '+e(s.online));
@@ -2808,13 +2813,13 @@ function liveOnRank(hist, n){
 
 /** 平台分布：rooms 按 platform 计数；hist 的 live_on 按 platform 分桶。 */
 function platformDist(rooms, hist){
-  var r={bilibili:0,douyin:0,other:0}, lv={bilibili:0,douyin:0,other:0};
+  var r={bilibili:0,douyin:0,douyu:0,other:0}, lv={bilibili:0,douyin:0,douyu:0,other:0};
   (rooms||[]).forEach(function(r0){
-    if(r0.platform==='bilibili')r.bilibili++; else if(r0.platform==='douyin')r.douyin++; else r.other++;
+    if(r0.platform==='bilibili')r.bilibili++; else if(r0.platform==='douyin')r.douyin++; else if(r0.platform==='douyu')r.douyu++; else r.other++;
   });
   (hist||[]).forEach(function(l){
     if((l.type||l.status)!=='live_on') return;
-    if(l.platform==='bilibili')lv.bilibili++; else if(l.platform==='douyin')lv.douyin++; else lv.other++;
+    if(l.platform==='bilibili')lv.bilibili++; else if(l.platform==='douyin')lv.douyin++; else if(l.platform==='douyu')lv.douyu++; else lv.other++;
   });
   return {rooms:r, live:lv};
 }
@@ -2915,8 +2920,8 @@ function renderDashboard(){
     dn.innerHTML = recent.length ? recent.map(function(l){
       var cls = (l.level==='error'||l.type==='error')?'error':'system';
       var detail = e(l.detail || l.title || l.type || '—');
-      var pname = l.platform==='bilibili'?'B站':(l.platform==='douyin'?'抖音':'—');
-      var badge = l.platform==='bilibili'?'bilibili':'douyin';
+      var pname = l.platform==='bilibili'?'B站':(l.platform==='douyin'?'抖音':(l.platform==='douyu'?'斗鱼':'—'));
+      var badge = l.platform==='bilibili'?'bilibili':(l.platform==='douyin'?'douyin':(l.platform==='douyu'?'douyu':''));
       return '<div class="blm-health-item"><div class="blm-health-icon">⚠</div><div class="blm-health-info"><div class="blm-health-title">'+e(l.name||'—')+' <span class="blm-platform-badge '+badge+'">'+pname+'</span></div><div class="blm-health-desc">'+detail+'</div><div class="blm-health-time blm-mono">'+(l.time||'').substring(5,16)+'</div></div></div>';
     }).join('') : '<div class="empty" style="padding:18px">✅ 近期无通知异常</div>';
   }
@@ -3335,7 +3340,7 @@ function renderRoomDetail(key){
   var id = parts[1] || '';
   var room = window.__roomDetailRoom;
   var name = room ? (room.name || id) : id;
-  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : '其他');
+  var platName = platform === 'bilibili' ? 'B站' : (platform === 'douyin' ? '抖音' : (platform === 'douyu' ? '斗鱼' : '其他'));
 
   var titleEl = document.getElementById('roomDetailTitle');
   if(titleEl) titleEl.textContent = name + ' · ' + platName;
@@ -3804,6 +3809,9 @@ function onAddPlatformChange(){
   if(p==='douyin'){
     inp.placeholder='抖音号 / 直播间号（必填）';
     inp.inputMode='text'; inp.setAttribute('inputmode','text');
+  }else if(p==='douyu'){
+    inp.placeholder='斗鱼房间号（纯数字，如 15000）';
+    inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
   }else{
     inp.placeholder='直播间 ID（必填）';
     inp.inputMode='numeric'; inp.setAttribute('inputmode','numeric');
@@ -3815,8 +3823,9 @@ function submitAdd(){
   var platform=document.getElementById('addPlatform').value;
   var id=document.getElementById('addId').value.trim();
   var name=document.getElementById('addName').value.trim();
-  if(platform!=='bilibili' && platform!=='douyin'){ toast('平台不合法', false); return; }
+  if(platform!=='bilibili' && platform!=='douyin' && platform!=='douyu'){ toast('平台不合法', false); return; }
   if(!id){ toast('房间 ID 必填', false); return; }
+  if(platform==='douyu' && !/^\d+$/.test(id)){ toast('斗鱼房间号必须为纯数字', false); return; }
   // B2 分组标签（逗号分隔 → tags[]）
   var tagsRaw=document.getElementById('roomTags').value.trim();
   var tags=tagsRaw? tagsRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;}) : [];
@@ -4361,7 +4370,7 @@ function previewBatchBox(boxId, previewId){
   var res = parseBatchInput(box.value);
   var el = document.getElementById(previewId); if(!el) return;
   var html = '';
-  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':'抖音') + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
+  if(res.ok.length) html += '<div>✅ 待添加 ' + res.ok.length + ' 条：</div>' + res.ok.map(function(r){ return '<div class="blm-batch-item"><span class="blm-pf-tag">' + (r.platform==='bilibili'?'B站':(r.platform==='douyu'?'斗鱼':'抖音')) + '</span> ' + e(r.id) + ' · ' + e(r.name) + '</div>'; }).join('');
   if(res.bad.length) html += '<div class="blm-batch-bad">⚠️ 跳过 ' + res.bad.length + ' 行</div>' + res.bad.map(function(b){ return '<div class="blm-batch-item blm-batch-bad">' + e((b.raw||'').slice(0,60)) + ' — ' + e(b.reason) + '</div>'; }).join('');
   if(!html) html = '<div class="blm-batch-item">（空）</div>';
   el.innerHTML = html;

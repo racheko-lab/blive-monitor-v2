@@ -60,7 +60,7 @@ def test_registry_register_get_list():
 
 def test_registry_from_config_builtins():
     reg = AdapterRegistry.from_config({})
-    assert set(reg.list_platforms()) == {"bilibili", "douyin"}
+    assert set(reg.list_platforms()) == {"bilibili", "douyin", "douyu"}
 
 
 def test_registry_from_config_enabled_platforms():

@@ -33,6 +33,7 @@ class RoomModel:
     live_status: bool = False
     url: str = ""
     cover: str = ""
+    avatar: str = ""
     tags: List[str] = field(default_factory=list)
     online: int = 0
     area: str = ""

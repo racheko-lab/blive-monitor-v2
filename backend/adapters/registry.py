@@ -13,6 +13,7 @@ from backend.adapters.base import PlatformAdapter
 from backend.adapters.bilibili import BilibiliAdapter
 from backend.adapters.channels import ChannelsAdapter
 from backend.adapters.douyin import DouyinAdapter
+from backend.adapters.douyu import DouyuAdapter
 from backend.adapters.kuaishou import KuaishouAdapter
 from backend.adapters.taobao_live import TaobaoLiveAdapter
 from backend.adapters.xhs import XhsAdapter
@@ -64,9 +65,10 @@ class AdapterRegistry:
         """
         cfg_all = cfg_all or {}
         reg = cls()
-        # 内置常驻（既有 bilibili/douyin 不依赖新增 config 段）
+        # 内置常驻（既有 bilibili/douyin 不依赖新增 config 段；douyu 同属常驻）
         reg.register(BilibiliAdapter())
         reg.register(DouyinAdapter())
+        reg.register(DouyuAdapter())
 
         platforms_cfg = (cfg_all.get("platforms") or {}) if isinstance(cfg_all, dict) else {}
         for code, pcfg in platforms_cfg.items():
