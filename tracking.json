@@ -82,10 +82,11 @@
   },
   "douyin_jiubugaosuni315": {
     "last_live": "2026-10-11 21:59:37",
-    "live_start": "",
+    "live_start": "2026-10-16 22:06:42",
     "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU",
     "last_duration": "4h40min",
-    "live_duration": "1h28min"
+    "live_duration": "1h28min",
+    "live_last_seen": "2026-10-16 22:06:42"
   },
   "bilibili_dy571881": {
     "last_live": "",
@@ -137,8 +138,9 @@
   },
   "douyu_15000": {
     "last_live": "2026-10-15 19:44:18",
-    "live_start": "",
+    "live_start": "2026-10-16 22:06:42",
     "live_duration": "7h39min",
-    "last_duration": "7h39min"
+    "last_duration": "7h39min",
+    "live_last_seen": "2026-10-16 22:06:42"
   }
 }
