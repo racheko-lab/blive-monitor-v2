@@ -137,8 +137,9 @@
   },
   "douyu_15000": {
     "last_live": "2026-10-17 21:08:46",
-    "live_start": "",
+    "live_start": "2026-10-18 17:07:56",
     "live_duration": "5h26min",
-    "last_duration": "5h26min"
+    "last_duration": "5h26min",
+    "live_last_seen": "2026-10-18 17:07:56"
   }
 }
