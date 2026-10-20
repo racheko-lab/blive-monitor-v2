@@ -93,10 +93,11 @@
   },
   "douyin_dy571881": {
     "last_live": "2026-10-15 23:44:43",
-    "live_start": "",
+    "live_start": "2026-10-20 23:41:31",
     "sec_uid": "MS4wLjABAAAAyCaNA3LEhCAViVcLn86e6YwyW8-GkDAWMPj_3n_pz00",
     "live_duration": "1h48min",
-    "last_duration": "0min"
+    "last_duration": "0min",
+    "live_last_seen": "2026-10-20 23:41:31"
   },
   "douyin_26341732116": {
     "last_live": "",
@@ -136,10 +137,9 @@
     "sec_uid": "MS4wLjABAAAAOB4y0oN1FO5qo-OdvNf0hGubotW1KT_MdJfGxH126i8"
   },
   "douyu_15000": {
-    "last_live": "2026-10-19 20:12:38",
-    "live_start": "2026-10-20 19:22:48",
+    "last_live": "2026-10-20 19:22:48",
+    "live_start": "",
     "live_duration": "6h30min",
-    "last_duration": "6h30min",
-    "live_last_seen": "2026-10-20 19:22:48"
+    "last_duration": "0min"
   }
 }
