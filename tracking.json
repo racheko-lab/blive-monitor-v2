@@ -1,10 +1,9 @@
 {
   "bilibili_22230707": {
-    "last_live": "2026-10-22 23:34:32",
-    "live_start": "2026-10-25 14:32:04",
+    "last_live": "2026-10-25 14:32:04",
+    "live_start": "",
     "last_duration": "0min",
-    "live_duration": "2h9min",
-    "live_last_seen": "2026-10-25 14:32:04"
+    "live_duration": "2h9min"
   },
   "douyin_wsyzxz6688": {
     "last_live": "2026-09-12 01:53:16",
@@ -139,8 +138,8 @@
   "douyu_15000": {
     "last_live": "2026-10-24 17:15:12",
     "live_start": "2026-10-25 14:32:04",
-    "live_duration": "9h45min",
+    "live_duration": "5h24min",
     "last_duration": "9h45min",
-    "live_last_seen": "2026-10-25 14:32:04"
+    "live_last_seen": "2026-10-25 19:56:31"
   }
 }
