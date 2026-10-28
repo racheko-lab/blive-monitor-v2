@@ -81,12 +81,11 @@
     "sec_uid": "MS4wLjABAAAA748bJkv_wU-g1LF4VEoe8UsgrjSoiyVe2yqRapRcsP2bFDhLdfreP1qRwBOBfG1u"
   },
   "douyin_jiubugaosuni315": {
-    "last_live": "2026-10-16 22:06:42",
-    "live_start": "2026-10-28 21:59:23",
+    "last_live": "2026-10-28 21:59:23",
+    "live_start": "",
     "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU",
     "last_duration": "0min",
-    "live_duration": "1h28min",
-    "live_last_seen": "2026-10-28 21:59:23"
+    "live_duration": "1h28min"
   },
   "bilibili_dy571881": {
     "last_live": "",
@@ -137,10 +136,9 @@
     "sec_uid": "MS4wLjABAAAAOB4y0oN1FO5qo-OdvNf0hGubotW1KT_MdJfGxH126i8"
   },
   "douyu_15000": {
-    "last_live": "2026-10-27 14:49:28",
-    "live_start": "2026-10-28 15:09:32",
+    "last_live": "2026-10-28 15:09:32",
+    "live_start": "",
     "live_duration": "6h49min",
-    "last_duration": "5h55min",
-    "live_last_seen": "2026-10-28 21:59:23"
+    "last_duration": "6h49min"
   }
 }
