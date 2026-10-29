@@ -136,10 +136,9 @@
     "sec_uid": "MS4wLjABAAAAOB4y0oN1FO5qo-OdvNf0hGubotW1KT_MdJfGxH126i8"
   },
   "douyu_15000": {
-    "last_live": "2026-10-28 15:09:32",
-    "live_start": "2026-10-29 16:47:28",
+    "last_live": "2026-10-29 16:47:28",
+    "live_start": "",
     "live_duration": "6h49min",
-    "last_duration": "6h49min",
-    "live_last_seen": "2026-10-29 23:36:47"
+    "last_duration": "6h49min"
   }
 }
