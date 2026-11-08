@@ -82,10 +82,11 @@
   },
   "douyin_jiubugaosuni315": {
     "last_live": "2026-11-07 22:34:54",
-    "live_start": "",
+    "live_start": "2026-11-08 22:50:54",
     "sec_uid": "MS4wLjABAAAAeF5HUY5IggMSOwVavt_xCUwpOUgHwaVodk1bnSdMZfU",
     "last_duration": "0min",
-    "live_duration": "1h28min"
+    "live_duration": "1h28min",
+    "live_last_seen": "2026-11-08 22:50:54"
   },
   "bilibili_dy571881": {
     "last_live": "",
